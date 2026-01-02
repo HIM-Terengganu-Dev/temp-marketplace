@@ -1,0 +1,18 @@
+{
+  "PRODUCT_GMV_MAX": {
+    "promotionType": "PRODUCT_GMV_MAX",
+    "campaignCount": 5,
+    "cost": 1118.28,
+    "gmv": 5106.13,
+    "orders": 55,
+    "roi": 4.566056801516615
+  },
+  "LIVE_GMV_MAX": {
+    "promotionType": "LIVE_GMV_MAX",
+    "campaignCount": 29,
+    "cost": 4014.94,
+    "gmv": 14657.779999999999,
+    "orders": 209,
+    "roi": 3.650809227535156
+  }
+}

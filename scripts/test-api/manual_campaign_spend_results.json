@@ -1,0 +1,285 @@
+{
+  "Account 1": {
+    "accountName": "Account 1",
+    "advertiserId": "7505228077656621057",
+    "dateRange": {
+      "startDate": "2025-12-21",
+      "endDate": "2025-12-30"
+    },
+    "summary": {
+      "totalSpend": 8397.08,
+      "totalBilledCost": 8363.93,
+      "totalImpressions": 4732596,
+      "totalClicks": 27991,
+      "campaignCount": 13,
+      "avgCPM": 1.7743073780225482,
+      "avgCPC": 0.2999921403308206
+    },
+    "dailyBreakdown": {
+      "2025-12-25 00:00:00": {
+        "spend": 925.09,
+        "billedCost": 925.09
+      },
+      "2025-12-26 00:00:00": {
+        "spend": 887.1700000000001,
+        "billedCost": 887.1700000000001
+      },
+      "2025-12-28 00:00:00": {
+        "spend": 900.33,
+        "billedCost": 900.33
+      },
+      "2025-12-22 00:00:00": {
+        "spend": 642.8299999999999,
+        "billedCost": 642.8299999999999
+      },
+      "2025-12-29 00:00:00": {
+        "spend": 900.8199999999999,
+        "billedCost": 878.91
+      },
+      "2025-12-30 00:00:00": {
+        "spend": 914.9399999999999,
+        "billedCost": 903.9399999999999
+      },
+      "2025-12-27 00:00:00": {
+        "spend": 887.3300000000002,
+        "billedCost": 887.3300000000002
+      },
+      "2025-12-24 00:00:00": {
+        "spend": 886.27,
+        "billedCost": 886.03
+      },
+      "2025-12-21 00:00:00": {
+        "spend": 620.9499999999999,
+        "billedCost": 620.9499999999999
+      },
+      "2025-12-23 00:00:00": {
+        "spend": 831.3499999999999,
+        "billedCost": 831.3499999999999
+      }
+    },
+    "campaignBreakdown": {
+      "1852272277112002": {
+        "name": "Campaign 1852272277112002",
+        "spend": 396.71000000000004,
+        "billedCost": 393.02,
+        "impressions": 204793,
+        "clicks": 0
+      },
+      "1849297514096849": {
+        "name": "Campaign 1849297514096849",
+        "spend": 200.48999999999998,
+        "billedCost": 199.59,
+        "impressions": 40324,
+        "clicks": 1652
+      },
+      "1842951713079409": {
+        "name": "Campaign 1842951713079409",
+        "spend": 602.23,
+        "billedCost": 599.8399999999999,
+        "impressions": 109290,
+        "clicks": 5294
+      },
+      "1842952200774673": {
+        "name": "Campaign 1842952200774673",
+        "spend": 802.65,
+        "billedCost": 799.88,
+        "impressions": 205665,
+        "clicks": 11544
+      },
+      "1849296396083489": {
+        "name": "Campaign 1849296396083489",
+        "spend": 200.18,
+        "billedCost": 199.44,
+        "impressions": 40803,
+        "clicks": 6118
+      },
+      "1849294199191650": {
+        "name": "Campaign 1849294199191650",
+        "spend": 201.17999999999998,
+        "billedCost": 200.57000000000002,
+        "impressions": 58530,
+        "clicks": 3003
+      },
+      "1842982207898689": {
+        "name": "Campaign 1842982207898689",
+        "spend": 200.09,
+        "billedCost": 199.4,
+        "impressions": 107545,
+        "clicks": 372
+      },
+      "1842955982156801": {
+        "name": "Campaign 1842955982156801",
+        "spend": 200.16000000000003,
+        "billedCost": 199.56000000000006,
+        "impressions": 46329,
+        "clicks": 1
+      },
+      "1850563586087953": {
+        "name": "Campaign 1850563586087953",
+        "spend": 2313.35,
+        "billedCost": 2304.51,
+        "impressions": 2340356,
+        "clicks": 0
+      },
+      "1843119249385521": {
+        "name": "Campaign 1843119249385521",
+        "spend": 401.14,
+        "billedCost": 398.86,
+        "impressions": 126913,
+        "clicks": 1
+      },
+      "1851545516520530": {
+        "name": "Campaign 1851545516520530",
+        "spend": 307.06,
+        "billedCost": 306.72,
+        "impressions": 93994,
+        "clicks": 1
+      },
+      "1850560685928481": {
+        "name": "Campaign 1850560685928481",
+        "spend": 1631.38,
+        "billedCost": 1625.0700000000002,
+        "impressions": 515384,
+        "clicks": 5
+      },
+      "1843119003941121": {
+        "name": "Campaign 1843119003941121",
+        "spend": 940.4600000000002,
+        "billedCost": 937.4700000000001,
+        "impressions": 842670,
+        "clicks": 0
+      }
+    }
+  },
+  "Account 2": {
+    "accountName": "Account 2",
+    "advertiserId": "7404387549454008336",
+    "dateRange": {
+      "startDate": "2025-12-21",
+      "endDate": "2025-12-30"
+    },
+    "summary": {
+      "totalSpend": 3150.98,
+      "totalBilledCost": 3150.98,
+      "totalImpressions": 886770,
+      "totalClicks": 961,
+      "campaignCount": 10,
+      "avgCPM": 3.5533227330649435,
+      "avgCPC": 3.2788553590010405
+    },
+    "dailyBreakdown": {
+      "2025-12-27 00:00:00": {
+        "spend": 307.21000000000004,
+        "billedCost": 307.21000000000004
+      },
+      "2025-12-24 00:00:00": {
+        "spend": 305.20000000000005,
+        "billedCost": 305.20000000000005
+      },
+      "2025-12-25 00:00:00": {
+        "spend": 315.29,
+        "billedCost": 315.29
+      },
+      "2025-12-28 00:00:00": {
+        "spend": 320.51,
+        "billedCost": 320.51
+      },
+      "2025-12-22 00:00:00": {
+        "spend": 310,
+        "billedCost": 310
+      },
+      "2025-12-26 00:00:00": {
+        "spend": 309.68,
+        "billedCost": 309.68
+      },
+      "2025-12-30 00:00:00": {
+        "spend": 326.67,
+        "billedCost": 326.67
+      },
+      "2025-12-23 00:00:00": {
+        "spend": 313.81,
+        "billedCost": 313.81
+      },
+      "2025-12-21 00:00:00": {
+        "spend": 322.7,
+        "billedCost": 322.7
+      },
+      "2025-12-29 00:00:00": {
+        "spend": 319.91,
+        "billedCost": 319.91
+      }
+    },
+    "campaignBreakdown": {
+      "1842313767845889": {
+        "name": "Campaign 1842313767845889",
+        "spend": 1001.55,
+        "billedCost": 1001.55,
+        "impressions": 303384,
+        "clicks": 4
+      },
+      "1842310522587137": {
+        "name": "Campaign 1842310522587137",
+        "spend": 802.49,
+        "billedCost": 802.49,
+        "impressions": 212602,
+        "clicks": 1
+      },
+      "1841229415346209": {
+        "name": "Campaign 1841229415346209",
+        "spend": 0,
+        "billedCost": 0,
+        "impressions": 0,
+        "clicks": 0
+      },
+      "1835868965830770": {
+        "name": "Campaign 1835868965830770",
+        "spend": 200.66000000000003,
+        "billedCost": 200.66000000000003,
+        "impressions": 8861,
+        "clicks": 315
+      },
+      "1842311947279729": {
+        "name": "Campaign 1842311947279729",
+        "spend": 400.98,
+        "billedCost": 400.98,
+        "impressions": 141873,
+        "clicks": 0
+      },
+      "1842319847490657": {
+        "name": "Campaign 1842319847490657",
+        "spend": 200.14,
+        "billedCost": 200.14,
+        "impressions": 102621,
+        "clicks": 0
+      },
+      "1840421097466050": {
+        "name": "Campaign 1840421097466050",
+        "spend": 200.33999999999997,
+        "billedCost": 200.33999999999997,
+        "impressions": 99962,
+        "clicks": 3
+      },
+      "1835880591587394": {
+        "name": "Campaign 1835880591587394",
+        "spend": 201.38,
+        "billedCost": 201.38,
+        "impressions": 11294,
+        "clicks": 362
+      },
+      "1835871791538353": {
+        "name": "Campaign 1835871791538353",
+        "spend": 143.44,
+        "billedCost": 143.44,
+        "impressions": 6173,
+        "clicks": 276
+      },
+      "1841217825782033": {
+        "name": "Campaign 1841217825782033",
+        "spend": 0,
+        "billedCost": 0,
+        "impressions": 0,
+        "clicks": 0
+      }
+    }
+  }
+}

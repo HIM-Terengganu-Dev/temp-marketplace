@@ -1,0 +1,184 @@
+{
+  "PRODUCT_GMV_MAX": {
+    "count": 5,
+    "totalNumber": 5,
+    "campaigns": [
+      {
+        "id": "1838876261133522",
+        "name": "HIMC 3 + FREE GIFT",
+        "status": "ENABLE"
+      },
+      {
+        "id": "1832345187051617",
+        "name": "HERCOFFEE MAIN",
+        "status": "ENABLE"
+      },
+      {
+        "id": "1832345081859122",
+        "name": "HIMCOFFEE 3 + FREE 1 SPECIAL PACK",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1832344900385810",
+        "name": "HIMCOFFEE MAIN 1",
+        "status": "ENABLE"
+      },
+      {
+        "id": "1832331813122065",
+        "name": "HIMCOFFEE + SPRAY UP",
+        "status": "ENABLE"
+      }
+    ]
+  },
+  "LIVE_GMV_MAX": {
+    "count": 29,
+    "totalNumber": 29,
+    "campaigns": [
+      {
+        "id": "1852824129691970",
+        "name": "on [HIMCoffeedrsamhan] test petang",
+        "status": "ENABLE"
+      },
+      {
+        "id": "1852802711994417",
+        "name": "ON [HimHerCoffee external] new",
+        "status": "ENABLE"
+      },
+      {
+        "id": "1852802644101234",
+        "name": "on [HIMCoffeedrsamhan] test",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1852457326144625",
+        "name": "[DrSamhanWellness] 20251225 133559",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1852440131621122",
+        "name": "[DrSamhanWellness] test pagi 251225",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1852183499892898",
+        "name": "[DrSamhanWellness] test petang",
+        "status": "ENABLE"
+      },
+      {
+        "id": "1852096319556721",
+        "name": "[DrSamhanWellness] pagi",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1851634403811521",
+        "name": "off [DrSamhanWellness]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1851464925983858",
+        "name": "off 11135 161225 [DrSamhanWellness]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1851397413981218",
+        "name": "off [DrSamhanWellness] ",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1851363155813521",
+        "name": "off [DrSamhanWellness]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1851184658683073",
+        "name": "off [HIMCoffeedrsamhan] 1",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1849213080057345",
+        "name": "on [HIMCoffeedrsamhan]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1849210625497121",
+        "name": "off 13/12 11.44 [DrSamhanWellness]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1848505449780274",
+        "name": "[HIMCoffeedrsamhan]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1848465481703681",
+        "name": "[DrSamhanWellness]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1848413019256225",
+        "name": "ON [HimHerCoffee external]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1848301197327505",
+        "name": "[HimHerCoffee external]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1848283777699890",
+        "name": "[DrSamhanWellness]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1848047144113185",
+        "name": "[DrSamhanWellness]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1848028458896529",
+        "name": "[HimHerCoffee external]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1847141523518610",
+        "name": "[HIMCoffeedrsamhan]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1846961349239841",
+        "name": "ON [Dr Samhan] - Test Run - 25 /10/25",
+        "status": "ENABLE"
+      },
+      {
+        "id": "1845658484342866",
+        "name": "[HIMCoffeedrsamhan]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1845424843917410",
+        "name": "[Dr Samhan]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1844111579401458",
+        "name": "[Himhercoffee.my]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1844014710363233",
+        "name": "[HimHerCoffee external]",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1840042991677553",
+        "name": "[Dr.Samhan] - remarks - tak jalan",
+        "status": "DISABLE"
+      },
+      {
+        "id": "1840042126743585",
+        "name": "[DrSamhanWellness]",
+        "status": "DISABLE"
+      }
+    ]
+  }
+}
