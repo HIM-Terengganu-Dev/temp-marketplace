@@ -12,14 +12,14 @@ export default function DebugTableIkramPage() {
     // Default to verification date
     const [startDate, setStartDate] = useState("2025-12-25");
     const [endDate, setEndDate] = useState("2025-12-25");
-    const [selectedMetric, setSelectedMetric] = useState("gmv");
+    const [selectedMetric, setSelectedMetric] = useState("gross_revenue");
     const [selectedShop, setSelectedShop] = useState("1");
 
     const METRICS = [
-        { id: 'gmv', name: 'GMV (Revenue)' },
-        { id: 'live_gmv_max', name: 'Live GMV Cost (Marketing API)' },
-        { id: 'product_gmv_max', name: 'Product GMV Cost (Marketing API)' },
-        { id: 'manual_ads_cost', name: 'Manual Ads Cost (Bidding Campaigns)' },
+        { id: 'gross_revenue', name: 'Total GMV Max' },
+        { id: 'live_gmv_max', name: 'LIVE GMV MAX (Marketing API)' },
+        { id: 'product_gmv_max', name: 'Product GMV Max (Marketing API)' },
+        { id: 'manual_ads_cost', name: 'TTAM (Marketing API)' },
         { id: 'roas', name: 'ROAS (Return on Ad Spend)' }
     ];
 
@@ -36,9 +36,81 @@ export default function DebugTableIkramPage() {
         setError(null);
         try {
             let url = '';
-            if (selectedMetric === 'gmv') {
-                // Use gmv-ikram endpoint which includes cancelled and refunded orders
-                url = `/api/tiktok/gmv-ikram?startDate=${startDate}&endDate=${endDate}&shopNumber=${selectedShop}`;
+            if (selectedMetric === 'gross_revenue') {
+                // Fetch Gross Revenue from both LIVE and PRODUCT GMV Max
+                const [liveRes, productRes] = await Promise.all([
+                    fetch(`/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=LIVE_GMV_MAX`),
+                    fetch(`/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=PRODUCT_GMV_MAX`)
+                ]);
+
+                if (!liveRes.ok || !productRes.ok) {
+                    throw new Error('Failed to fetch Gross Revenue data');
+                }
+
+                const liveData = await liveRes.json();
+                const productData = await productRes.json();
+
+                // Combine the data
+                const totalGrossRevenue = (liveData.gmv || 0) + (productData.gmv || 0);
+                const totalCost = (liveData.cost || 0) + (productData.cost || 0);
+                const totalOrders = (liveData.orderCount || 0) + (productData.orderCount || 0);
+                const totalCampaigns = (liveData.campaignCount || 0) + (productData.campaignCount || 0);
+                const roi = totalCost > 0 ? totalGrossRevenue / totalCost : 0;
+
+                // Combine account breakdowns
+                const liveAccounts = liveData.accounts || [];
+                const productAccounts = productData.accounts || [];
+                
+                // Merge accounts by name
+                const accountMap = new Map();
+                [...liveAccounts, ...productAccounts].forEach((account: any) => {
+                    const key = account.name || account.accountName || 'Other';
+                    if (!accountMap.has(key)) {
+                        accountMap.set(key, {
+                            name: key,
+                            cost: 0,
+                            grossRevenue: 0,
+                            orders: 0,
+                            campaigns: 0
+                        });
+                    }
+                    const existing = accountMap.get(key);
+                    existing.cost += account.cost || 0;
+                    existing.grossRevenue += account.gmv || 0;
+                    existing.orders += account.orders || 0;
+                    existing.campaigns += account.campaigns || account.campaignCount || 0;
+                });
+
+                const combinedAccounts = Array.from(accountMap.values()).map(acc => ({
+                    ...acc,
+                    roi: acc.cost > 0 ? acc.grossRevenue / acc.cost : 0
+                })).sort((a, b) => b.grossRevenue - a.grossRevenue);
+
+                setData({
+                    shopName: 'DrSamhanWellness',
+                    grossRevenue: totalGrossRevenue,
+                    cost: totalCost,
+                    orders: totalOrders,
+                    roi: roi,
+                    campaignCount: totalCampaigns,
+                    currency: 'MYR',
+                    dateRange: { start: startDate, end: endDate },
+                    liveGMVMax: {
+                        grossRevenue: liveData.gmv || 0,
+                        cost: liveData.cost || 0,
+                        orders: liveData.orderCount || 0,
+                        campaigns: liveData.campaignCount || 0
+                    },
+                    productGMVMax: {
+                        grossRevenue: productData.gmv || 0,
+                        cost: productData.cost || 0,
+                        orders: productData.orderCount || 0,
+                        campaigns: productData.campaignCount || 0
+                    },
+                    accounts: combinedAccounts
+                });
+                setLoading(false);
+                return;
             } else if (selectedMetric === 'live_gmv_max') {
                 url = `/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=LIVE_GMV_MAX`;
             } else if (selectedMetric === 'product_gmv_max') {
@@ -174,23 +246,95 @@ export default function DebugTableIkramPage() {
                                 <td className="p-3 border-b">Shop Name</td>
                                 <td className="p-3 border-b font-mono">{data.shopName}</td>
                             </tr>
-                            <tr>
-                                <td className="p-3 border-b bg-blue-500/10 font-semibold">
-                                    {selectedMetric === 'gmv' || selectedMetric === 'roas' 
-                                        ? 'GMV (Revenue - Includes Cancelled & Refunded)' 
-                                        : `GMV (${data.currency})`}
-                                </td>
-                                <td className="p-3 border-b font-mono text-lg font-bold bg-blue-500/10">
-                                    {data.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                </td>
-                            </tr>
-                            {selectedMetric === 'gmv' && data.uniqueCustomers !== undefined && (
-                                <tr>
-                                    <td className="p-3 border-b">Unique Customers</td>
-                                    <td className="p-3 border-b font-mono font-semibold">
-                                        {data.uniqueCustomers.toLocaleString()}
-                                    </td>
-                                </tr>
+                            {/* Total GMV Max specific display */}
+                            {selectedMetric === 'gross_revenue' ? (
+                                <>
+                                    <tr>
+                                        <td className="p-3 border-b bg-blue-500/10 font-semibold">Total GMV Max</td>
+                                        <td className="p-3 border-b font-mono text-lg font-bold text-blue-600 bg-blue-500/10">
+                                            MYR {data.grossRevenue?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b">Total Cost</td>
+                                        <td className="p-3 border-b font-mono">
+                                            MYR {data.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b">Total Orders</td>
+                                        <td className="p-3 border-b font-mono">{data.orders}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b">ROI</td>
+                                        <td className="p-3 border-b font-mono font-bold text-green-600">
+                                            {data.roi?.toFixed(2)}x
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b">Total Campaigns</td>
+                                        <td className="p-3 border-b font-mono">{data.campaignCount}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b font-semibold">LIVE GMV MAX - Gross Revenue</td>
+                                        <td className="p-3 border-b font-mono font-semibold">
+                                            MYR {data.liveGMVMax?.grossRevenue?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b">LIVE GMV MAX - Cost</td>
+                                        <td className="p-3 border-b font-mono">
+                                            MYR {data.liveGMVMax?.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b">LIVE GMV MAX - Orders</td>
+                                        <td className="p-3 border-b font-mono">{data.liveGMVMax?.orders}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b">LIVE GMV MAX - Campaigns</td>
+                                        <td className="p-3 border-b font-mono">{data.liveGMVMax?.campaigns}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b font-semibold">Product GMV Max - Gross Revenue</td>
+                                        <td className="p-3 border-b font-mono font-semibold">
+                                            MYR {data.productGMVMax?.grossRevenue?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b">Product GMV Max - Cost</td>
+                                        <td className="p-3 border-b font-mono">
+                                            MYR {data.productGMVMax?.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b">Product GMV Max - Orders</td>
+                                        <td className="p-3 border-b font-mono">{data.productGMVMax?.orders}</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-3 border-b">Product GMV Max - Campaigns</td>
+                                        <td className="p-3 border-b font-mono">{data.productGMVMax?.campaigns}</td>
+                                    </tr>
+                                </>
+                            ) : (
+                                <>
+                                    {selectedMetric === 'roas' && (
+                                        <tr>
+                                            <td className="p-3 border-b bg-blue-500/10 font-semibold">GMV (Revenue - Includes Cancelled & Refunded)</td>
+                                            <td className="p-3 border-b font-mono text-lg font-bold bg-blue-500/10">
+                                                {data.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {(selectedMetric === 'live_gmv_max' || selectedMetric === 'product_gmv_max') && (
+                                        <tr>
+                                            <td className="p-3 border-b bg-blue-500/10 font-semibold">GMV ({data.currency})</td>
+                                            <td className="p-3 border-b font-mono text-lg font-bold bg-blue-500/10">
+                                                {data.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </td>
+                                        </tr>
+                                    )}
+                                </>
                             )}
 
                             {(selectedMetric === 'live_gmv_max' || selectedMetric === 'product_gmv_max') && (
@@ -210,11 +354,11 @@ export default function DebugTableIkramPage() {
                                 </>
                             )}
 
-                            {/* Manual Ads Cost specific rows */}
+                            {/* TTAM (Marketing API) specific rows */}
                             {selectedMetric === 'manual_ads_cost' && (
                                 <>
                                     <tr>
-                                        <td className="p-3 border-b">Total Ad Spend (MYR)</td>
+                                        <td className="p-3 border-b">TTAM (Total Ad Spend) (MYR)</td>
                                         <td className="p-3 border-b font-mono text-lg font-bold text-orange-600">
                                             {data.totalSpend?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </td>
@@ -337,11 +481,11 @@ export default function DebugTableIkramPage() {
                                 </>
                             )}
 
-                            {(selectedMetric === 'gmv' || selectedMetric === 'live_gmv_max' || selectedMetric === 'product_gmv_max') && (
+                            {(selectedMetric === 'live_gmv_max' || selectedMetric === 'product_gmv_max' || selectedMetric === 'gross_revenue') && (
                                 <tr>
                                     <td className="p-3 border-b">Order Count</td>
                                     <td className="p-3 border-b font-mono">
-                                        {selectedMetric === 'gmv' ? `${data.orderCount} (All Orders)` : data.orderCount}
+                                        {data.orderCount || data.orders}
                                     </td>
                                 </tr>
                             )}
@@ -384,6 +528,45 @@ export default function DebugTableIkramPage() {
                                         <td className="p-3 border-b font-mono text-right">{account.orders}</td>
                                         <td className="p-3 border-b font-mono text-right font-bold text-green-600">
                                             {account.roi?.toFixed(2)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Account Breakdown for Gross Revenue */}
+            {data && selectedMetric === 'gross_revenue' && data.accounts && data.accounts.length > 0 && (
+                <div className="space-y-2">
+                    <h2 className="text-lg font-semibold">Breakdown by Advertiser Account</h2>
+                    <div className="border rounded-lg overflow-hidden">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-muted">
+                                <tr>
+                                    <th className="p-3 border-b">Account</th>
+                                    <th className="p-3 border-b text-right">Gross Revenue</th>
+                                    <th className="p-3 border-b text-right">Cost</th>
+                                    <th className="p-3 border-b text-right">Orders</th>
+                                    <th className="p-3 border-b text-right">Campaigns</th>
+                                    <th className="p-3 border-b text-right">ROI</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.accounts.map((account: any, idx: number) => (
+                                    <tr key={idx} className="hover:bg-muted/50">
+                                        <td className="p-3 border-b font-medium">{account.name}</td>
+                                        <td className="p-3 border-b font-mono text-right font-bold text-blue-600">
+                                            MYR {account.grossRevenue?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="p-3 border-b font-mono text-right">
+                                            MYR {account.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="p-3 border-b font-mono text-right">{account.orders}</td>
+                                        <td className="p-3 border-b font-mono text-right">{account.campaigns}</td>
+                                        <td className="p-3 border-b font-mono text-right font-bold text-green-600">
+                                            {account.roi?.toFixed(2)}x
                                         </td>
                                     </tr>
                                 ))}

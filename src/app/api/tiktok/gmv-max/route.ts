@@ -183,8 +183,8 @@ export async function GET(request: Request) {
             campaignCount: filteredList.length,
             currency: 'MYR',
             dateRange: { start: startDate, end: endDate },
-            // Include account breakdown for Live GMV
-            ...(promotionType === 'LIVE_GMV_MAX' && { accounts: accountsArray })
+            // Include account breakdown for both LIVE and PRODUCT GMV Max
+            accounts: accountsArray
         });
 
     } catch (error: any) {
