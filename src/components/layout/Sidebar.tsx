@@ -19,6 +19,7 @@ const navigation = [
     { name: "Ad Accounts", href: "/ads", icon: Megaphone },
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
     { name: "Debug Table", href: "/debug-table", icon: BarChart3 }, // Temporary Debug Link
+    { name: "Debug Table (Ikram)", href: "/debug-table-ikram", icon: BarChart3 }, // Temporary Debug Link
     { name: "Settings", href: "/settings", icon: Settings },
 ];
 
