@@ -282,6 +282,11 @@ export async function GET(request: Request) {
         // Total Ads Spend = GMV Max Cost + Manual Campaign Spend
         const totalAdsSpend = gmvMaxCost + manualCampaignSpend;
 
+        // Calculate SST (8%) and WHT (8%)
+        const sst = totalAdsSpend * 0.08;
+        const wht = totalAdsSpend * 0.08;
+        const totalCostWithTaxes = totalAdsSpend + sst + wht;
+
         // Note: GMV needs to be fetched separately or passed from frontend
         // For now, we'll calculate ROAS on frontend where GMV is known
 
@@ -293,6 +298,9 @@ export async function GET(request: Request) {
             gmvMaxCost,
             manualCampaignSpend,
             totalAdsSpend,
+            sst,
+            wht,
+            totalCostWithTaxes,
             currency: 'MYR',
             dateRange: { start: startDate, end: endDate },
             // ROAS will be calculated on frontend: GMV / totalAdsSpend
