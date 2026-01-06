@@ -157,6 +157,8 @@ export default function DebugTableIkramPage() {
                 throw new Error(err.error || 'Failed to fetch');
             }
             const result = await res.json();
+            console.log('API Response for product_gmv_max:', result);
+            console.log('Campaigns data:', result.campaigns);
             setData(result);
         } catch (e: any) {
             setError(e.message);
@@ -577,43 +579,51 @@ export default function DebugTableIkramPage() {
             )}
 
             {/* Campaign Breakdown for Product GMV Max */}
-            {data && selectedMetric === 'product_gmv_max' && data.campaigns && data.campaigns.length > 0 && (
+            {data && selectedMetric === 'product_gmv_max' && (
                 <div className="space-y-2">
                     <h2 className="text-lg font-semibold">Breakdown by Campaign</h2>
-                    <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-muted">
-                                <tr>
-                                    <th className="p-3 border-b">Campaign Name</th>
-                                    <th className="p-3 border-b text-right">Cost</th>
-                                    <th className="p-3 border-b text-right">GMV</th>
-                                    <th className="p-3 border-b text-right">Orders</th>
-                                    <th className="p-3 border-b text-right">ROI</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.campaigns.map((campaign: any, idx: number) => (
-                                    <tr key={idx} className="hover:bg-muted/50">
-                                        <td className="p-3 border-b font-medium">
-                                            {campaign.campaignName?.includes('[') 
-                                                ? campaign.campaignName 
-                                                : `[${campaign.campaignName}]`}
-                                        </td>
-                                        <td className="p-3 border-b font-mono text-right">
-                                            {campaign.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                        </td>
-                                        <td className="p-3 border-b font-mono text-right">
-                                            {campaign.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                        </td>
-                                        <td className="p-3 border-b font-mono text-right">{campaign.orders}</td>
-                                        <td className="p-3 border-b font-mono text-right font-bold text-green-600">
-                                            {campaign.roi?.toFixed(2)}
-                                        </td>
+                    {data.campaigns && data.campaigns.length > 0 ? (
+                        <div className="border rounded-lg overflow-hidden">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-muted">
+                                    <tr>
+                                        <th className="p-3 border-b">Campaign Name</th>
+                                        <th className="p-3 border-b text-right">Cost</th>
+                                        <th className="p-3 border-b text-right">GMV</th>
+                                        <th className="p-3 border-b text-right">Orders</th>
+                                        <th className="p-3 border-b text-right">ROI</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {data.campaigns.map((campaign: any, idx: number) => (
+                                        <tr key={idx} className="hover:bg-muted/50">
+                                            <td className="p-3 border-b font-medium">
+                                                {campaign.campaignName?.includes('[') 
+                                                    ? campaign.campaignName 
+                                                    : `[${campaign.campaignName}]`}
+                                            </td>
+                                            <td className="p-3 border-b font-mono text-right">
+                                                {campaign.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="p-3 border-b font-mono text-right">
+                                                {campaign.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="p-3 border-b font-mono text-right">{campaign.orders}</td>
+                                            <td className="p-3 border-b font-mono text-right font-bold text-green-600">
+                                                {campaign.roi?.toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="border rounded-lg p-4 bg-muted/20">
+                            <p className="text-sm text-muted-foreground">
+                                No campaign data available. {data.campaigns ? `Campaigns array exists but is empty.` : 'Campaigns data not found in response.'}
+                            </p>
+                        </div>
+                    )}
                 </div>
             )}
 
