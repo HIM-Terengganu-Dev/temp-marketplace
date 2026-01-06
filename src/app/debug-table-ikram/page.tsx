@@ -576,94 +576,72 @@ export default function DebugTableIkramPage() {
                 </div>
             )}
 
-            {/* Campaign Breakdown for Product GMV Max - Grouped by Account */}
+            {/* Campaign Breakdown for Product GMV Max - Aggregated by Account */}
             {data && selectedMetric === 'product_gmv_max' && (
-                <div className="space-y-4">
-                    <h2 className="text-lg font-semibold">Breakdown by Campaign (Grouped by Account)</h2>
+                <div className="space-y-2">
+                    <h2 className="text-lg font-semibold">Breakdown by Account (Aggregated from Campaigns)</h2>
                     {data.campaigns && data.campaigns.length > 0 ? (() => {
-                        // Group campaigns by account name
-                        const groupedByAccount: Record<string, any[]> = {};
+                        // Aggregate campaigns by account name
+                        const accountAggregates: Record<string, { cost: number; gmv: number; orders: number; campaignCount: number }> = {};
+                        
                         data.campaigns.forEach((campaign: any) => {
                             const accountName = campaign.accountName || 'Other';
-                            if (!groupedByAccount[accountName]) {
-                                groupedByAccount[accountName] = [];
+                            if (!accountAggregates[accountName]) {
+                                accountAggregates[accountName] = {
+                                    cost: 0,
+                                    gmv: 0,
+                                    orders: 0,
+                                    campaignCount: 0
+                                };
                             }
-                            groupedByAccount[accountName].push(campaign);
+                            accountAggregates[accountName].cost += campaign.cost || 0;
+                            accountAggregates[accountName].gmv += campaign.gmv || 0;
+                            accountAggregates[accountName].orders += campaign.orders || 0;
+                            accountAggregates[accountName].campaignCount += 1;
                         });
 
-                        // Calculate totals for each account
-                        const accountGroups = Object.entries(groupedByAccount).map(([accountName, campaigns]) => {
-                            const totals = campaigns.reduce((acc, campaign) => ({
-                                cost: acc.cost + (campaign.cost || 0),
-                                gmv: acc.gmv + (campaign.gmv || 0),
-                                orders: acc.orders + (campaign.orders || 0)
-                            }), { cost: 0, gmv: 0, orders: 0 });
-                            
-                            return {
-                                accountName: accountName,
-                                campaigns: campaigns,
-                                totalCost: totals.cost,
-                                totalGMV: totals.gmv,
-                                totalOrders: totals.orders,
-                                totalROI: totals.cost > 0 ? totals.gmv / totals.cost : 0
-                            };
-                        }).sort((a, b) => b.totalGMV - a.totalGMV); // Sort accounts by total GMV
+                        // Convert to array and calculate ROI
+                        const accountRows = Object.entries(accountAggregates).map(([accountName, data]) => ({
+                            accountName: accountName,
+                            cost: data.cost,
+                            gmv: data.gmv,
+                            orders: data.orders,
+                            campaignCount: data.campaignCount,
+                            roi: data.cost > 0 ? data.gmv / data.cost : 0
+                        })).sort((a, b) => b.gmv - a.gmv); // Sort by GMV descending
 
                         return (
-                            <div className="space-y-4">
-                                {accountGroups.map((group, groupIdx) => (
-                                    <div key={groupIdx} className="border rounded-lg overflow-hidden">
-                                        <div className="bg-muted/50 p-3 border-b">
-                                            <h3 className="font-semibold text-base">
-                                                Account: [{group.accountName}]
-                                            </h3>
-                                            <div className="flex gap-4 mt-2 text-sm">
-                                                <span className="font-mono">
-                                                    Total Cost: {group.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </span>
-                                                <span className="font-mono">
-                                                    Total GMV: {group.totalGMV.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </span>
-                                                <span className="font-mono">
-                                                    Total Orders: {group.totalOrders}
-                                                </span>
-                                                <span className="font-mono font-bold text-green-600">
-                                                    Total ROI: {group.totalROI.toFixed(2)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <table className="w-full text-left text-sm">
-                                            <thead className="bg-muted">
-                                                <tr>
-                                                    <th className="p-3 border-b">Campaign Name</th>
-                                                    <th className="p-3 border-b text-right">Cost</th>
-                                                    <th className="p-3 border-b text-right">GMV</th>
-                                                    <th className="p-3 border-b text-right">Orders</th>
-                                                    <th className="p-3 border-b text-right">ROI</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {group.campaigns.map((campaign: any, idx: number) => (
-                                                    <tr key={idx} className="hover:bg-muted/50">
-                                                        <td className="p-3 border-b font-medium">
-                                                            {campaign.campaignName}
-                                                        </td>
-                                                        <td className="p-3 border-b font-mono text-right">
-                                                            {campaign.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                        </td>
-                                                        <td className="p-3 border-b font-mono text-right">
-                                                            {campaign.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                        </td>
-                                                        <td className="p-3 border-b font-mono text-right">{campaign.orders}</td>
-                                                        <td className="p-3 border-b font-mono text-right font-bold text-green-600">
-                                                            {campaign.roi?.toFixed(2)}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ))}
+                            <div className="border rounded-lg overflow-hidden">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-muted">
+                                        <tr>
+                                            <th className="p-3 border-b">Account</th>
+                                            <th className="p-3 border-b text-right">Cost</th>
+                                            <th className="p-3 border-b text-right">GMV</th>
+                                            <th className="p-3 border-b text-right">Orders</th>
+                                            <th className="p-3 border-b text-right">Campaigns</th>
+                                            <th className="p-3 border-b text-right">ROI</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {accountRows.map((account, idx: number) => (
+                                            <tr key={idx} className="hover:bg-muted/50">
+                                                <td className="p-3 border-b font-medium">[{account.accountName}]</td>
+                                                <td className="p-3 border-b font-mono text-right">
+                                                    {account.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                </td>
+                                                <td className="p-3 border-b font-mono text-right">
+                                                    {account.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                </td>
+                                                <td className="p-3 border-b font-mono text-right">{account.orders}</td>
+                                                <td className="p-3 border-b font-mono text-right">{account.campaignCount}</td>
+                                                <td className="p-3 border-b font-mono text-right font-bold text-green-600">
+                                                    {account.roi?.toFixed(2)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
                         );
                     })() : (
