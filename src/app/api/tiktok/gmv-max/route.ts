@@ -193,15 +193,25 @@ export async function GET(request: Request) {
             roi: data.cost > 0 ? data.gmv / data.cost : 0
         })).sort((a, b) => b.gmv - a.gmv); // Sort by GMV descending
 
-        // Convert campaignBreakdown to array with ROI calculated
-        const campaignsArray = Object.values(campaignBreakdown).map((data) => ({
-            campaignId: data.campaignId,
-            campaignName: data.campaignName,
-            cost: data.cost,
-            gmv: data.gmv,
-            orders: data.orders,
-            roi: data.cost > 0 ? data.gmv / data.cost : 0
-        })).sort((a, b) => b.gmv - a.gmv); // Sort by GMV descending
+        // Convert campaignBreakdown to array with ROI calculated, including account name
+        const campaignsArray = Object.values(campaignBreakdown).map((data) => {
+            const accountName = extractAccountName(data.campaignName);
+            return {
+                campaignId: data.campaignId,
+                campaignName: data.campaignName,
+                accountName: accountName,
+                cost: data.cost,
+                gmv: data.gmv,
+                orders: data.orders,
+                roi: data.cost > 0 ? data.gmv / data.cost : 0
+            };
+        }).sort((a, b) => {
+            // First sort by account name, then by GMV descending
+            if (a.accountName !== b.accountName) {
+                return a.accountName.localeCompare(b.accountName);
+            }
+            return b.gmv - a.gmv;
+        });
 
         return NextResponse.json({
             shopName: 'DrSamhanWellness',

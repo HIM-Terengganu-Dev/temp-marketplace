@@ -157,8 +157,6 @@ export default function DebugTableIkramPage() {
                 throw new Error(err.error || 'Failed to fetch');
             }
             const result = await res.json();
-            console.log('API Response for product_gmv_max:', result);
-            console.log('Campaigns data:', result.campaigns);
             setData(result);
         } catch (e: any) {
             setError(e.message);
@@ -578,46 +576,97 @@ export default function DebugTableIkramPage() {
                 </div>
             )}
 
-            {/* Campaign Breakdown for Product GMV Max */}
+            {/* Campaign Breakdown for Product GMV Max - Grouped by Account */}
             {data && selectedMetric === 'product_gmv_max' && (
-                <div className="space-y-2">
-                    <h2 className="text-lg font-semibold">Breakdown by Campaign</h2>
-                    {data.campaigns && data.campaigns.length > 0 ? (
-                        <div className="border rounded-lg overflow-hidden">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-muted">
-                                    <tr>
-                                        <th className="p-3 border-b">Campaign Name</th>
-                                        <th className="p-3 border-b text-right">Cost</th>
-                                        <th className="p-3 border-b text-right">GMV</th>
-                                        <th className="p-3 border-b text-right">Orders</th>
-                                        <th className="p-3 border-b text-right">ROI</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {data.campaigns.map((campaign: any, idx: number) => (
-                                        <tr key={idx} className="hover:bg-muted/50">
-                                            <td className="p-3 border-b font-medium">
-                                                {campaign.campaignName?.includes('[') 
-                                                    ? campaign.campaignName 
-                                                    : `[${campaign.campaignName}]`}
-                                            </td>
-                                            <td className="p-3 border-b font-mono text-right">
-                                                {campaign.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                            </td>
-                                            <td className="p-3 border-b font-mono text-right">
-                                                {campaign.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                            </td>
-                                            <td className="p-3 border-b font-mono text-right">{campaign.orders}</td>
-                                            <td className="p-3 border-b font-mono text-right font-bold text-green-600">
-                                                {campaign.roi?.toFixed(2)}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    ) : (
+                <div className="space-y-4">
+                    <h2 className="text-lg font-semibold">Breakdown by Campaign (Grouped by Account)</h2>
+                    {data.campaigns && data.campaigns.length > 0 ? (() => {
+                        // Group campaigns by account name
+                        const groupedByAccount: Record<string, any[]> = {};
+                        data.campaigns.forEach((campaign: any) => {
+                            const accountName = campaign.accountName || 'Other';
+                            if (!groupedByAccount[accountName]) {
+                                groupedByAccount[accountName] = [];
+                            }
+                            groupedByAccount[accountName].push(campaign);
+                        });
+
+                        // Calculate totals for each account
+                        const accountGroups = Object.entries(groupedByAccount).map(([accountName, campaigns]) => {
+                            const totals = campaigns.reduce((acc, campaign) => ({
+                                cost: acc.cost + (campaign.cost || 0),
+                                gmv: acc.gmv + (campaign.gmv || 0),
+                                orders: acc.orders + (campaign.orders || 0)
+                            }), { cost: 0, gmv: 0, orders: 0 });
+                            
+                            return {
+                                accountName: accountName,
+                                campaigns: campaigns,
+                                totalCost: totals.cost,
+                                totalGMV: totals.gmv,
+                                totalOrders: totals.orders,
+                                totalROI: totals.cost > 0 ? totals.gmv / totals.cost : 0
+                            };
+                        }).sort((a, b) => b.totalGMV - a.totalGMV); // Sort accounts by total GMV
+
+                        return (
+                            <div className="space-y-4">
+                                {accountGroups.map((group, groupIdx) => (
+                                    <div key={groupIdx} className="border rounded-lg overflow-hidden">
+                                        <div className="bg-muted/50 p-3 border-b">
+                                            <h3 className="font-semibold text-base">
+                                                Account: [{group.accountName}]
+                                            </h3>
+                                            <div className="flex gap-4 mt-2 text-sm">
+                                                <span className="font-mono">
+                                                    Total Cost: {group.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                </span>
+                                                <span className="font-mono">
+                                                    Total GMV: {group.totalGMV.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                </span>
+                                                <span className="font-mono">
+                                                    Total Orders: {group.totalOrders}
+                                                </span>
+                                                <span className="font-mono font-bold text-green-600">
+                                                    Total ROI: {group.totalROI.toFixed(2)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <table className="w-full text-left text-sm">
+                                            <thead className="bg-muted">
+                                                <tr>
+                                                    <th className="p-3 border-b">Campaign Name</th>
+                                                    <th className="p-3 border-b text-right">Cost</th>
+                                                    <th className="p-3 border-b text-right">GMV</th>
+                                                    <th className="p-3 border-b text-right">Orders</th>
+                                                    <th className="p-3 border-b text-right">ROI</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {group.campaigns.map((campaign: any, idx: number) => (
+                                                    <tr key={idx} className="hover:bg-muted/50">
+                                                        <td className="p-3 border-b font-medium">
+                                                            {campaign.campaignName}
+                                                        </td>
+                                                        <td className="p-3 border-b font-mono text-right">
+                                                            {campaign.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="p-3 border-b font-mono text-right">
+                                                            {campaign.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="p-3 border-b font-mono text-right">{campaign.orders}</td>
+                                                        <td className="p-3 border-b font-mono text-right font-bold text-green-600">
+                                                            {campaign.roi?.toFixed(2)}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ))}
+                            </div>
+                        );
+                    })() : (
                         <div className="border rounded-lg p-4 bg-muted/20">
                             <p className="text-sm text-muted-foreground">
                                 No campaign data available. {data.campaigns ? `Campaigns array exists but is empty.` : 'Campaigns data not found in response.'}
