@@ -136,22 +136,28 @@ export async function GET(request: Request) {
         let totalGMV = 0;
         let totalOrders = 0;
 
-        // For Live GMV, also aggregate by account
+        // Aggregate by account
         const accountBreakdown: Record<string, { cost: number; gmv: number; orders: number; campaigns: number }> = {};
+        
+        // Aggregate by campaign (for campaign-level granulation)
+        const campaignBreakdown: Record<string, { cost: number; gmv: number; orders: number; campaignName: string; campaignId: string }> = {};
 
         filteredList.forEach((item: any) => {
             const cost = parseFloat(item.metrics.cost || '0');
             const gmv = parseFloat(item.metrics.gross_revenue || '0');
             const orders = parseInt(item.metrics.orders || '0', 10);
+            const campaignId = item.dimensions.campaign_id;
 
             totalCost += cost;
             totalGMV += gmv;
             totalOrders += orders;
 
-            // Get account name from campaign info
-            const campaignInfo = campaigns.get(item.dimensions.campaign_id);
+            // Get campaign info
+            const campaignInfo = campaigns.get(campaignId);
             const accountName = campaignInfo?.accountName || 'Other';
+            const campaignName = campaignInfo?.name || `Campaign ${campaignId}`;
 
+            // Aggregate by account
             if (!accountBreakdown[accountName]) {
                 accountBreakdown[accountName] = { cost: 0, gmv: 0, orders: 0, campaigns: 0 };
             }
@@ -159,6 +165,20 @@ export async function GET(request: Request) {
             accountBreakdown[accountName].gmv += gmv;
             accountBreakdown[accountName].orders += orders;
             accountBreakdown[accountName].campaigns += 1;
+
+            // Aggregate by campaign
+            if (!campaignBreakdown[campaignId]) {
+                campaignBreakdown[campaignId] = { 
+                    cost: 0, 
+                    gmv: 0, 
+                    orders: 0, 
+                    campaignName: campaignName,
+                    campaignId: campaignId
+                };
+            }
+            campaignBreakdown[campaignId].cost += cost;
+            campaignBreakdown[campaignId].gmv += gmv;
+            campaignBreakdown[campaignId].orders += orders;
         });
 
         const roi = totalCost > 0 ? totalGMV / totalCost : 0;
@@ -173,6 +193,16 @@ export async function GET(request: Request) {
             roi: data.cost > 0 ? data.gmv / data.cost : 0
         })).sort((a, b) => b.gmv - a.gmv); // Sort by GMV descending
 
+        // Convert campaignBreakdown to array with ROI calculated
+        const campaignsArray = Object.values(campaignBreakdown).map((data) => ({
+            campaignId: data.campaignId,
+            campaignName: data.campaignName,
+            cost: data.cost,
+            gmv: data.gmv,
+            orders: data.orders,
+            roi: data.cost > 0 ? data.gmv / data.cost : 0
+        })).sort((a, b) => b.gmv - a.gmv); // Sort by GMV descending
+
         return NextResponse.json({
             shopName: 'DrSamhanWellness',
             promotionType: promotionType,
@@ -184,7 +214,9 @@ export async function GET(request: Request) {
             currency: 'MYR',
             dateRange: { start: startDate, end: endDate },
             // Include account breakdown for both LIVE and PRODUCT GMV Max
-            accounts: accountsArray
+            accounts: accountsArray,
+            // Include campaign breakdown for campaign-level granulation
+            campaigns: campaignsArray
         });
 
     } catch (error: any) {
