@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
+import { Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function DebugTableIkramPage() {
@@ -9,11 +10,45 @@ export default function DebugTableIkramPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Default to verification date
-    const [startDate, setStartDate] = useState("2025-12-25");
-    const [endDate, setEndDate] = useState("2025-12-25");
+    // Get today's date in GMT+8 timezone
+    const getTodayGMT8 = () => {
+        const now = new Date();
+        // Convert to GMT+8 timezone using toLocaleString
+        const gmt8Date = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur" }));
+        // Format as YYYY-MM-DD
+        const year = gmt8Date.getFullYear();
+        const month = String(gmt8Date.getMonth() + 1).padStart(2, '0');
+        const day = String(gmt8Date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    // Get yesterday's date in GMT+8 timezone
+    const getYesterdayGMT8 = () => {
+        const now = new Date();
+        // Convert to GMT+8 timezone
+        const gmt8Date = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur" }));
+        // Subtract one day
+        gmt8Date.setDate(gmt8Date.getDate() - 1);
+        // Format as YYYY-MM-DD
+        const year = gmt8Date.getFullYear();
+        const month = String(gmt8Date.getMonth() + 1).padStart(2, '0');
+        const day = String(gmt8Date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    // Default to today's date (GMT+8)
+    const [startDate, setStartDate] = useState(getTodayGMT8());
+    const [endDate, setEndDate] = useState(getTodayGMT8());
     const [selectedMetric, setSelectedMetric] = useState("gross_revenue");
     const [selectedShop, setSelectedShop] = useState("1");
+
+    // Function to jump to yesterday
+    const jumpToYesterday = () => {
+        const yesterday = getYesterdayGMT8();
+        setStartDate(yesterday);
+        setEndDate(yesterday);
+        setData(null); // Clear data when date changes
+    };
 
     const METRICS = [
         { id: 'gross_revenue', name: 'Total GMV Max' },
@@ -205,22 +240,73 @@ export default function DebugTableIkramPage() {
                 </div>
                 <div>
                     <label className="block text-sm font-medium mb-1">Start Date</label>
-                    <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="border rounded p-2 bg-background"
-                    />
+                    <div className="relative">
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => {
+                                setStartDate(e.target.value);
+                                setData(null); // Clear data on date change
+                            }}
+                            className="border rounded p-2 bg-background pr-8 w-full"
+                            id="start-date-input-ikram"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const input = document.getElementById('start-date-input-ikram') as HTMLInputElement;
+                                if (input) {
+                                    if (input.showPicker) {
+                                        input.showPicker();
+                                    } else {
+                                        input.focus();
+                                        input.click();
+                                    }
+                                }
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:opacity-70 transition-opacity bg-transparent border-0 p-0"
+                            aria-label="Open date picker"
+                        >
+                            <Calendar className="h-4 w-4 text-gray-600" />
+                        </button>
+                    </div>
                 </div>
                 <div>
                     <label className="block text-sm font-medium mb-1">End Date</label>
-                    <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="border rounded p-2 bg-background"
-                    />
+                    <div className="relative">
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => {
+                                setEndDate(e.target.value);
+                                setData(null); // Clear data on date change
+                            }}
+                            className="border rounded p-2 bg-background pr-8 w-full"
+                            id="end-date-input-ikram"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const input = document.getElementById('end-date-input-ikram') as HTMLInputElement;
+                                if (input) {
+                                    if (input.showPicker) {
+                                        input.showPicker();
+                                    } else {
+                                        input.focus();
+                                        input.click();
+                                    }
+                                }
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:opacity-70 transition-opacity bg-transparent border-0 p-0"
+                            aria-label="Open date picker"
+                        >
+                            <Calendar className="h-4 w-4 text-gray-600" />
+                        </button>
+                    </div>
                 </div>
+                <Button onClick={jumpToYesterday} variant="outline" disabled={loading}>
+                    Yesterday
+                </Button>
                 <Button onClick={fetchData} disabled={loading}>
                     {loading ? 'Fetching...' : 'Fetch Data'}
                 </Button>
