@@ -170,12 +170,17 @@ export async function GET(request: Request) {
         // Track unique buyer user IDs
         const uniqueBuyerIds = new Set<string>();
 
+        // Prepare granular order details for debugging
+        const orderDetails: any[] = [];
+
         // Calculate GMV - exclude cancelled and refunded orders
         allOrders.forEach(order => {
-            // Skip cancelled and refunded orders
-            const orderStatus = order.status?.toUpperCase();
-            if (orderStatus === 'CANCELLED' || orderStatus === 'REFUNDED') {
-                return;
+            // Calculate order total
+            let orderTotal = 0;
+            if (order.line_items) {
+                order.line_items.forEach((item: any) => {
+                    orderTotal += parseFloat(item.sale_price || '0');
+                });
             }
 
             // Track unique buyer_user_id (fallback to user_id if buyer_user_id doesn't exist)
@@ -184,12 +189,28 @@ export async function GET(request: Request) {
                 uniqueBuyerIds.add(buyerUserId);
             }
 
-            let orderTotal = 0;
-            if (order.line_items) {
-                order.line_items.forEach((item: any) => {
-                    orderTotal += parseFloat(item.sale_price || '0');
-                });
+            // Add order details for granular table (include all orders for debugging)
+            orderDetails.push({
+                id: order.id,
+                status: order.status,
+                createTime: order.create_time,
+                gmv: orderTotal,
+                itemCount: order.line_items?.length || 0,
+                buyerUserId: buyerUserId || null,
+                isIncluded: true // Will be updated below
+            });
+
+            // Skip cancelled and refunded orders for GMV calculation
+            const orderStatus = order.status?.toUpperCase();
+            if (orderStatus === 'CANCELLED' || orderStatus === 'REFUNDED') {
+                // Mark as excluded from GMV
+                const lastOrder = orderDetails[orderDetails.length - 1];
+                if (lastOrder) {
+                    lastOrder.isIncluded = false;
+                }
+                return;
             }
+
             totalGMV += orderTotal;
         });
 
@@ -206,7 +227,8 @@ export async function GET(request: Request) {
             totalOrderCount: allOrders.length, // Include total for reference
             uniqueCustomers: uniqueBuyerIds.size,
             currency: 'RM', // Hardcoded as per implementation context, but could check order.currency
-            dateRange: { start, end }
+            dateRange: { start, end },
+            orders: orderDetails // Granular order details for debugging
         });
 
     } catch (error: any) {

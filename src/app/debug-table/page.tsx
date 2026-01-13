@@ -92,6 +92,58 @@ export default function DebugTablePage() {
         }
     };
 
+    const exportToCSV = () => {
+        if (!data || !data.orders || data.orders.length === 0) return;
+
+        // CSV Headers
+        const headers = ['Order ID', 'Date', 'Status', 'GMV (RM)', 'Items', 'Included in Total', 'Buyer User ID'];
+        
+        // CSV Rows
+        const rows = data.orders.map((order: any) => {
+            const date = order.createTime 
+                ? format(new Date(order.createTime * 1000), 'yyyy-MM-dd HH:mm:ss')
+                : 'N/A';
+            return [
+                order.id || '',
+                date,
+                order.status || '',
+                (order.gmv || 0).toFixed(2),
+                order.itemCount || 0,
+                order.isIncluded ? 'Yes' : 'No (Excluded)',
+                order.buyerUserId || ''
+            ];
+        });
+
+        // Add summary row
+        const includedOrders = data.orders.filter((o: any) => o.isIncluded);
+        const totalGMV = includedOrders.reduce((sum: number, o: any) => sum + (o.gmv || 0), 0);
+        const totalItems = includedOrders.reduce((sum: number, o: any) => sum + (o.itemCount || 0), 0);
+        
+        rows.push([]); // Empty row
+        rows.push(['', '', 'Total (Included Orders):', totalGMV.toFixed(2), totalItems, `${includedOrders.length} orders`, '']);
+
+        // Combine headers and rows
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        ].join('\n');
+
+        // Create blob and download
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        
+        // Generate filename with shop name, date range, and timestamp
+        const shopName = data.shopName || 'Shop';
+        const filename = `GMV_Orders_${shopName}_${startDate}_to_${endDate}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`;
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="p-8 space-y-6">
             <h1 className="text-2xl font-bold">TikTok API Debug Table</h1>
@@ -343,6 +395,104 @@ export default function DebugTablePage() {
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* Granular Order Details for GMV */}
+            {data && selectedMetric === 'gmv' && data.orders && data.orders.length > 0 && (
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-lg font-semibold">Granular Order Details (Debug Table)</h2>
+                            <p className="text-sm text-muted-foreground">
+                                Individual orders breakdown to verify aggregated data matches TikTok Seller Center
+                            </p>
+                        </div>
+                        <Button onClick={exportToCSV} variant="outline" className="ml-4">
+                            Export to CSV
+                        </Button>
+                    </div>
+                    <div className="border rounded-lg overflow-hidden max-h-[600px] overflow-y-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-muted sticky top-0">
+                                <tr>
+                                    <th className="p-3 border-b">Order ID</th>
+                                    <th className="p-3 border-b">Date</th>
+                                    <th className="p-3 border-b">Status</th>
+                                    <th className="p-3 border-b text-right">GMV (RM)</th>
+                                    <th className="p-3 border-b text-right">Items</th>
+                                    <th className="p-3 border-b">Included in Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.orders.map((order: any, idx: number) => (
+                                    <tr 
+                                        key={idx} 
+                                        className={`hover:bg-muted/50 ${
+                                            !order.isIncluded ? 'opacity-50 bg-red-50 dark:bg-red-950/20' : ''
+                                        }`}
+                                    >
+                                        <td className="p-3 border-b font-mono text-xs">
+                                            {order.id}
+                                        </td>
+                                        <td className="p-3 border-b font-mono">
+                                            {order.createTime 
+                                                ? format(new Date(order.createTime * 1000), 'yyyy-MM-dd HH:mm:ss')
+                                                : 'N/A'}
+                                        </td>
+                                        <td className="p-3 border-b">
+                                            <span className={`px-2 py-1 rounded text-xs ${
+                                                order.status === 'COMPLETED' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                                                order.status === 'CANCELLED' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                                order.status === 'REFUNDED' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
+                                                'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                                            }`}>
+                                                {order.status}
+                                            </span>
+                                        </td>
+                                        <td className="p-3 border-b font-mono text-right font-semibold">
+                                            {order.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="p-3 border-b font-mono text-right">
+                                            {order.itemCount}
+                                        </td>
+                                        <td className="p-3 border-b">
+                                            <span className={`px-2 py-1 rounded text-xs ${
+                                                order.isIncluded 
+                                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                                                    : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                                            }`}>
+                                                {order.isIncluded ? 'Yes' : 'No (Excluded)'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-muted/50 sticky bottom-0">
+                                <tr>
+                                    <td colSpan={3} className="p-3 border-t font-semibold text-right">
+                                        Total (Included Orders):
+                                    </td>
+                                    <td className="p-3 border-t font-mono text-right font-bold text-lg">
+                                        {data.orders
+                                            .filter((o: any) => o.isIncluded)
+                                            .reduce((sum: number, o: any) => sum + (o.gmv || 0), 0)
+                                            .toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="p-3 border-t font-mono text-right font-semibold">
+                                        {data.orders
+                                            .filter((o: any) => o.isIncluded)
+                                            .reduce((sum: number, o: any) => sum + o.itemCount, 0)}
+                                    </td>
+                                    <td className="p-3 border-t">
+                                        <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                            {data.orders.filter((o: any) => o.isIncluded).length} orders
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
                 </div>
             )}
 
