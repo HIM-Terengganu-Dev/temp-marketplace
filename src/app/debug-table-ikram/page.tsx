@@ -831,7 +831,18 @@ export default function DebugTableIkramPage() {
                                                                                                                             {session.roomId || 'N/A'}
                                                                                                                         </td>
                                                                                                                         <td className="p-1.5 border-b font-mono text-[10px]">
-                                                                                                                            {session.launchedTime ? format(new Date(session.launchedTime), 'yyyy-MM-dd HH:mm:ss') : 'N/A'}
+                                                                                                                            {session.launchedTime ? (() => {
+                                                                                                                                // live_launched_time is already in GMT+8 (ad account timezone)
+                                                                                                                                // If it's a string without timezone, parse it as GMT+8
+                                                                                                                                const timeStr = session.launchedTime;
+                                                                                                                                if (typeof timeStr === 'string' && timeStr.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)) {
+                                                                                                                                    // Format: "yyyy-MM-dd HH:mm:ss" - treat as GMT+8
+                                                                                                                                    const date = new Date(timeStr + '+08:00');
+                                                                                                                                    return format(date, 'yyyy-MM-dd HH:mm:ss');
+                                                                                                                                }
+                                                                                                                                // If it's already an ISO string with timezone, use as-is
+                                                                                                                                return format(new Date(timeStr), 'yyyy-MM-dd HH:mm:ss');
+                                                                                                                            })() : 'N/A'}
                                                                                                                         </td>
                                                                                                                         <td className="p-1.5 border-b text-[10px]">
                                                                                                                             <span className={`px-1.5 py-0.5 rounded text-[9px] ${
