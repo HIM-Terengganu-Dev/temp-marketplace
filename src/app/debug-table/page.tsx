@@ -52,11 +52,11 @@ export default function DebugTablePage() {
             if (selectedMetric === 'gmv') {
                 url = `/api/tiktok/gmv?startDate=${startDate}&endDate=${endDate}&shopNumber=${selectedShop}`;
             } else if (selectedMetric === 'live_gmv_max') {
-                url = `/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=LIVE_GMV_MAX`;
+                url = `/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=LIVE_GMV_MAX&shopNumber=${selectedShop}`;
             } else if (selectedMetric === 'product_gmv_max') {
-                url = `/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=PRODUCT_GMV_MAX`;
+                url = `/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=PRODUCT_GMV_MAX&shopNumber=${selectedShop}`;
             } else if (selectedMetric === 'manual_ads_cost') {
-                url = `/api/tiktok/manual-campaign-spend?startDate=${startDate}&endDate=${endDate}`;
+                url = `/api/tiktok/manual-campaign-spend?startDate=${startDate}&endDate=${endDate}&shopNumber=${selectedShop}`;
             } else if (selectedMetric === 'roas') {
                 // For ROAS, we need both GMV and ads spend data for the selected shop
                 const [gmvRes, roasRes] = await Promise.all([

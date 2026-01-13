@@ -1,18 +1,28 @@
 import { NextResponse } from 'next/server';
 
-// Configuration for both accounts
-const ACCOUNTS = [
-    {
+// Shop to Account mapping
+const SHOP_TO_ACCOUNT: Record<string, {
+    name: string;
+    advertiserId: string;
+    accessTokenEnv: string;
+}> = {
+    '1': {
         name: 'Account 1',
         advertiserId: '7505228077656621057',
         accessTokenEnv: 'TIKTOK_ADS_ACCOUNT1_ACCESS_TOKEN'
     },
-    {
+    '2': {
         name: 'Account 2',
         advertiserId: '7404387549454008336',
         accessTokenEnv: 'TIKTOK_ADS_ACCOUNT2_ACCESS_TOKEN'
     }
-];
+};
+
+// Shop names
+const SHOP_NAMES: Record<string, string> = {
+    '1': 'DrSamhanWellness',
+    '2': 'HIM CLINIC'
+};
 
 const BASE_URL = 'https://business-api.tiktok.com';
 const API_VERSION = 'v1.3';
@@ -184,66 +194,74 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate'); // YYYY-MM-DD
     const endDate = searchParams.get('endDate');     // YYYY-MM-DD
+    const shopNumber = searchParams.get('shopNumber') || '1'; // Default to shop 1
 
     if (!startDate || !endDate) {
         return NextResponse.json({ error: 'Missing required parameters: startDate, endDate' }, { status: 400 });
     }
 
-    const results: AccountSpendResult[] = [];
-    let grandTotalSpend = 0;
-    let grandTotalBilledCost = 0;
-    let grandTotalImpressions = 0;
-    let grandTotalClicks = 0;
-    let grandCampaignCount = 0;
-
-    for (const account of ACCOUNTS) {
-        const accessToken = cleanEnv(process.env[account.accessTokenEnv]);
-
-        if (!accessToken) {
-            console.warn(`Missing access token for ${account.name}`);
-            continue;
-        }
-
-        try {
-            // Get GMV Max campaign IDs to exclude
-            const gmvMaxIds = await getGMVMaxCampaignIds(account.advertiserId, accessToken);
-
-            // Fetch integrated report
-            const result = await fetchIntegratedReport(
-                account.advertiserId,
-                accessToken,
-                startDate,
-                endDate,
-                gmvMaxIds
-            );
-
-            if (result) {
-                result.accountName = account.name;
-                results.push(result);
-
-                grandTotalSpend += result.totalSpend;
-                grandTotalBilledCost += result.totalBilledCost;
-                grandTotalImpressions += result.totalImpressions;
-                grandTotalClicks += result.totalClicks;
-                grandCampaignCount += result.campaignCount;
-            }
-        } catch (error: any) {
-            console.error(`Error processing ${account.name}:`, error.message);
-        }
+    // Get account configuration for the selected shop
+    const accountConfig = SHOP_TO_ACCOUNT[shopNumber];
+    if (!accountConfig) {
+        return NextResponse.json({ error: `Invalid shop number: ${shopNumber}. Valid options: 1, 2` }, { status: 400 });
     }
 
-    return NextResponse.json({
-        shopName: 'DrSamhanWellness',
-        metricType: 'manual_campaign_spend',
-        totalSpend: grandTotalSpend,
-        totalBilledCost: grandTotalBilledCost,
-        totalImpressions: grandTotalImpressions,
-        totalClicks: grandTotalClicks,
-        campaignCount: grandCampaignCount,
-        avgCPM: grandTotalImpressions > 0 ? (grandTotalSpend / grandTotalImpressions) * 1000 : 0,
-        avgCPC: grandTotalClicks > 0 ? grandTotalSpend / grandTotalClicks : 0,
-        currency: 'MYR',
-        dateRange: { start: startDate, end: endDate },
-        accounts: results
-    });
+    const shopName = SHOP_NAMES[shopNumber] || 'Unknown Shop';
+
+    const accessToken = cleanEnv(process.env[accountConfig.accessTokenEnv]);
+
+    if (!accessToken) {
+        return NextResponse.json({ error: `Missing Access Token for ${shopName}` }, { status: 500 });
+    }
+
+    try {
+        // Get GMV Max campaign IDs to exclude
+        const gmvMaxIds = await getGMVMaxCampaignIds(accountConfig.advertiserId, accessToken);
+
+        // Fetch integrated report
+        const result = await fetchIntegratedReport(
+            accountConfig.advertiserId,
+            accessToken,
+            startDate,
+            endDate,
+            gmvMaxIds
+        );
+
+        if (!result) {
+            return NextResponse.json({
+                shopName: shopName,
+                metricType: 'manual_campaign_spend',
+                totalSpend: 0,
+                totalBilledCost: 0,
+                totalImpressions: 0,
+                totalClicks: 0,
+                campaignCount: 0,
+                avgCPM: 0,
+                avgCPC: 0,
+                currency: 'MYR',
+                dateRange: { start: startDate, end: endDate },
+                accounts: []
+            });
+        }
+
+        result.accountName = accountConfig.name;
+
+        return NextResponse.json({
+            shopName: shopName,
+            metricType: 'manual_campaign_spend',
+            totalSpend: result.totalSpend,
+            totalBilledCost: result.totalBilledCost,
+            totalImpressions: result.totalImpressions,
+            totalClicks: result.totalClicks,
+            campaignCount: result.campaignCount,
+            avgCPM: result.avgCPM,
+            avgCPC: result.avgCPC,
+            currency: 'MYR',
+            dateRange: { start: startDate, end: endDate },
+            accounts: [result]
+        });
+    } catch (error: any) {
+        console.error(`Error processing ${shopName}:`, error.message);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 }

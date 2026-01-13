@@ -91,8 +91,8 @@ export default function DebugTableIkramPage() {
             if (selectedMetric === 'gross_revenue') {
                 // Fetch Gross Revenue from both LIVE and PRODUCT GMV Max
                 const [liveRes, productRes] = await Promise.all([
-                    fetch(`/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=LIVE_GMV_MAX`),
-                    fetch(`/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=PRODUCT_GMV_MAX`)
+                    fetch(`/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=LIVE_GMV_MAX&shopNumber=${selectedShop}`),
+                    fetch(`/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=PRODUCT_GMV_MAX&shopNumber=${selectedShop}`)
                 ]);
 
                 if (!liveRes.ok || !productRes.ok) {
@@ -164,11 +164,11 @@ export default function DebugTableIkramPage() {
                 setLoading(false);
                 return;
             } else if (selectedMetric === 'live_gmv_max') {
-                url = `/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=LIVE_GMV_MAX`;
+                url = `/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=LIVE_GMV_MAX&shopNumber=${selectedShop}`;
             } else if (selectedMetric === 'product_gmv_max') {
-                url = `/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=PRODUCT_GMV_MAX`;
+                url = `/api/tiktok/gmv-max?startDate=${startDate}&endDate=${endDate}&promotion_type=PRODUCT_GMV_MAX&shopNumber=${selectedShop}`;
             } else if (selectedMetric === 'manual_ads_cost') {
-                url = `/api/tiktok/manual-campaign-spend?startDate=${startDate}&endDate=${endDate}`;
+                url = `/api/tiktok/manual-campaign-spend?startDate=${startDate}&endDate=${endDate}&shopNumber=${selectedShop}`;
             } else if (selectedMetric === 'roas') {
                 // For ROAS, use gmv-ikram endpoint (includes cancelled and refunded orders)
                 const [gmvRes, roasRes] = await Promise.all([

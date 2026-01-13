@@ -1,8 +1,29 @@
 import { NextResponse } from 'next/server';
 
-// Configuration
-const ADVERTISER_ID = '7505228077656621057';
-const SHOP_ID = '7495609155379170274'; // Store ID
+// Shop configuration
+const SHOPS: Record<string, {
+    name: string;
+    shopId: string;
+    advertiserId: string;
+    accessTokenEnv: string;
+    hasGMVCampaigns: boolean; // Whether this shop has GMV campaigns activated
+}> = {
+    '1': {
+        name: 'DrSamhanWellness',
+        shopId: '7495609155379170274',
+        advertiserId: '7505228077656621057',
+        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT1_ACCESS_TOKEN',
+        hasGMVCampaigns: true
+    },
+    '2': {
+        name: 'HIM CLINIC',
+        shopId: '7495102143139318172',
+        advertiserId: '7404387549454008336',
+        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT2_ACCESS_TOKEN',
+        hasGMVCampaigns: false // Shop 2 doesn't have GMV campaigns
+    }
+};
+
 const BASE_URL = 'https://business-api.tiktok.com';
 const API_VERSION = 'v1.3';
 
@@ -22,14 +43,14 @@ function extractAccountName(campaignName: string): string {
 }
 
 // Helper to fetch campaign info for a specific promotion type
-async function getCampaigns(accessToken: string, promotionType: string): Promise<Map<string, CampaignInfo>> {
+async function getCampaigns(accessToken: string, advertiserId: string, promotionType: string): Promise<Map<string, CampaignInfo>> {
     const campaigns = new Map<string, CampaignInfo>();
     let page = 1;
     let hasMore = true;
 
     while (hasMore) {
         const params = new URLSearchParams({
-            advertiser_id: ADVERTISER_ID,
+            advertiser_id: advertiserId,
             filtering: JSON.stringify({ gmv_max_promotion_types: [promotionType] }),
             page: page.toString(),
             page_size: '100'
@@ -77,12 +98,36 @@ export async function GET(request: Request) {
     const startDate = searchParams.get('startDate'); // YYYY-MM-DD
     const endDate = searchParams.get('endDate');     // YYYY-MM-DD
     const promotionType = searchParams.get('promotion_type'); // PRODUCT_GMV_MAX or LIVE_GMV_MAX
+    const shopNumber = searchParams.get('shopNumber') || '1'; // Default to shop 1
 
     if (!startDate || !endDate || !promotionType) {
         return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    const accessToken = cleanEnv(process.env.TIKTOK_ADS_ACCOUNT1_ACCESS_TOKEN);
+    // Get shop configuration
+    const shopConfig = SHOPS[shopNumber];
+    if (!shopConfig) {
+        return NextResponse.json({ error: `Invalid shop number: ${shopNumber}. Valid options: 1, 2` }, { status: 400 });
+    }
+
+    // If shop doesn't have GMV campaigns, return zeros
+    if (!shopConfig.hasGMVCampaigns) {
+        return NextResponse.json({
+            shopName: shopConfig.name,
+            promotionType: promotionType,
+            gmv: 0,
+            cost: 0,
+            roi: 0,
+            orderCount: 0,
+            campaignCount: 0,
+            currency: 'MYR',
+            dateRange: { start: startDate, end: endDate },
+            accounts: [],
+            campaigns: []
+        });
+    }
+
+    const accessToken = cleanEnv(process.env[shopConfig.accessTokenEnv]);
 
     if (!accessToken) {
         return NextResponse.json({ error: 'Missing Access Token' }, { status: 500 });
@@ -90,13 +135,13 @@ export async function GET(request: Request) {
 
     try {
         // Step 1: Get campaign info for the requested promotion type
-        const campaigns = await getCampaigns(accessToken, promotionType);
+        const campaigns = await getCampaigns(accessToken, shopConfig.advertiserId, promotionType);
         console.log(`Found ${campaigns.size} campaigns for ${promotionType}`);
 
         // Step 2: Fetch report data (may contain all types due to API bug)
         const queryParams = new URLSearchParams({
-            advertiser_id: ADVERTISER_ID,
-            store_ids: JSON.stringify([SHOP_ID]),
+            advertiser_id: shopConfig.advertiserId,
+            store_ids: JSON.stringify([shopConfig.shopId]),
             gmv_max_promotion_type: promotionType,
             dimensions: JSON.stringify(['stat_time_day', 'campaign_id']),
             metrics: JSON.stringify(['cost', 'orders', 'gross_revenue', 'roi', 'cost_per_order', 'net_cost']),
@@ -214,7 +259,7 @@ export async function GET(request: Request) {
         });
 
         return NextResponse.json({
-            shopName: 'DrSamhanWellness',
+            shopName: shopConfig.name,
             promotionType: promotionType,
             gmv: totalGMV,
             cost: totalCost,
