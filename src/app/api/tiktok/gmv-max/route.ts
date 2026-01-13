@@ -301,6 +301,9 @@ export async function GET(request: Request) {
                 // Group by room_id to get individual livestream sessions
                 const roomMap = new Map<string, {
                     roomId: string;
+                    liveName: string;
+                    liveStatus: string;
+                    liveDuration: string;
                     launchedTime: string;
                     cost: number;
                     gmv: number;

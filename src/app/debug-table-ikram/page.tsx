@@ -653,7 +653,10 @@ export default function DebugTableIkramPage() {
                                             <tr 
                                                 key={idx} 
                                                 className="hover:bg-muted/50 cursor-pointer transition-colors"
-                                                onClick={() => toggleAccountExpansion(account.name)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleAccountExpansion(account.name);
+                                                }}
                                             >
                                                 <td className="p-3 border-b">
                                                     {accountCampaigns.length > 0 ? (
@@ -710,7 +713,12 @@ export default function DebugTableIkramPage() {
                                                                                     <tr 
                                                                                         key={campIdx} 
                                                                                         className={`hover:bg-muted/30 ${hasLiveSessions ? 'cursor-pointer' : ''}`}
-                                                                                        onClick={() => hasLiveSessions && toggleCampaignExpansion(campaign.campaignId)}
+                                                                                        onClick={(e) => {
+                                                                                            if (hasLiveSessions) {
+                                                                                                e.stopPropagation();
+                                                                                                toggleCampaignExpansion(campaign.campaignId);
+                                                                                            }
+                                                                                        }}
                                                                                     >
                                                                                         <td className="p-2 border-b">
                                                                                             {hasLiveSessions ? (
