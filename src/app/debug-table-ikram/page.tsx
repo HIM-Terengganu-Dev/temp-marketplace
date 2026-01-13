@@ -708,18 +708,24 @@ export default function DebugTableIkramPage() {
                                                                             const isCampaignExpanded = expandedCampaigns.has(campaign.campaignId);
                                                                             const hasLiveSessions = selectedMetric === 'live_gmv_max' && campaign.liveSessions && campaign.liveSessions.length > 0;
                                                                             
+                                                                            const handleCampaignClick = (e: React.MouseEvent) => {
+                                                                                e.preventDefault();
+                                                                                e.stopPropagation();
+                                                                                if (hasLiveSessions && campaign.campaignId) {
+                                                                                    console.log('Toggling campaign:', campaign.campaignId, 'Current expanded:', expandedCampaigns.has(campaign.campaignId));
+                                                                                    toggleCampaignExpansion(campaign.campaignId);
+                                                                                } else {
+                                                                                    console.log('Cannot expand - hasLiveSessions:', hasLiveSessions, 'campaignId:', campaign.campaignId, 'liveSessions:', campaign.liveSessions);
+                                                                                }
+                                                                            };
+                                                                            
                                                                             return (
                                                                                 <>
                                                                                     <tr 
                                                                                         key={campIdx} 
-                                                                                        className={`hover:bg-muted/30 ${hasLiveSessions ? 'cursor-pointer' : ''}`}
-                                                                                        onClick={(e) => {
-                                                                                            e.preventDefault();
-                                                                                            e.stopPropagation();
-                                                                                            if (hasLiveSessions) {
-                                                                                                toggleCampaignExpansion(campaign.campaignId);
-                                                                                            }
-                                                                                        }}
+                                                                                        className={`hover:bg-muted/30 ${hasLiveSessions ? 'cursor-pointer select-none' : ''}`}
+                                                                                        onClick={handleCampaignClick}
+                                                                                        style={hasLiveSessions ? { userSelect: 'none' } : {}}
                                                                                     >
                                                                                         <td className="p-2 border-b">
                                                                                             {hasLiveSessions ? (
