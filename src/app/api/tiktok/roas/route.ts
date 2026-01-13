@@ -1,43 +1,40 @@
 import { NextResponse } from 'next/server';
 
-// Configuration
-const ADVERTISER_ID = '7505228077656621057';
-const SHOP_ID = '7495609155379170274';
+// Shop configuration
+const SHOPS: Record<string, {
+    name: string;
+    shopId: string;
+    advertiserId: string;
+    accessTokenEnv: string;
+    hasGMVCampaigns: boolean;
+}> = {
+    '1': {
+        name: 'DrSamhanWellness',
+        shopId: '7495609155379170274',
+        advertiserId: '7505228077656621057',
+        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT1_ACCESS_TOKEN',
+        hasGMVCampaigns: true
+    },
+    '2': {
+        name: 'HIM CLINIC',
+        shopId: '7495102143139318172',
+        advertiserId: '7404387549454008336',
+        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT2_ACCESS_TOKEN',
+        hasGMVCampaigns: false
+    }
+};
+
 const BASE_URL = 'https://business-api.tiktok.com';
 const API_VERSION = 'v1.3';
-
-// Manual campaign accounts
-const MANUAL_ACCOUNTS = [
-    {
-        name: 'Account 1',
-        advertiserId: '7505228077656621057',
-        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT1_ACCESS_TOKEN'
-    },
-    {
-        name: 'Account 2',
-        advertiserId: '7404387549454008336',
-        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT2_ACCESS_TOKEN'
-    }
-];
 
 const cleanEnv = (val: string | undefined) => val ? val.trim().replace(/^["']|["']$/g, '') : '';
 
 // ---------- GMV Calculation (from Shop API) ----------
-async function fetchGMVFromOrders(accessToken: string, startDate: string, endDate: string): Promise<number> {
-    const shopAppKey = cleanEnv(process.env.TIKTOK_SHOP1_APP_KEY);
-    const shopAppSecret = cleanEnv(process.env.TIKTOK_SHOP1_APP_SECRET);
-    const shopId = cleanEnv(process.env.TIKTOK_SHOP1_SHOP_ID);
-    const shopCipher = cleanEnv(process.env.TIKTOK_SHOP1_SHOP_CIPHER);
-
-    if (!shopAppKey || !shopAppSecret || !shopId || !shopCipher) {
-        console.error('Missing Shop API credentials');
-        return 0;
-    }
-
-    // Use internal API to get GMV
+async function fetchGMVFromOrders(shopNumber: string, startDate: string, endDate: string): Promise<number> {
+    // Use internal API to get GMV with shop number
     try {
         const response = await fetch(
-            `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/tiktok/gmv?startDate=${startDate}&endDate=${endDate}`,
+            `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/tiktok/gmv?startDate=${startDate}&endDate=${endDate}&shopNumber=${shopNumber}`,
             { method: 'GET' }
         );
         const data = await response.json();
@@ -49,14 +46,14 @@ async function fetchGMVFromOrders(accessToken: string, startDate: string, endDat
 }
 
 // ---------- GMV Max Cost Calculation ----------
-async function getGMVMaxCampaignIds(accessToken: string, promotionType: string): Promise<Set<string>> {
+async function getGMVMaxCampaignIds(accessToken: string, advertiserId: string, promotionType: string): Promise<Set<string>> {
     const campaignIds = new Set<string>();
     let page = 1;
     let hasMore = true;
 
     while (hasMore) {
         const params = new URLSearchParams({
-            advertiser_id: ADVERTISER_ID,
+            advertiser_id: advertiserId,
             filtering: JSON.stringify({ gmv_max_promotion_types: [promotionType] }),
             page: page.toString(),
             page_size: '100'
@@ -93,12 +90,12 @@ async function getGMVMaxCampaignIds(accessToken: string, promotionType: string):
     return campaignIds;
 }
 
-async function fetchGMVMaxCost(accessToken: string, startDate: string, endDate: string, promotionType: string): Promise<number> {
-    const validCampaignIds = await getGMVMaxCampaignIds(accessToken, promotionType);
+async function fetchGMVMaxCost(accessToken: string, advertiserId: string, shopId: string, startDate: string, endDate: string, promotionType: string): Promise<number> {
+    const validCampaignIds = await getGMVMaxCampaignIds(accessToken, advertiserId, promotionType);
 
     const params = new URLSearchParams({
-        advertiser_id: ADVERTISER_ID,
-        store_ids: JSON.stringify([SHOP_ID]),
+        advertiser_id: advertiserId,
+        store_ids: JSON.stringify([shopId]),
         dimensions: JSON.stringify(['stat_time_day', 'campaign_id']),
         metrics: JSON.stringify(['cost']),
         start_date: startDate,
@@ -187,67 +184,62 @@ async function getGMVMaxCampaignIdsForAccount(advertiserId: string, accessToken:
     return gmvMaxIds;
 }
 
-async function fetchManualCampaignSpend(startDate: string, endDate: string): Promise<number> {
+async function fetchManualCampaignSpend(advertiserId: string, accessToken: string, startDate: string, endDate: string): Promise<number> {
     let totalSpend = 0;
 
-    for (const account of MANUAL_ACCOUNTS) {
-        const accessToken = cleanEnv(process.env[account.accessTokenEnv]);
-        if (!accessToken) continue;
+    try {
+        const gmvMaxIds = await getGMVMaxCampaignIdsForAccount(advertiserId, accessToken);
 
-        try {
-            const gmvMaxIds = await getGMVMaxCampaignIdsForAccount(account.advertiserId, accessToken);
+        // Fetch integrated report
+        let page = 1;
+        let hasMore = true;
 
-            // Fetch integrated report
-            let page = 1;
-            let hasMore = true;
+        while (hasMore) {
+            const params = new URLSearchParams({
+                advertiser_id: advertiserId,
+                report_type: 'BASIC',
+                data_level: 'AUCTION_CAMPAIGN',
+                dimensions: JSON.stringify(['stat_time_day', 'campaign_id']),
+                metrics: JSON.stringify(['spend']),
+                start_date: startDate,
+                end_date: endDate,
+                page: page.toString(),
+                page_size: '1000'
+            });
 
-            while (hasMore) {
-                const params = new URLSearchParams({
-                    advertiser_id: account.advertiserId,
-                    report_type: 'BASIC',
-                    data_level: 'AUCTION_CAMPAIGN',
-                    dimensions: JSON.stringify(['stat_time_day', 'campaign_id']),
-                    metrics: JSON.stringify(['spend']),
-                    start_date: startDate,
-                    end_date: endDate,
-                    page: page.toString(),
-                    page_size: '1000'
-                });
+            const url = `${BASE_URL}/open_api/${API_VERSION}/report/integrated/get/?${params.toString()}`;
 
-                const url = `${BASE_URL}/open_api/${API_VERSION}/report/integrated/get/?${params.toString()}`;
-
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'Access-Token': accessToken,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                const data = await response.json();
-
-                if (data.code !== 0) break;
-
-                const list = data.data?.list || [];
-
-                // Filter out GMV Max campaigns
-                list.forEach((item: any) => {
-                    const campaignId = item.dimensions?.campaign_id;
-                    if (campaignId && !gmvMaxIds.has(campaignId)) {
-                        totalSpend += parseFloat(item.metrics.spend || 0);
-                    }
-                });
-
-                const pageInfo = data.data?.page_info;
-                if (page >= (pageInfo?.total_page || 1)) {
-                    hasMore = false;
-                } else {
-                    page++;
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Access-Token': accessToken,
+                    'Content-Type': 'application/json'
                 }
+            });
+
+            const data = await response.json();
+
+            if (data.code !== 0) break;
+
+            const list = data.data?.list || [];
+
+            // Filter out GMV Max campaigns
+            list.forEach((item: any) => {
+                const campaignId = item.dimensions?.campaign_id;
+                if (campaignId && !gmvMaxIds.has(campaignId)) {
+                    totalSpend += parseFloat(item.metrics.spend || 0);
+                }
+            });
+
+            const pageInfo = data.data?.page_info;
+            if (page >= (pageInfo?.total_page || 1)) {
+                hasMore = false;
+            } else {
+                page++;
             }
-        } catch (error) {
-            console.error(`Error fetching manual spend for ${account.name}:`, error);
         }
+    } catch (error) {
+        console.error(`Error fetching manual spend:`, error);
     }
 
     return totalSpend;
@@ -257,24 +249,40 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const shopNumber = searchParams.get('shopNumber') || '1'; // Default to shop 1
 
     if (!startDate || !endDate) {
         return NextResponse.json({ error: 'Missing required parameters: startDate, endDate' }, { status: 400 });
     }
 
-    const accessToken = cleanEnv(process.env.TIKTOK_ADS_ACCOUNT1_ACCESS_TOKEN);
+    // Get shop configuration
+    const shopConfig = SHOPS[shopNumber];
+    if (!shopConfig) {
+        return NextResponse.json({ error: `Invalid shop number: ${shopNumber}. Valid options: 1, 2` }, { status: 400 });
+    }
+
+    const accessToken = cleanEnv(process.env[shopConfig.accessTokenEnv]);
 
     if (!accessToken) {
-        return NextResponse.json({ error: 'Missing Access Token' }, { status: 500 });
+        return NextResponse.json({ error: `Missing Access Token for ${shopConfig.name}` }, { status: 500 });
     }
 
     try {
-        // Fetch all components in parallel where possible
-        const [liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend] = await Promise.all([
-            fetchGMVMaxCost(accessToken, startDate, endDate, 'LIVE_GMV_MAX'),
-            fetchGMVMaxCost(accessToken, startDate, endDate, 'PRODUCT_GMV_MAX'),
-            fetchManualCampaignSpend(startDate, endDate)
-        ]);
+        let liveGMVMaxCost = 0;
+        let productGMVMaxCost = 0;
+        let manualCampaignSpend = 0;
+
+        // For shops with GMV campaigns, fetch GMV Max costs
+        if (shopConfig.hasGMVCampaigns) {
+            // Fetch all components in parallel where possible
+            [liveGMVMaxCost, productGMVMaxCost] = await Promise.all([
+                fetchGMVMaxCost(accessToken, shopConfig.advertiserId, shopConfig.shopId, startDate, endDate, 'LIVE_GMV_MAX'),
+                fetchGMVMaxCost(accessToken, shopConfig.advertiserId, shopConfig.shopId, startDate, endDate, 'PRODUCT_GMV_MAX')
+            ]);
+        }
+
+        // Fetch manual campaign spend using shop-specific credentials
+        manualCampaignSpend = await fetchManualCampaignSpend(shopConfig.advertiserId, accessToken, startDate, endDate);
 
         // GMV Max Cost = max(Live, Product) as per user requirement
         const gmvMaxCost = Math.max(liveGMVMaxCost, productGMVMaxCost);
@@ -291,7 +299,8 @@ export async function GET(request: Request) {
         // For now, we'll calculate ROAS on frontend where GMV is known
 
         return NextResponse.json({
-            shopName: 'DrSamhanWellness',
+            shopName: shopConfig.name,
+            shopNumber: parseInt(shopNumber),
             metricType: 'roas',
             liveGMVMaxCost,
             productGMVMaxCost,
