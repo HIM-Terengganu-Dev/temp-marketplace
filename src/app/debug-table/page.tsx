@@ -9,9 +9,21 @@ export default function DebugTablePage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Default to verification date
-    const [startDate, setStartDate] = useState("2025-12-25");
-    const [endDate, setEndDate] = useState("2025-12-25");
+    // Get today's date in GMT+8 timezone
+    const getTodayGMT8 = () => {
+        const now = new Date();
+        // Convert to GMT+8 timezone using toLocaleString
+        const gmt8Date = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur" }));
+        // Format as YYYY-MM-DD
+        const year = gmt8Date.getFullYear();
+        const month = String(gmt8Date.getMonth() + 1).padStart(2, '0');
+        const day = String(gmt8Date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    // Default to today's date (GMT+8)
+    const [startDate, setStartDate] = useState(getTodayGMT8());
+    const [endDate, setEndDate] = useState(getTodayGMT8());
     const [selectedMetric, setSelectedMetric] = useState("gmv");
     const [selectedShop, setSelectedShop] = useState("1");
 
