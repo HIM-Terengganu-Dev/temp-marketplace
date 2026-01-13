@@ -159,7 +159,7 @@ export async function GET(request: Request) {
             const campaignIds = Array.from(campaigns.keys());
             
             if (campaignIds.length > 0) {
-                // Build filtering object with all campaign IDs
+                // Try with filtering first
                 const filtering = {
                     campaign_ids: campaignIds
                 };
@@ -196,7 +196,8 @@ export async function GET(request: Request) {
                 const roomUrl = `${BASE_URL}/open_api/${API_VERSION}/gmv_max/report/get/?${roomParams.toString()}`;
                 
                 try {
-                    console.log(`Fetching livestream room data for ${campaignIds.length} campaigns`);
+                    console.log(`Fetching livestream room data for ${campaignIds.length} campaigns with filtering`);
+                    console.log(`Campaign IDs:`, campaignIds);
                     const roomResponse = await fetch(roomUrl, {
                         method: 'GET',
                         headers: {
@@ -208,27 +209,84 @@ export async function GET(request: Request) {
                     const roomResult = await roomResponse.json();
                     if (roomResult.code === 0) {
                         const roomList = roomResult.data?.list || [];
-                        console.log(`Received ${roomList.length} livestream room records`);
+                        console.log(`Received ${roomList.length} livestream room records with filtering`);
                         
-                        // Debug: Log sample room data structure
+                        // Convert campaign IDs to strings for comparison since API might return strings
+                        const campaignIdSet = new Set(Array.from(campaigns.keys()).map(id => String(id)));
+                        
                         if (roomList.length > 0) {
+                            // Debug: Log sample room data structure
                             console.log('Sample room data:', JSON.stringify(roomList[0], null, 2));
                             console.log('Campaign IDs in campaigns Map:', Array.from(campaigns.keys()));
                             console.log('Sample room campaign_id:', roomList[0]?.dimensions?.campaign_id, 'Type:', typeof roomList[0]?.dimensions?.campaign_id);
-                        }
-                        
-                        // Filter to only include campaigns of the correct type (double-check)
-                        // Convert campaign IDs to strings for comparison since API might return strings
-                        const campaignIdSet = new Set(Array.from(campaigns.keys()).map(id => String(id)));
-                        livestreamRoomData = roomList.filter((item: any) => {
-                            const roomCampaignId = String(item.dimensions?.campaign_id || '');
-                            const matches = campaignIdSet.has(roomCampaignId);
-                            if (!matches && roomList.length > 0) {
-                                console.log(`Room campaign_id ${roomCampaignId} (${typeof item.dimensions?.campaign_id}) not found in campaigns set`);
+                            
+                            // Filter to only include campaigns of the correct type
+                            livestreamRoomData = roomList.filter((item: any) => {
+                                const roomCampaignId = String(item.dimensions?.campaign_id || '');
+                                const matches = campaignIdSet.has(roomCampaignId);
+                                if (!matches) {
+                                    console.log(`Room campaign_id ${roomCampaignId} (${typeof item.dimensions?.campaign_id}) not found in campaigns set`);
+                                }
+                                return matches;
+                            });
+                            console.log(`Filtered to ${livestreamRoomData.length} records matching campaigns`);
+                        } else {
+                            console.log('No room data returned with filtering. Trying without filtering as fallback...');
+                            // Try without filtering as fallback
+                            const roomParamsNoFilter = new URLSearchParams({
+                                advertiser_id: shopConfig.advertiserId,
+                                store_ids: JSON.stringify([shopConfig.shopId]),
+                                gmv_max_promotion_type: promotionType,
+                                dimensions: JSON.stringify(['campaign_id', 'room_id', 'stat_time_day']),
+                                metrics: JSON.stringify([
+                                    'live_name',
+                                    'live_status',
+                                    'live_launched_time',
+                                    'live_duration',
+                                    'cost',
+                                    'net_cost',
+                                    'orders',
+                                    'cost_per_order',
+                                    'gross_revenue',
+                                    'roi',
+                                    'live_views',
+                                    'cost_per_live_view',
+                                    '10_second_live_views',
+                                    'cost_per_10_second_live_view',
+                                    'live_follows'
+                                ]),
+                                start_date: startDate,
+                                end_date: endDate,
+                                page_size: '1000',
+                                page: '1'
+                            });
+                            
+                            const roomUrlNoFilter = `${BASE_URL}/open_api/${API_VERSION}/gmv_max/report/get/?${roomParamsNoFilter.toString()}`;
+                            const roomResponseNoFilter = await fetch(roomUrlNoFilter, {
+                                method: 'GET',
+                                headers: {
+                                    'Access-Token': accessToken,
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            
+                            const roomResultNoFilter = await roomResponseNoFilter.json();
+                            if (roomResultNoFilter.code === 0) {
+                                const roomListNoFilter = roomResultNoFilter.data?.list || [];
+                                console.log(`Received ${roomListNoFilter.length} records without filtering`);
+                                if (roomListNoFilter.length > 0) {
+                                    console.log('Sample room data (no filter):', JSON.stringify(roomListNoFilter[0], null, 2));
+                                    // Filter to only include our campaigns
+                                    livestreamRoomData = roomListNoFilter.filter((item: any) => {
+                                        const roomCampaignId = String(item.dimensions?.campaign_id || '');
+                                        return campaignIdSet.has(roomCampaignId);
+                                    });
+                                    console.log(`Filtered to ${livestreamRoomData.length} records matching campaigns (no filter approach)`);
+                                }
+                            } else {
+                                console.error('Error fetching livestream room data without filter:', roomResultNoFilter);
                             }
-                            return matches;
-                        });
-                        console.log(`Filtered to ${livestreamRoomData.length} records matching campaigns`);
+                        }
                     } else {
                         console.error('Error fetching livestream room data:', roomResult);
                     }
