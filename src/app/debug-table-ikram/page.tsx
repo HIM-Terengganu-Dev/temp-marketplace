@@ -44,6 +44,9 @@ export default function DebugTableIkramPage() {
     
     // Track expanded accounts for granular campaign view
     const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+    
+    // Track expanded campaigns for live session view (LIVE GMV MAX only)
+    const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
 
     // Function to jump to yesterday
     const jumpToYesterday = () => {
@@ -52,6 +55,7 @@ export default function DebugTableIkramPage() {
         setEndDate(yesterday);
         setData(null); // Clear data when date changes
         setExpandedAccounts(new Set()); // Clear expanded accounts
+        setExpandedCampaigns(new Set()); // Clear expanded campaigns
     };
 
     // Toggle account expansion for campaign details
@@ -62,6 +66,19 @@ export default function DebugTableIkramPage() {
                 newSet.delete(accountName);
             } else {
                 newSet.add(accountName);
+            }
+            return newSet;
+        });
+    };
+
+    // Toggle campaign expansion for live session details (LIVE GMV MAX only)
+    const toggleCampaignExpansion = (campaignId: string) => {
+        setExpandedCampaigns(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(campaignId)) {
+                newSet.delete(campaignId);
+            } else {
+                newSet.add(campaignId);
             }
             return newSet;
         });
@@ -248,6 +265,7 @@ export default function DebugTableIkramPage() {
                             setSelectedMetric(e.target.value);
                             setData(null); // Clear data on metric change
                             setExpandedAccounts(new Set()); // Clear expanded accounts
+                            setExpandedCampaigns(new Set()); // Clear expanded campaigns
                         }}
                         className="border rounded p-2 bg-background w-[200px]"
                     >
@@ -266,6 +284,7 @@ export default function DebugTableIkramPage() {
                                 setStartDate(e.target.value);
                                 setData(null); // Clear data on date change
                                 setExpandedAccounts(new Set()); // Clear expanded accounts
+                                setExpandedCampaigns(new Set()); // Clear expanded campaigns
                             }}
                             className="border rounded p-2 bg-background pr-8 w-full"
                             id="start-date-input-ikram"
@@ -300,6 +319,7 @@ export default function DebugTableIkramPage() {
                                 setEndDate(e.target.value);
                                 setData(null); // Clear data on date change
                                 setExpandedAccounts(new Set()); // Clear expanded accounts
+                                setExpandedCampaigns(new Set()); // Clear expanded campaigns
                             }}
                             className="border rounded p-2 bg-background pr-8 w-full"
                             id="end-date-input-ikram"
@@ -664,11 +684,15 @@ export default function DebugTableIkramPage() {
                                                         <div className="p-4">
                                                             <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
                                                                 Campaigns for {account.name} ({accountCampaigns.length})
+                                                                {selectedMetric === 'live_gmv_max' && (
+                                                                    <span className="text-xs text-muted-foreground ml-2">(Click campaign to view live sessions)</span>
+                                                                )}
                                                             </h3>
                                                             <div className="border rounded-lg overflow-hidden bg-background">
                                                                 <table className="w-full text-xs">
                                                                     <thead className="bg-muted/50">
                                                                         <tr>
+                                                                            <th className="p-2 border-b w-6"></th>
                                                                             <th className="p-2 border-b text-left">Campaign Name</th>
                                                                             <th className="p-2 border-b text-right">Cost</th>
                                                                             <th className="p-2 border-b text-right">GMV</th>
@@ -677,23 +701,88 @@ export default function DebugTableIkramPage() {
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
-                                                                        {accountCampaigns.map((campaign: any, campIdx: number) => (
-                                                                            <tr key={campIdx} className="hover:bg-muted/30">
-                                                                                <td className="p-2 border-b font-medium text-xs">
-                                                                                    {campaign.campaignName}
-                                                                                </td>
-                                                                                <td className="p-2 border-b font-mono text-right">
-                                                                                    {campaign.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                                                </td>
-                                                                                <td className="p-2 border-b font-mono text-right">
-                                                                                    {campaign.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                                                </td>
-                                                                                <td className="p-2 border-b font-mono text-right">{campaign.orders}</td>
-                                                                                <td className="p-2 border-b font-mono text-right font-bold text-green-600">
-                                                                                    {campaign.roi?.toFixed(2)}
-                                        </td>
-                                    </tr>
-                                ))}
+                                                                        {accountCampaigns.map((campaign: any, campIdx: number) => {
+                                                                            const isCampaignExpanded = expandedCampaigns.has(campaign.campaignId);
+                                                                            const hasLiveSessions = selectedMetric === 'live_gmv_max' && campaign.liveSessions && campaign.liveSessions.length > 0;
+                                                                            
+                                                                            return (
+                                                                                <>
+                                                                                    <tr 
+                                                                                        key={campIdx} 
+                                                                                        className={`hover:bg-muted/30 ${hasLiveSessions ? 'cursor-pointer' : ''}`}
+                                                                                        onClick={() => hasLiveSessions && toggleCampaignExpansion(campaign.campaignId)}
+                                                                                    >
+                                                                                        <td className="p-2 border-b">
+                                                                                            {hasLiveSessions ? (
+                                                                                                isCampaignExpanded ? (
+                                                                                                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                                                                                ) : (
+                                                                                                    <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                                                                                )
+                                                                                            ) : (
+                                                                                                <span className="w-3"></span>
+                                                                                            )}
+                                                                                        </td>
+                                                                                        <td className="p-2 border-b font-medium text-xs">
+                                                                                            {campaign.campaignName}
+                                                                                        </td>
+                                                                                        <td className="p-2 border-b font-mono text-right">
+                                                                                            {campaign.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                                        </td>
+                                                                                        <td className="p-2 border-b font-mono text-right">
+                                                                                            {campaign.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                                        </td>
+                                                                                        <td className="p-2 border-b font-mono text-right">{campaign.orders}</td>
+                                                                                        <td className="p-2 border-b font-mono text-right font-bold text-green-600">
+                                                                                            {campaign.roi?.toFixed(2)}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                    {isCampaignExpanded && hasLiveSessions && (
+                                                                                        <tr key={`${campIdx}-sessions`}>
+                                                                                            <td colSpan={6} className="p-0 bg-muted/10">
+                                                                                                <div className="p-3">
+                                                                                                    <h4 className="text-xs font-semibold mb-2 text-muted-foreground">
+                                                                                                        Live Sessions for {campaign.campaignName} ({campaign.liveSessions.length})
+                                                                                                    </h4>
+                                                                                                    <div className="border rounded overflow-hidden bg-background">
+                                                                                                        <table className="w-full text-[10px]">
+                                                                                                            <thead className="bg-muted/30">
+                                                                                                                <tr>
+                                                                                                                    <th className="p-1.5 border-b text-left">Session Time</th>
+                                                                                                                    <th className="p-1.5 border-b text-right">Cost</th>
+                                                                                                                    <th className="p-1.5 border-b text-right">GMV</th>
+                                                                                                                    <th className="p-1.5 border-b text-right">Orders</th>
+                                                                                                                    <th className="p-1.5 border-b text-right">ROI</th>
+                                                                                                                </tr>
+                                                                                                            </thead>
+                                                                                                            <tbody>
+                                                                                                                {campaign.liveSessions.map((session: any, sessIdx: number) => (
+                                                                                                                    <tr key={sessIdx} className="hover:bg-muted/20">
+                                                                                                                        <td className="p-1.5 border-b font-mono text-[10px]">
+                                                                                                                            {session.sessionTime ? format(new Date(session.sessionTime), 'yyyy-MM-dd HH:mm') : 'N/A'}
+                                                                                                                        </td>
+                                                                                                                        <td className="p-1.5 border-b font-mono text-right">
+                                                                                                                            {session.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                                                                        </td>
+                                                                                                                        <td className="p-1.5 border-b font-mono text-right">
+                                                                                                                            {session.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                                                                        </td>
+                                                                                                                        <td className="p-1.5 border-b font-mono text-right">{session.orders}</td>
+                                                                                                                        <td className="p-1.5 border-b font-mono text-right font-bold text-green-600">
+                                                                                                                            {session.roi?.toFixed(2)}
+                                                                                                                        </td>
+                                                                                                                    </tr>
+                                                                                                                ))}
+                                                                                                            </tbody>
+                                                                                                        </table>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </td>
+                                                                                        </tr>
+                                                                                    )}
+                                                                                </>
+                                                                            );
+                                                                        })}
                                                                     </tbody>
                                                                 </table>
                                                             </div>

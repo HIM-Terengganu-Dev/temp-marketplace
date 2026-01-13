@@ -139,6 +139,7 @@ export async function GET(request: Request) {
         console.log(`Found ${campaigns.size} campaigns for ${promotionType}`);
 
         // Step 2: Fetch report data (may contain all types due to API bug)
+        // For LIVE GMV MAX, also fetch hourly data for live session breakdown
         const queryParams = new URLSearchParams({
             advertiser_id: shopConfig.advertiserId,
             store_ids: JSON.stringify([shopConfig.shopId]),
@@ -149,6 +150,45 @@ export async function GET(request: Request) {
             end_date: endDate,
             page_size: '1000'
         });
+
+        // For LIVE GMV MAX, also fetch hourly data for live session granularity
+        let hourlyData: any[] = [];
+        if (promotionType === 'LIVE_GMV_MAX') {
+            const hourlyParams = new URLSearchParams({
+                advertiser_id: shopConfig.advertiserId,
+                store_ids: JSON.stringify([shopConfig.shopId]),
+                gmv_max_promotion_type: promotionType,
+                dimensions: JSON.stringify(['stat_time_hour', 'campaign_id']),
+                metrics: JSON.stringify(['cost', 'orders', 'gross_revenue', 'roi']),
+                start_date: startDate,
+                end_date: endDate,
+                page_size: '1000'
+            });
+
+            const hourlyUrl = `${BASE_URL}/open_api/${API_VERSION}/gmv_max/report/get/?${hourlyParams.toString()}`;
+            
+            try {
+                const hourlyResponse = await fetch(hourlyUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Access-Token': accessToken,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const hourlyResult = await hourlyResponse.json();
+                if (hourlyResult.code === 0) {
+                    const hourlyList = hourlyResult.data?.list || [];
+                    // Filter to only include campaigns of the correct type
+                    hourlyData = hourlyList.filter((item: any) =>
+                        campaigns.has(item.dimensions.campaign_id)
+                    );
+                }
+            } catch (error) {
+                console.error('Error fetching hourly data for live sessions:', error);
+                // Continue without hourly data if it fails
+            }
+        }
 
         const url = `${BASE_URL}/open_api/${API_VERSION}/gmv_max/report/get/?${queryParams.toString()}`;
 
@@ -241,6 +281,30 @@ export async function GET(request: Request) {
         // Convert campaignBreakdown to array with ROI calculated, including account name
         const campaignsArray = Object.values(campaignBreakdown).map((data) => {
             const accountName = extractAccountName(data.campaignName);
+            
+            // For LIVE GMV MAX, attach hourly data (live sessions) to each campaign
+            let liveSessions: any[] = [];
+            if (promotionType === 'LIVE_GMV_MAX' && hourlyData.length > 0) {
+                liveSessions = hourlyData
+                    .filter((item: any) => item.dimensions.campaign_id === data.campaignId)
+                    .map((item: any) => {
+                        const cost = parseFloat(item.metrics.cost || '0');
+                        const gmv = parseFloat(item.metrics.gross_revenue || '0');
+                        const orders = parseInt(item.metrics.orders || '0', 10);
+                        return {
+                            sessionTime: item.dimensions.stat_time_hour,
+                            cost: cost,
+                            gmv: gmv,
+                            orders: orders,
+                            roi: cost > 0 ? gmv / cost : 0
+                        };
+                    })
+                    .sort((a, b) => {
+                        // Sort by time descending (most recent first)
+                        return new Date(b.sessionTime).getTime() - new Date(a.sessionTime).getTime();
+                    });
+            }
+            
             return {
                 campaignId: data.campaignId,
                 campaignName: data.campaignName,
@@ -248,7 +312,8 @@ export async function GET(request: Request) {
                 cost: data.cost,
                 gmv: data.gmv,
                 orders: data.orders,
-                roi: data.cost > 0 ? data.gmv / data.cost : 0
+                roi: data.cost > 0 ? data.gmv / data.cost : 0,
+                liveSessions: liveSessions // Only populated for LIVE_GMV_MAX
             };
         }).sort((a, b) => {
             // First sort by account name, then by GMV descending
