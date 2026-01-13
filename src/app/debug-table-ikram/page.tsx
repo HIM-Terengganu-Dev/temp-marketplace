@@ -714,8 +714,9 @@ export default function DebugTableIkramPage() {
                                                                                         key={campIdx} 
                                                                                         className={`hover:bg-muted/30 ${hasLiveSessions ? 'cursor-pointer' : ''}`}
                                                                                         onClick={(e) => {
+                                                                                            e.preventDefault();
+                                                                                            e.stopPropagation();
                                                                                             if (hasLiveSessions) {
-                                                                                                e.stopPropagation();
                                                                                                 toggleCampaignExpansion(campaign.campaignId);
                                                                                             }
                                                                                         }}
