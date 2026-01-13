@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { Calendar } from "lucide-react";
+import { Calendar, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function DebugTableIkramPage() {
@@ -41,6 +41,9 @@ export default function DebugTableIkramPage() {
     const [endDate, setEndDate] = useState(getTodayGMT8());
     const [selectedMetric, setSelectedMetric] = useState("gross_revenue");
     const [selectedShop, setSelectedShop] = useState("1");
+    
+    // Track expanded accounts for granular campaign view
+    const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
 
     // Function to jump to yesterday
     const jumpToYesterday = () => {
@@ -48,6 +51,20 @@ export default function DebugTableIkramPage() {
         setStartDate(yesterday);
         setEndDate(yesterday);
         setData(null); // Clear data when date changes
+        setExpandedAccounts(new Set()); // Clear expanded accounts
+    };
+
+    // Toggle account expansion for campaign details
+    const toggleAccountExpansion = (accountName: string) => {
+        setExpandedAccounts(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(accountName)) {
+                newSet.delete(accountName);
+            } else {
+                newSet.add(accountName);
+            }
+            return newSet;
+        });
     };
 
     const METRICS = [
@@ -230,6 +247,7 @@ export default function DebugTableIkramPage() {
                         onChange={(e) => {
                             setSelectedMetric(e.target.value);
                             setData(null); // Clear data on metric change
+                            setExpandedAccounts(new Set()); // Clear expanded accounts
                         }}
                         className="border rounded p-2 bg-background w-[200px]"
                     >
@@ -241,12 +259,13 @@ export default function DebugTableIkramPage() {
                 <div>
                     <label className="block text-sm font-medium mb-1">Start Date</label>
                     <div className="relative">
-                        <input
-                            type="date"
-                            value={startDate}
+                    <input
+                        type="date"
+                        value={startDate}
                             onChange={(e) => {
                                 setStartDate(e.target.value);
                                 setData(null); // Clear data on date change
+                                setExpandedAccounts(new Set()); // Clear expanded accounts
                             }}
                             className="border rounded p-2 bg-background pr-8 w-full"
                             id="start-date-input-ikram"
@@ -274,12 +293,13 @@ export default function DebugTableIkramPage() {
                 <div>
                     <label className="block text-sm font-medium mb-1">End Date</label>
                     <div className="relative">
-                        <input
-                            type="date"
-                            value={endDate}
+                    <input
+                        type="date"
+                        value={endDate}
                             onChange={(e) => {
                                 setEndDate(e.target.value);
                                 setData(null); // Clear data on date change
+                                setExpandedAccounts(new Set()); // Clear expanded accounts
                             }}
                             className="border rounded p-2 bg-background pr-8 w-full"
                             id="end-date-input-ikram"
@@ -590,10 +610,12 @@ export default function DebugTableIkramPage() {
             {data && selectedMetric === 'live_gmv_max' && data.accounts && data.accounts.length > 0 && (
                 <div className="space-y-2">
                     <h2 className="text-lg font-semibold">Breakdown by Account</h2>
+                    <p className="text-sm text-muted-foreground">Click on an account to view campaign-level details</p>
                     <div className="border rounded-lg overflow-hidden">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-muted">
                                 <tr>
+                                    <th className="p-3 border-b w-8"></th>
                                     <th className="p-3 border-b">Account</th>
                                     <th className="p-3 border-b text-right">Cost</th>
                                     <th className="p-3 border-b text-right">GMV</th>
@@ -602,8 +624,28 @@ export default function DebugTableIkramPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {data.accounts.map((account: any, idx: number) => (
-                                    <tr key={idx} className="hover:bg-muted/50">
+                                {data.accounts.map((account: any, idx: number) => {
+                                    const isExpanded = expandedAccounts.has(account.name);
+                                    const accountCampaigns = data.campaigns?.filter((c: any) => c.accountName === account.name) || [];
+                                    
+                                    return (
+                                        <>
+                                            <tr 
+                                                key={idx} 
+                                                className="hover:bg-muted/50 cursor-pointer transition-colors"
+                                                onClick={() => toggleAccountExpansion(account.name)}
+                                            >
+                                                <td className="p-3 border-b">
+                                                    {accountCampaigns.length > 0 ? (
+                                                        isExpanded ? (
+                                                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                        ) : (
+                                                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                        )
+                                                    ) : (
+                                                        <span className="w-4"></span>
+                                                    )}
+                                                </td>
                                         <td className="p-3 border-b font-medium">{account.name}</td>
                                         <td className="p-3 border-b font-mono text-right">
                                             {account.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -614,9 +656,54 @@ export default function DebugTableIkramPage() {
                                         <td className="p-3 border-b font-mono text-right">{account.orders}</td>
                                         <td className="p-3 border-b font-mono text-right font-bold text-green-600">
                                             {account.roi?.toFixed(2)}
+                                                </td>
+                                            </tr>
+                                            {isExpanded && accountCampaigns.length > 0 && (
+                                                <tr key={`${idx}-expanded`}>
+                                                    <td colSpan={6} className="p-0 bg-muted/20">
+                                                        <div className="p-4">
+                                                            <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
+                                                                Campaigns for {account.name} ({accountCampaigns.length})
+                                                            </h3>
+                                                            <div className="border rounded-lg overflow-hidden bg-background">
+                                                                <table className="w-full text-xs">
+                                                                    <thead className="bg-muted/50">
+                                                                        <tr>
+                                                                            <th className="p-2 border-b text-left">Campaign Name</th>
+                                                                            <th className="p-2 border-b text-right">Cost</th>
+                                                                            <th className="p-2 border-b text-right">GMV</th>
+                                                                            <th className="p-2 border-b text-right">Orders</th>
+                                                                            <th className="p-2 border-b text-right">ROI</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {accountCampaigns.map((campaign: any, campIdx: number) => (
+                                                                            <tr key={campIdx} className="hover:bg-muted/30">
+                                                                                <td className="p-2 border-b font-medium text-xs">
+                                                                                    {campaign.campaignName}
+                                                                                </td>
+                                                                                <td className="p-2 border-b font-mono text-right">
+                                                                                    {campaign.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                                </td>
+                                                                                <td className="p-2 border-b font-mono text-right">
+                                                                                    {campaign.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                                </td>
+                                                                                <td className="p-2 border-b font-mono text-right">{campaign.orders}</td>
+                                                                                <td className="p-2 border-b font-mono text-right font-bold text-green-600">
+                                                                                    {campaign.roi?.toFixed(2)}
                                         </td>
                                     </tr>
                                 ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -666,6 +753,7 @@ export default function DebugTableIkramPage() {
             {data && selectedMetric === 'product_gmv_max' && (
                 <div className="space-y-2">
                     <h2 className="text-lg font-semibold">Breakdown by Account (Aggregated from Campaigns)</h2>
+                    <p className="text-sm text-muted-foreground">Click on an account to view campaign-level details</p>
                     {data.campaigns && data.campaigns.length > 0 ? (() => {
                         // Aggregate campaigns by account name
                         const accountAggregates: Record<string, { cost: number; gmv: number; orders: number; campaignCount: number }> = {};
@@ -701,6 +789,7 @@ export default function DebugTableIkramPage() {
                                 <table className="w-full text-left text-sm">
                                     <thead className="bg-muted">
                                         <tr>
+                                            <th className="p-3 border-b w-8"></th>
                                             <th className="p-3 border-b">Account</th>
                                             <th className="p-3 border-b text-right">Cost</th>
                                             <th className="p-3 border-b text-right">GMV</th>
@@ -710,8 +799,28 @@ export default function DebugTableIkramPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {accountRows.map((account, idx: number) => (
-                                            <tr key={idx} className="hover:bg-muted/50">
+                                        {accountRows.map((account, idx: number) => {
+                                            const isExpanded = expandedAccounts.has(account.accountName);
+                                            const accountCampaigns = data.campaigns.filter((c: any) => c.accountName === account.accountName);
+                                            
+                                            return (
+                                                <>
+                                                    <tr 
+                                                        key={idx} 
+                                                        className="hover:bg-muted/50 cursor-pointer transition-colors"
+                                                        onClick={() => toggleAccountExpansion(account.accountName)}
+                                                    >
+                                                        <td className="p-3 border-b">
+                                                            {accountCampaigns.length > 0 ? (
+                                                                isExpanded ? (
+                                                                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                                ) : (
+                                                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                                                )
+                                                            ) : (
+                                                                <span className="w-4"></span>
+                                                            )}
+                                                        </td>
                                                 <td className="p-3 border-b font-medium">[{account.accountName}]</td>
                                                 <td className="p-3 border-b font-mono text-right">
                                                     {account.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -723,9 +832,54 @@ export default function DebugTableIkramPage() {
                                                 <td className="p-3 border-b font-mono text-right">{account.campaignCount}</td>
                                                 <td className="p-3 border-b font-mono text-right font-bold text-green-600">
                                                     {account.roi?.toFixed(2)}
+                                                        </td>
+                                                    </tr>
+                                                    {isExpanded && accountCampaigns.length > 0 && (
+                                                        <tr key={`${idx}-expanded`}>
+                                                            <td colSpan={7} className="p-0 bg-muted/20">
+                                                                <div className="p-4">
+                                                                    <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
+                                                                        Campaigns for [{account.accountName}] ({accountCampaigns.length})
+                                                                    </h3>
+                                                                    <div className="border rounded-lg overflow-hidden bg-background">
+                                                                        <table className="w-full text-xs">
+                                                                            <thead className="bg-muted/50">
+                                                                                <tr>
+                                                                                    <th className="p-2 border-b text-left">Campaign Name</th>
+                                                                                    <th className="p-2 border-b text-right">Cost</th>
+                                                                                    <th className="p-2 border-b text-right">GMV</th>
+                                                                                    <th className="p-2 border-b text-right">Orders</th>
+                                                                                    <th className="p-2 border-b text-right">ROI</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {accountCampaigns.map((campaign: any, campIdx: number) => (
+                                                                                    <tr key={campIdx} className="hover:bg-muted/30">
+                                                                                        <td className="p-2 border-b font-medium text-xs">
+                                                                                            {campaign.campaignName}
+                                                                                        </td>
+                                                                                        <td className="p-2 border-b font-mono text-right">
+                                                                                            {campaign.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                                        </td>
+                                                                                        <td className="p-2 border-b font-mono text-right">
+                                                                                            {campaign.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                                        </td>
+                                                                                        <td className="p-2 border-b font-mono text-right">{campaign.orders}</td>
+                                                                                        <td className="p-2 border-b font-mono text-right font-bold text-green-600">
+                                                                                            {campaign.roi?.toFixed(2)}
                                                 </td>
                                             </tr>
                                         ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
