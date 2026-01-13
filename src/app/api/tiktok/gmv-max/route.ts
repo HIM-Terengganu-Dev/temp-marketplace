@@ -153,132 +153,7 @@ export async function GET(request: Request) {
 
         // Note: Live session (room) data is now fetched on-demand when campaigns are expanded
         // See /api/tiktok/gmv-max/rooms route
-        let livestreamRoomData: any[] = [];
-        if (false && promotionType === 'LIVE_GMV_MAX') {
-            // Fetch room data using filtering with campaign_ids
-            // Use campaign_id, room_id, and stat_time_day dimensions to match rooms to campaigns
-            const campaignIds = Array.from(campaigns.keys());
-            
-            if (campaignIds.length > 0) {
-                // Try with filtering first
-                const filtering = {
-                    campaign_ids: campaignIds
-                };
-
-                const roomParams = new URLSearchParams({
-                    advertiser_id: shopConfig.advertiserId,
-                    store_ids: JSON.stringify([shopConfig.shopId]),
-                    gmv_max_promotion_type: promotionType,
-                    dimensions: JSON.stringify(['campaign_id', 'room_id', 'stat_time_day']),
-                    metrics: JSON.stringify([
-                        'cost',
-                        'net_cost',
-                        'orders',
-                        'cost_per_order',
-                        'gross_revenue',
-                        'roi'
-                    ]),
-                    filtering: JSON.stringify(filtering),
-                    start_date: startDate,
-                    end_date: endDate,
-                    page_size: '1000',
-                    page: '1'
-                });
-
-                const roomUrl = `${BASE_URL}/open_api/${API_VERSION}/gmv_max/report/get/?${roomParams.toString()}`;
-                
-                try {
-                    console.log(`Fetching livestream room data for ${campaignIds.length} campaigns with filtering`);
-                    console.log(`Campaign IDs:`, campaignIds);
-                    const roomResponse = await fetch(roomUrl, {
-                        method: 'GET',
-                        headers: {
-                            'Access-Token': accessToken,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
-                    const roomResult = await roomResponse.json();
-                    if (roomResult.code === 0) {
-                        const roomList = roomResult.data?.list || [];
-                        console.log(`Received ${roomList.length} livestream room records with filtering`);
-                        
-                        // Convert campaign IDs to strings for comparison since API might return strings
-                        const campaignIdSet = new Set(Array.from(campaigns.keys()).map(id => String(id)));
-                        
-                        if (roomList.length > 0) {
-                            // Debug: Log sample room data structure
-                            console.log('Sample room data:', JSON.stringify(roomList[0], null, 2));
-                            console.log('Campaign IDs in campaigns Map:', Array.from(campaigns.keys()));
-                            console.log('Sample room campaign_id:', roomList[0]?.dimensions?.campaign_id, 'Type:', typeof roomList[0]?.dimensions?.campaign_id);
-                            
-                            // Filter to only include campaigns of the correct type
-                            livestreamRoomData = roomList.filter((item: any) => {
-                                const roomCampaignId = String(item.dimensions?.campaign_id || '');
-                                const matches = campaignIdSet.has(roomCampaignId);
-                                if (!matches) {
-                                    console.log(`Room campaign_id ${roomCampaignId} (${typeof item.dimensions?.campaign_id}) not found in campaigns set`);
-                                }
-                                return matches;
-                            });
-                            console.log(`Filtered to ${livestreamRoomData.length} records matching campaigns`);
-                        } else {
-                            console.log('No room data returned with filtering. Trying without filtering as fallback...');
-                            // Try without filtering as fallback
-                            const roomParamsNoFilter = new URLSearchParams({
-                                advertiser_id: shopConfig.advertiserId,
-                                store_ids: JSON.stringify([shopConfig.shopId]),
-                                gmv_max_promotion_type: promotionType,
-                                dimensions: JSON.stringify(['campaign_id', 'room_id', 'stat_time_day']),
-                                metrics: JSON.stringify([
-                                    'cost',
-                                    'net_cost',
-                                    'orders',
-                                    'cost_per_order',
-                                    'gross_revenue',
-                                    'roi'
-                                ]),
-                                start_date: startDate,
-                                end_date: endDate,
-                                page_size: '1000',
-                                page: '1'
-                            });
-                            
-                            const roomUrlNoFilter = `${BASE_URL}/open_api/${API_VERSION}/gmv_max/report/get/?${roomParamsNoFilter.toString()}`;
-                            const roomResponseNoFilter = await fetch(roomUrlNoFilter, {
-                                method: 'GET',
-                                headers: {
-                                    'Access-Token': accessToken,
-                                    'Content-Type': 'application/json'
-                                }
-                            });
-                            
-                            const roomResultNoFilter = await roomResponseNoFilter.json();
-                            if (roomResultNoFilter.code === 0) {
-                                const roomListNoFilter = roomResultNoFilter.data?.list || [];
-                                console.log(`Received ${roomListNoFilter.length} records without filtering`);
-                                if (roomListNoFilter.length > 0) {
-                                    console.log('Sample room data (no filter):', JSON.stringify(roomListNoFilter[0], null, 2));
-                                    // Filter to only include our campaigns
-                                    livestreamRoomData = roomListNoFilter.filter((item: any) => {
-                                        const roomCampaignId = String(item.dimensions?.campaign_id || '');
-                                        return campaignIdSet.has(roomCampaignId);
-                                    });
-                                    console.log(`Filtered to ${livestreamRoomData.length} records matching campaigns (no filter approach)`);
-                                }
-                            } else {
-                                console.error('Error fetching livestream room data without filter:', roomResultNoFilter);
-                            }
-                        }
-                    } else {
-                        console.error('Error fetching livestream room data:', roomResult);
-                    }
-                } catch (error) {
-                    console.error('Error fetching livestream room data for live sessions:', error);
-                    // Continue without room data if it fails
-                }
-            }
-        }
+        // Room data is no longer fetched here - it's fetched per campaign when user expands a campaign
 
         const url = `${BASE_URL}/open_api/${API_VERSION}/gmv_max/report/get/?${queryParams.toString()}`;
 
@@ -372,84 +247,8 @@ export async function GET(request: Request) {
         const campaignsArray = Object.values(campaignBreakdown).map((data) => {
             const accountName = extractAccountName(data.campaignName);
             
-            // For LIVE GMV MAX, attach livestream room data (live sessions) to each campaign
-            let liveSessions: any[] = [];
-            if (promotionType === 'LIVE_GMV_MAX' && livestreamRoomData.length > 0) {
-                // Group by room_id to get individual livestream sessions
-                const roomMap = new Map<string, {
-                    roomId: string;
-                    liveName: string;
-                    liveStatus: string;
-                    liveDuration: string;
-                    launchedTime: string;
-                    cost: number;
-                    gmv: number;
-                    orders: number;
-                }>();
-
-                // Convert campaign ID to string for comparison
-                const campaignIdStr = String(data.campaignId);
-                const campaignRooms = livestreamRoomData.filter((item: any) => {
-                    const itemCampaignId = String(item.dimensions?.campaign_id || '');
-                    return itemCampaignId === campaignIdStr;
-                });
-                
-                console.log(`Campaign ${data.campaignId} (${data.campaignName}): Found ${campaignRooms.length} room records`);
-                
-                campaignRooms.forEach((item: any) => {
-                        const roomId = item.dimensions.room_id;
-                        // Use stat_time_day as the date (we don't have live_launched_time metric available)
-                        const launchedTime = item.dimensions.stat_time_day || '';
-                        const cost = parseFloat(item.metrics.cost || '0');
-                        const gmv = parseFloat(item.metrics.gross_revenue || '0');
-                        const orders = parseInt(item.metrics.orders || '0', 10);
-                        // These metrics are not available in the API response
-                        const liveName = `Room ${roomId}`;
-                        const liveStatus = 'N/A';
-                        const liveDuration = 'N/A';
-
-                        if (!roomMap.has(roomId)) {
-                            roomMap.set(roomId, {
-                                roomId: roomId,
-                                liveName: liveName,
-                                liveStatus: liveStatus,
-                                liveDuration: liveDuration,
-                                launchedTime: launchedTime,
-                                cost: 0,
-                                gmv: 0,
-                                orders: 0
-                            });
-                        }
-
-                        const room = roomMap.get(roomId)!;
-                        // If multiple entries for same room, keep the earliest date
-                        if (launchedTime && (!room.launchedTime || new Date(launchedTime) < new Date(room.launchedTime))) {
-                            room.launchedTime = launchedTime;
-                        }
-                        room.cost += cost;
-                        room.gmv += gmv;
-                        room.orders += orders;
-                    });
-
-                liveSessions = Array.from(roomMap.values())
-                    .map(room => ({
-                        roomId: room.roomId,
-                        liveName: room.liveName,
-                        liveStatus: room.liveStatus,
-                        liveDuration: room.liveDuration,
-                        launchedTime: room.launchedTime,
-                        cost: room.cost,
-                        gmv: room.gmv,
-                        orders: room.orders,
-                        roi: room.cost > 0 ? room.gmv / room.cost : 0
-                    }))
-                    .sort((a, b) => {
-                        // Sort by launched time descending (most recent first)
-                        const timeA = a.launchedTime ? new Date(a.launchedTime).getTime() : 0;
-                        const timeB = b.launchedTime ? new Date(b.launchedTime).getTime() : 0;
-                        return timeB - timeA;
-                    });
-            }
+            // Note: Live session data is now fetched on-demand via /api/tiktok/gmv-max/rooms
+            // when user expands a campaign. No liveSessions are included in this response.
             
             return {
                 campaignId: data.campaignId,
@@ -458,8 +257,7 @@ export async function GET(request: Request) {
                 cost: data.cost,
                 gmv: data.gmv,
                 orders: data.orders,
-                roi: data.cost > 0 ? data.gmv / data.cost : 0,
-                liveSessions: liveSessions // Only populated for LIVE_GMV_MAX
+                roi: data.cost > 0 ? data.gmv / data.cost : 0
             };
         }).sort((a, b) => {
             // First sort by account name, then by GMV descending
