@@ -64,20 +64,52 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: `Invalid shop number: ${shopNumber}. Valid options: 1, 2, 3, 4` }, { status: 400 });
     }
 
-    // Default to today if not provided
-    const now = new Date();
-    const start = startDate ? new Date(startDate) : new Date(now.setHours(0, 0, 0, 0));
-    const end = endDate ? new Date(endDate) : new Date(now.setHours(23, 59, 59, 999));
+    // Helper function to convert YYYY-MM-DD to GMT+8 date
+    // Creates a Date object representing the specified date/time in GMT+8
+    const parseDateGMT8 = (dateStr: string, hour: number, minute: number, second: number, millisecond: number): Date => {
+        // Parse the date string (YYYY-MM-DD)
+        const [year, month, day] = dateStr.split('-').map(Number);
+        
+        // Create an ISO string representing the time in GMT+8
+        // Format: YYYY-MM-DDTHH:mm:ss.sss+08:00
+        const isoString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}.${String(millisecond).padStart(3, '0')}+08:00`;
+        
+        // Parse as GMT+8 and convert to Date object
+        // The Date object will store it as UTC internally
+        return new Date(isoString);
+    };
 
-    // Ensure start date is at 00:00:00
-    start.setHours(0, 0, 0, 0);
-
-    // Ensure end date is at 23:59:59
-    end.setHours(23, 59, 59, 999);
+    // Default to today in GMT+8 if not provided
+    let start: Date;
+    let end: Date;
+    
+    if (startDate && endDate) {
+        // Parse dates in GMT+8 timezone
+        // Start: 00:00:00 GMT+8
+        start = parseDateGMT8(startDate, 0, 0, 0, 0);
+        // End: 23:59:59.999 GMT+8
+        end = parseDateGMT8(endDate, 23, 59, 59, 999);
+    } else {
+        // Default to today in GMT+8
+        const now = new Date();
+        const todayGMT8 = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur" }));
+        const year = todayGMT8.getFullYear();
+        const month = String(todayGMT8.getMonth() + 1).padStart(2, '0');
+        const day = String(todayGMT8.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+        
+        start = parseDateGMT8(todayStr, 0, 0, 0, 0);
+        end = parseDateGMT8(todayStr, 23, 59, 59, 999);
+    }
 
     // Convert to Unix Timestamp (Seconds)
     const startTime = Math.floor(start.getTime() / 1000);
     const endTime = Math.floor(end.getTime() / 1000);
+    
+    // Debug logging to verify GMT+8 conversion
+    console.log(`Date Range GMT+8 (Ikram):`);
+    console.log(`  Start: ${startDate} 00:00:00 GMT+8 = ${start.toISOString()} UTC (timestamp: ${startTime})`);
+    console.log(`  End: ${endDate} 23:59:59 GMT+8 = ${end.toISOString()} UTC (timestamp: ${endTime})`);
 
     // Get shop configuration
     const shopConfig = SHOPS[shopKey];
