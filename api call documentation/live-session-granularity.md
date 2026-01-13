@@ -38,8 +38,9 @@ The API makes two requests for LIVE GMV MAX campaigns:
    - Used for account and campaign breakdowns
 
 2. **Livestream room data** (session-level):
-   - Dimensions: `['campaign_id', 'room_id']`
-   - Metrics: `['cost', 'orders', 'gross_revenue', 'roi', 'live_name', 'live_status', 'live_launched_time', 'live_duration']`
+   - Dimensions: `['campaign_id', 'room_id', 'stat_time_day']`
+   - Metrics: `['live_name', 'live_status', 'live_launched_time', 'live_duration', 'cost', 'net_cost', 'orders', 'cost_per_order', 'gross_revenue', 'roi', 'live_views', 'cost_per_live_view', '10_second_live_views', 'cost_per_10_second_live_view', 'live_follows']`
+   - Filtering: Uses `filtering={"campaign_ids": [...]}` to filter by specific campaigns
    - Used for live session granularity
 
 ### Response Structure
@@ -151,7 +152,7 @@ According to [TikTok GMV Max API Documentation](https://business-api.tiktok.com/
 - `["campaign_id","room_id","stat_time_day"]`
 - `["campaign_id","room_id","stat_time_hour"]`
 
-**Current Implementation:** Uses `["campaign_id","room_id"]` to get unique livestream sessions per campaign.
+**Current Implementation:** Uses `["campaign_id","room_id","stat_time_day"]` with `filtering={"campaign_ids": [...]}` to get unique livestream sessions per campaign. This allows matching rooms to campaigns while grouping by room_id and date.
 
 ### Available Metrics
 
@@ -199,6 +200,20 @@ The following livestream-level metrics are available:
 ### Status Not Displaying
 - Status field may be empty for older livestreams
 - Only shows ONGOING or END status when available
+
+## API Request Example
+
+```bash
+curl --location --request GET \
+  'https://business-api.tiktok.com/open_api/v1.3/gmv_max/report/get/?advertiser_id={{advertiser_id}}&store_ids=["{{store_id}}"]&start_date={{start_date}}&end_date={{end_date}}&dimensions=["campaign_id","room_id","stat_time_day"]&metrics=["live_name", "live_status", "live_launched_time", "live_duration", "cost", "net_cost", "orders", "cost_per_order", "gross_revenue", "roi", "live_views", "cost_per_live_view", "10_second_live_views", "cost_per_10_second_live_view", "live_follows"]&filtering={"campaign_ids":["{{campaign_id}}"]}&page_size=1000&page=1' \
+  --header 'Access-Token: {{Access-Token}}'
+```
+
+### Key Parameters:
+- **dimensions**: `["campaign_id", "room_id", "stat_time_day"]` - Groups data by campaign, room, and day
+- **filtering**: `{"campaign_ids": [...]}` - Filters results to specific campaigns
+- **metrics**: Includes all livestream-specific metrics plus standard performance metrics
+- **page_size**: 1000 (maximum allowed)
 
 ## Related Documentation
 

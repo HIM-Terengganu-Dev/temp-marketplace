@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { format } from "date-fns";
 import { Calendar, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -720,9 +720,8 @@ export default function DebugTableIkramPage() {
                                                                             };
                                                                             
                                                                             return (
-                                                                                <>
+                                                                                <React.Fragment key={campIdx}>
                                                                                     <tr 
-                                                                                        key={campIdx} 
                                                                                         className={`hover:bg-muted/30 ${hasLiveSessions ? 'cursor-pointer select-none' : ''}`}
                                                                                         onClick={handleCampaignClick}
                                                                                         style={hasLiveSessions ? { userSelect: 'none' } : {}}
@@ -753,7 +752,7 @@ export default function DebugTableIkramPage() {
                                                                                         </td>
                                                                                     </tr>
                                                                                     {isCampaignExpanded && hasLiveSessions && (
-                                                                                        <tr key={`${campIdx}-sessions`}>
+                                                                                        <tr>
                                                                                             <td colSpan={6} className="p-0 bg-muted/10">
                                                                                                 <div className="p-3">
                                                                                                     <h4 className="text-xs font-semibold mb-2 text-muted-foreground">
@@ -817,7 +816,7 @@ export default function DebugTableIkramPage() {
                                                                                             </td>
                                                                                         </tr>
                                                                                     )}
-                                                                                </>
+                                                                                </React.Fragment>
                                                                             );
                                                                         })}
                                                                     </tbody>
