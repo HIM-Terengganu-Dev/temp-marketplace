@@ -99,7 +99,7 @@ export default function DebugTablePage() {
         const headers = ['Order ID', 'Date', 'Status', 'GMV (RM)', 'Items', 'Included in Total', 'Buyer User ID'];
         
         // CSV Rows
-        const rows = data.orders.map((order: any) => {
+        const rows: (string | number)[][] = data.orders.map((order: any) => {
             const date = order.createTime 
                 ? format(new Date(order.createTime * 1000), 'yyyy-MM-dd HH:mm:ss')
                 : 'N/A';
@@ -125,7 +125,7 @@ export default function DebugTablePage() {
         // Combine headers and rows
         const csvContent = [
             headers.join(','),
-            ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+            ...rows.map((row: (string | number)[]) => row.map((cell: string | number) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
         ].join('\n');
 
         // Create blob and download
