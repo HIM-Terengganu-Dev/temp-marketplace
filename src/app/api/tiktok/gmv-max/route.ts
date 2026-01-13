@@ -209,10 +209,25 @@ export async function GET(request: Request) {
                     if (roomResult.code === 0) {
                         const roomList = roomResult.data?.list || [];
                         console.log(`Received ${roomList.length} livestream room records`);
+                        
+                        // Debug: Log sample room data structure
+                        if (roomList.length > 0) {
+                            console.log('Sample room data:', JSON.stringify(roomList[0], null, 2));
+                            console.log('Campaign IDs in campaigns Map:', Array.from(campaigns.keys()));
+                            console.log('Sample room campaign_id:', roomList[0]?.dimensions?.campaign_id, 'Type:', typeof roomList[0]?.dimensions?.campaign_id);
+                        }
+                        
                         // Filter to only include campaigns of the correct type (double-check)
-                        livestreamRoomData = roomList.filter((item: any) =>
-                            campaigns.has(item.dimensions.campaign_id)
-                        );
+                        // Convert campaign IDs to strings for comparison since API might return strings
+                        const campaignIdSet = new Set(Array.from(campaigns.keys()).map(id => String(id)));
+                        livestreamRoomData = roomList.filter((item: any) => {
+                            const roomCampaignId = String(item.dimensions?.campaign_id || '');
+                            const matches = campaignIdSet.has(roomCampaignId);
+                            if (!matches && roomList.length > 0) {
+                                console.log(`Room campaign_id ${roomCampaignId} (${typeof item.dimensions?.campaign_id}) not found in campaigns set`);
+                            }
+                            return matches;
+                        });
                         console.log(`Filtered to ${livestreamRoomData.length} records matching campaigns`);
                     } else {
                         console.error('Error fetching livestream room data:', roomResult);
@@ -331,9 +346,16 @@ export async function GET(request: Request) {
                     orders: number;
                 }>();
 
-                livestreamRoomData
-                    .filter((item: any) => item.dimensions.campaign_id === data.campaignId)
-                    .forEach((item: any) => {
+                // Convert campaign ID to string for comparison
+                const campaignIdStr = String(data.campaignId);
+                const campaignRooms = livestreamRoomData.filter((item: any) => {
+                    const itemCampaignId = String(item.dimensions?.campaign_id || '');
+                    return itemCampaignId === campaignIdStr;
+                });
+                
+                console.log(`Campaign ${data.campaignId} (${data.campaignName}): Found ${campaignRooms.length} room records`);
+                
+                campaignRooms.forEach((item: any) => {
                         const roomId = item.dimensions.room_id;
                         // Use live_launched_time from metrics (this is the actual launched time)
                         const launchedTime = item.metrics.live_launched_time || item.dimensions.stat_time_day;
