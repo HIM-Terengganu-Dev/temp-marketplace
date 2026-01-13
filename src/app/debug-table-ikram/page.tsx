@@ -226,6 +226,28 @@ export default function DebugTableIkramPage() {
                 throw new Error(err.error || 'Failed to fetch');
             }
             const result = await res.json();
+            
+            // Debug logging for LIVE GMV MAX to see campaign and liveSessions data
+            if (selectedMetric === 'live_gmv_max') {
+                console.log('=== LIVE GMV MAX API Response ===');
+                console.log('Total campaigns:', result.campaigns?.length || 0);
+                console.log('Campaigns data:', result.campaigns);
+                
+                if (result.campaigns && result.campaigns.length > 0) {
+                    result.campaigns.forEach((campaign: any, idx: number) => {
+                        console.log(`Campaign ${idx + 1}:`, {
+                            campaignId: campaign.campaignId,
+                            campaignName: campaign.campaignName,
+                            cost: campaign.cost,
+                            gmv: campaign.gmv,
+                            liveSessionsLength: campaign.liveSessions?.length || 0,
+                            liveSessions: campaign.liveSessions
+                        });
+                    });
+                }
+                console.log('=== End LIVE GMV MAX Response ===');
+            }
+            
             setData(result);
         } catch (e: any) {
             setError(e.message);
