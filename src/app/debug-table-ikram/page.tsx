@@ -47,6 +47,12 @@ export default function DebugTableIkramPage() {
     
     // Track expanded campaigns for live session view (LIVE GMV MAX only)
     const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
+    
+    // Store live sessions data for each campaign (fetched on-demand)
+    const [campaignLiveSessions, setCampaignLiveSessions] = useState<Record<string, any[]>>({});
+    
+    // Track loading state for live sessions
+    const [loadingLiveSessions, setLoadingLiveSessions] = useState<Set<string>>(new Set());
 
     // Function to jump to yesterday
     const jumpToYesterday = () => {
@@ -56,6 +62,7 @@ export default function DebugTableIkramPage() {
         setData(null); // Clear data when date changes
         setExpandedAccounts(new Set()); // Clear expanded accounts
         setExpandedCampaigns(new Set()); // Clear expanded campaigns
+        setCampaignLiveSessions({}); // Clear live sessions data
     };
 
     // Toggle account expansion for campaign details
@@ -72,7 +79,9 @@ export default function DebugTableIkramPage() {
     };
 
     // Toggle campaign expansion for live session details (LIVE GMV MAX only)
-    const toggleCampaignExpansion = (campaignId: string) => {
+    const toggleCampaignExpansion = async (campaignId: string) => {
+        const isCurrentlyExpanded = expandedCampaigns.has(campaignId);
+        
         setExpandedCampaigns(prev => {
             const newSet = new Set(prev);
             if (newSet.has(campaignId)) {
@@ -82,6 +91,40 @@ export default function DebugTableIkramPage() {
             }
             return newSet;
         });
+        
+        // If expanding and we don't have live sessions data yet, fetch it
+        if (!isCurrentlyExpanded && !campaignLiveSessions[campaignId]) {
+            setLoadingLiveSessions(prev => new Set(prev).add(campaignId));
+            
+            try {
+                const res = await fetch(
+                    `/api/tiktok/gmv-max/rooms?startDate=${startDate}&endDate=${endDate}&campaignId=${campaignId}&shopNumber=${selectedShop}`
+                );
+                
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Failed to fetch live sessions');
+                }
+                
+                const result = await res.json();
+                setCampaignLiveSessions(prev => ({
+                    ...prev,
+                    [campaignId]: result.liveSessions || []
+                }));
+            } catch (error: any) {
+                console.error('Error fetching live sessions:', error);
+                setCampaignLiveSessions(prev => ({
+                    ...prev,
+                    [campaignId]: []
+                }));
+            } finally {
+                setLoadingLiveSessions(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(campaignId);
+                    return newSet;
+                });
+            }
+        }
     };
 
     const METRICS = [
@@ -226,28 +269,6 @@ export default function DebugTableIkramPage() {
                 throw new Error(err.error || 'Failed to fetch');
             }
             const result = await res.json();
-            
-            // Debug logging for LIVE GMV MAX to see campaign and liveSessions data
-            if (selectedMetric === 'live_gmv_max') {
-                console.log('=== LIVE GMV MAX API Response ===');
-                console.log('Total campaigns:', result.campaigns?.length || 0);
-                console.log('Campaigns data:', result.campaigns);
-                
-                if (result.campaigns && result.campaigns.length > 0) {
-                    result.campaigns.forEach((campaign: any, idx: number) => {
-                        console.log(`Campaign ${idx + 1}:`, {
-                            campaignId: campaign.campaignId,
-                            campaignName: campaign.campaignName,
-                            cost: campaign.cost,
-                            gmv: campaign.gmv,
-                            liveSessionsLength: campaign.liveSessions?.length || 0,
-                            liveSessions: campaign.liveSessions
-                        });
-                    });
-                }
-                console.log('=== End LIVE GMV MAX Response ===');
-            }
-            
             setData(result);
         } catch (e: any) {
             setError(e.message);
@@ -728,23 +749,16 @@ export default function DebugTableIkramPage() {
                                                                     <tbody>
                                                                         {accountCampaigns.map((campaign: any, campIdx: number) => {
                                                                             const isCampaignExpanded = expandedCampaigns.has(campaign.campaignId);
-                                                                            const hasLiveSessions = selectedMetric === 'live_gmv_max' && campaign.liveSessions && campaign.liveSessions.length > 0;
+                                                                            const liveSessions = campaignLiveSessions[campaign.campaignId] || [];
+                                                                            const isLoadingSessions = loadingLiveSessions.has(campaign.campaignId);
+                                                                            const hasLiveSessions = selectedMetric === 'live_gmv_max';
                                                                             
-                                                                            const handleCampaignClick = (e: React.MouseEvent<HTMLTableRowElement>) => {
+                                                                            const handleCampaignClick = async (e: React.MouseEvent<HTMLTableRowElement>) => {
                                                                                 e.preventDefault();
                                                                                 e.stopPropagation();
-                                                                                console.log('Campaign row clicked:', {
-                                                                                    campaignId: campaign.campaignId,
-                                                                                    campaignName: campaign.campaignName,
-                                                                                    hasLiveSessions,
-                                                                                    liveSessionsLength: campaign.liveSessions?.length || 0,
-                                                                                    selectedMetric,
-                                                                                    liveSessions: campaign.liveSessions
-                                                                                });
                                                                                 
                                                                                 if (selectedMetric === 'live_gmv_max' && campaign.campaignId) {
-                                                                                    toggleCampaignExpansion(campaign.campaignId);
-                                                                                    console.log('Toggled campaign expansion. New state:', expandedCampaigns.has(campaign.campaignId));
+                                                                                    await toggleCampaignExpansion(campaign.campaignId);
                                                                                 }
                                                                             };
                                                                             
@@ -785,9 +799,13 @@ export default function DebugTableIkramPage() {
                                                                                             <td colSpan={6} className="p-0 bg-muted/10">
                                                                                                 <div className="p-3">
                                                                                                     <h4 className="text-xs font-semibold mb-2 text-muted-foreground">
-                                                                                                        Live Sessions (Livestream Rooms) for {campaign.campaignName} ({campaign.liveSessions?.length || 0})
+                                                                                                        Live Sessions (Livestream Rooms) for {campaign.campaignName} ({liveSessions.length})
                                                                                                     </h4>
-                                                                                                    {campaign.liveSessions && campaign.liveSessions.length > 0 ? (
+                                                                                                    {isLoadingSessions ? (
+                                                                                                        <div className="p-4 text-center text-sm text-muted-foreground">
+                                                                                                            Loading live sessions...
+                                                                                                        </div>
+                                                                                                    ) : liveSessions.length > 0 ? (
                                                                                                         <div className="border rounded overflow-hidden bg-background">
                                                                                                             <table className="w-full text-[10px]">
                                                                                                                 <thead className="bg-muted/30">
@@ -804,7 +822,7 @@ export default function DebugTableIkramPage() {
                                                                                                                     </tr>
                                                                                                                 </thead>
                                                                                                                 <tbody>
-                                                                                                                    {campaign.liveSessions.map((session: any, sessIdx: number) => (
+                                                                                                                    {liveSessions.map((session: any, sessIdx: number) => (
                                                                                                                     <tr key={sessIdx} className="hover:bg-muted/20">
                                                                                                                         <td className="p-1.5 border-b text-[10px]">
                                                                                                                             {session.liveName || 'N/A'}

@@ -45,6 +45,7 @@ The API makes two requests for LIVE GMV MAX campaigns:
 
 ### Response Structure
 
+#### Campaign-Level Response (`/api/tiktok/gmv-max`)
 ```json
 {
   "campaigns": [
@@ -55,20 +56,28 @@ The API makes two requests for LIVE GMV MAX campaigns:
       "cost": 1000.00,
       "gmv": 5000.00,
       "orders": 50,
-      "roi": 5.00,
-      "liveSessions": [
-        {
-          "roomId": "room_123",
-          "liveName": "Live Stream Name",
-          "liveStatus": "END",
-          "liveDuration": "2h 30m",
-          "launchedTime": "2025-01-13 14:00:00",
-          "cost": 200.00,
-          "gmv": 1000.00,
-          "orders": 10,
-          "roi": 5.00
-        }
-      ]
+      "roi": 5.00
+      // Note: liveSessions is NOT included here
+    }
+  ]
+}
+```
+
+#### Live Sessions Response (`/api/tiktok/gmv-max/rooms`)
+```json
+{
+  "campaignId": "123456789",
+  "liveSessions": [
+    {
+      "roomId": "room_123",
+      "liveName": "Live Stream Name",
+      "liveStatus": "END",
+      "liveDuration": "2h 30m",
+      "launchedTime": "2025-01-13 14:00:00",
+      "cost": 200.00,
+      "gmv": 1000.00,
+      "orders": 10,
+      "roi": 5.00
     }
   ]
 }
@@ -132,12 +141,22 @@ The API makes two requests for LIVE GMV MAX campaigns:
 
 5. **View Campaign Breakdown**
    - Campaigns for the selected account are shown
-   - Click on a campaign row to expand and see live sessions
+   - Click on a campaign row to expand and fetch live sessions
+   - **Note:** Live session data is fetched on-demand when you click a campaign
 
 6. **View Live Sessions**
-   - Individual livestream rooms are displayed
+   - When you click a campaign, it will:
+     - Show "Loading live sessions..." while fetching
+     - Fetch room data from `/api/tiktok/gmv-max/rooms` endpoint
+     - Display individual livestream rooms
    - Each row represents one livestream session
-   - Shows detailed metrics for that specific session
+   - Shows detailed metrics including:
+     - Live Name (from API)
+     - Room ID
+     - Launched Time (from `live_launched_time` metric)
+     - Status (ONGOING/END)
+     - Duration
+     - Cost, GMV, Orders, ROI
 
 ## Technical Details
 
@@ -152,7 +171,9 @@ According to [TikTok GMV Max API Documentation](https://business-api.tiktok.com/
 - `["campaign_id","room_id","stat_time_day"]`
 - `["campaign_id","room_id","stat_time_hour"]`
 
-**Current Implementation:** Uses `["campaign_id","room_id","stat_time_day"]` with `filtering={"campaign_ids": [...]}` to get unique livestream sessions per campaign. This allows matching rooms to campaigns while grouping by room_id and date.
+**Current Implementation:** 
+- **Campaign-level data:** Uses `["stat_time_day", "campaign_id"]` dimensions
+- **Live session data (on-demand):** Uses `["room_id", "stat_time_day"]` dimensions with `filtering={"campaign_ids": [campaignId]}` to fetch data for a single campaign when expanded. This approach ensures we get all the livestream-specific metrics (`live_name`, `live_status`, `live_launched_time`, `live_duration`) which are only available when filtering by a specific campaign.
 
 ### Available Metrics
 
@@ -173,7 +194,9 @@ The following livestream-level metrics are available:
 
 - `expandedAccounts`: Tracks which accounts are expanded
 - `expandedCampaigns`: Tracks which campaigns are expanded (for live sessions)
-- Both states are cleared when:
+- `campaignLiveSessions`: Stores fetched live session data per campaign (fetched on-demand)
+- `loadingLiveSessions`: Tracks which campaigns are currently loading live session data
+- All states are cleared when:
   - Metric changes
   - Date range changes
   - "Yesterday" button is clicked
@@ -201,19 +224,30 @@ The following livestream-level metrics are available:
 - Status field may be empty for older livestreams
 - Only shows ONGOING or END status when available
 
-## API Request Example
+## API Request Examples
 
+### Campaign-Level Data Request
 ```bash
 curl --location --request GET \
-  'https://business-api.tiktok.com/open_api/v1.3/gmv_max/report/get/?advertiser_id={{advertiser_id}}&store_ids=["{{store_id}}"]&start_date={{start_date}}&end_date={{end_date}}&dimensions=["campaign_id","room_id","stat_time_day"]&metrics=["live_name", "live_status", "live_launched_time", "live_duration", "cost", "net_cost", "orders", "cost_per_order", "gross_revenue", "roi", "live_views", "cost_per_live_view", "10_second_live_views", "cost_per_10_second_live_view", "live_follows"]&filtering={"campaign_ids":["{{campaign_id}}"]}&page_size=1000&page=1' \
+  'https://business-api.tiktok.com/open_api/v1.3/gmv_max/report/get/?advertiser_id={{advertiser_id}}&store_ids=["{{store_id}}"]&start_date={{start_date}}&end_date={{end_date}}&dimensions=["stat_time_day","campaign_id"]&metrics=["cost", "orders", "gross_revenue", "roi", "cost_per_order", "net_cost"]&gmv_max_promotion_type=LIVE_GMV_MAX&page_size=1000' \
   --header 'Access-Token: {{Access-Token}}'
 ```
 
-### Key Parameters:
-- **dimensions**: `["campaign_id", "room_id", "stat_time_day"]` - Groups data by campaign, room, and day
-- **filtering**: `{"campaign_ids": [...]}` - Filters results to specific campaigns
-- **metrics**: Includes all livestream-specific metrics plus standard performance metrics
+### Live Session Data Request (On-Demand)
+```bash
+curl --location --request GET \
+  'https://business-api.tiktok.com/open_api/v1.3/gmv_max/report/get/?advertiser_id={{advertiser_id}}&store_ids=["{{store_id}}"]&start_date={{start_date}}&end_date={{end_date}}&dimensions=["room_id","stat_time_day"]&metrics=["live_name", "live_status", "live_launched_time", "live_duration", "cost", "net_cost", "orders", "cost_per_order", "gross_revenue", "roi", "live_views", "cost_per_live_view", "10_second_live_views", "cost_per_10_second_live_view", "live_follows"]&filtering={"campaign_ids":["{{campaign_id}}"]}&gmv_max_promotion_type=LIVE_GMV_MAX&page_size=1000&page=1' \
+  --header 'Access-Token: {{Access-Token}}'
+```
+
+### Key Parameters for Live Sessions:
+- **dimensions**: `["room_id", "stat_time_day"]` - Groups data by room and day (campaign_id not needed in dimensions when using filtering)
+- **filtering**: `{"campaign_ids": ["{{campaign_id}}"]}` - **Must filter by a single campaign ID** to get livestream-specific metrics
+- **metrics**: Includes all livestream-specific metrics (`live_name`, `live_status`, `live_launched_time`, `live_duration`) plus standard performance metrics
+- **gmv_max_promotion_type**: `LIVE_GMV_MAX` - Required to specify promotion type
 - **page_size**: 1000 (maximum allowed)
+
+**Important:** The livestream-specific metrics (`live_name`, `live_status`, `live_launched_time`, `live_duration`) are only available when filtering by a single campaign ID. Filtering by multiple campaigns will result in an API error.
 
 ## Related Documentation
 
@@ -223,7 +257,8 @@ curl --location --request GET \
 
 ## Code References
 
-- **API Route**: `src/app/api/tiktok/gmv-max/route.ts`
+- **Campaign-Level API Route**: `src/app/api/tiktok/gmv-max/route.ts`
+- **Live Sessions API Route**: `src/app/api/tiktok/gmv-max/rooms/route.ts`
 - **UI Component**: `src/app/debug-table-ikram/page.tsx`
-- **State Management**: React useState hooks for expansion tracking
+- **State Management**: React useState hooks for expansion tracking and on-demand data fetching
 

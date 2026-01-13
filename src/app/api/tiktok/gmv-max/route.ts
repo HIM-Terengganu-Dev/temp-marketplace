@@ -151,9 +151,10 @@ export async function GET(request: Request) {
             page_size: '1000'
         });
 
-        // For LIVE GMV MAX, also fetch livestream room data for live session granularity
+        // Note: Live session (room) data is now fetched on-demand when campaigns are expanded
+        // See /api/tiktok/gmv-max/rooms route
         let livestreamRoomData: any[] = [];
-        if (promotionType === 'LIVE_GMV_MAX') {
+        if (false && promotionType === 'LIVE_GMV_MAX') {
             // Fetch room data using filtering with campaign_ids
             // Use campaign_id, room_id, and stat_time_day dimensions to match rooms to campaigns
             const campaignIds = Array.from(campaigns.keys());
@@ -170,21 +171,12 @@ export async function GET(request: Request) {
                     gmv_max_promotion_type: promotionType,
                     dimensions: JSON.stringify(['campaign_id', 'room_id', 'stat_time_day']),
                     metrics: JSON.stringify([
-                        'live_name',
-                        'live_status',
-                        'live_launched_time',
-                        'live_duration',
                         'cost',
                         'net_cost',
                         'orders',
                         'cost_per_order',
                         'gross_revenue',
-                        'roi',
-                        'live_views',
-                        'cost_per_live_view',
-                        '10_second_live_views',
-                        'cost_per_10_second_live_view',
-                        'live_follows'
+                        'roi'
                     ]),
                     filtering: JSON.stringify(filtering),
                     start_date: startDate,
@@ -239,21 +231,12 @@ export async function GET(request: Request) {
                                 gmv_max_promotion_type: promotionType,
                                 dimensions: JSON.stringify(['campaign_id', 'room_id', 'stat_time_day']),
                                 metrics: JSON.stringify([
-                                    'live_name',
-                                    'live_status',
-                                    'live_launched_time',
-                                    'live_duration',
                                     'cost',
                                     'net_cost',
                                     'orders',
                                     'cost_per_order',
                                     'gross_revenue',
-                                    'roi',
-                                    'live_views',
-                                    'cost_per_live_view',
-                                    '10_second_live_views',
-                                    'cost_per_10_second_live_view',
-                                    'live_follows'
+                                    'roi'
                                 ]),
                                 start_date: startDate,
                                 end_date: endDate,
@@ -415,14 +398,15 @@ export async function GET(request: Request) {
                 
                 campaignRooms.forEach((item: any) => {
                         const roomId = item.dimensions.room_id;
-                        // Use live_launched_time from metrics (this is the actual launched time)
-                        const launchedTime = item.metrics.live_launched_time || item.dimensions.stat_time_day;
+                        // Use stat_time_day as the date (we don't have live_launched_time metric available)
+                        const launchedTime = item.dimensions.stat_time_day || '';
                         const cost = parseFloat(item.metrics.cost || '0');
                         const gmv = parseFloat(item.metrics.gross_revenue || '0');
                         const orders = parseInt(item.metrics.orders || '0', 10);
-                        const liveName = item.metrics.live_name || '';
-                        const liveStatus = item.metrics.live_status || '';
-                        const liveDuration = item.metrics.live_duration || '';
+                        // These metrics are not available in the API response
+                        const liveName = `Room ${roomId}`;
+                        const liveStatus = 'N/A';
+                        const liveDuration = 'N/A';
 
                         if (!roomMap.has(roomId)) {
                             roomMap.set(roomId, {
@@ -438,13 +422,9 @@ export async function GET(request: Request) {
                         }
 
                         const room = roomMap.get(roomId)!;
-                        // If multiple entries for same room, keep the earliest launched time
+                        // If multiple entries for same room, keep the earliest date
                         if (launchedTime && (!room.launchedTime || new Date(launchedTime) < new Date(room.launchedTime))) {
                             room.launchedTime = launchedTime;
-                            // Update other fields if they're not set
-                            if (!room.liveName && liveName) room.liveName = liveName;
-                            if (!room.liveStatus && liveStatus) room.liveStatus = liveStatus;
-                            if (!room.liveDuration && liveDuration) room.liveDuration = liveDuration;
                         }
                         room.cost += cost;
                         room.gmv += gmv;
