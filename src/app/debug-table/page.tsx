@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function DebugTablePage() {
@@ -193,21 +194,27 @@ export default function DebugTablePage() {
                 </div>
                 <div>
                     <label className="block text-sm font-medium mb-1">Start Date</label>
-                    <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="border rounded p-2 bg-background"
-                    />
+                    <div className="relative">
+                        <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="border rounded p-2 bg-background pl-8 w-full"
+                        />
+                    </div>
                 </div>
                 <div>
                     <label className="block text-sm font-medium mb-1">End Date</label>
-                    <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="border rounded p-2 bg-background"
-                    />
+                    <div className="relative">
+                        <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="border rounded p-2 bg-background pl-8 w-full"
+                        />
+                    </div>
                 </div>
                 <Button onClick={fetchData} disabled={loading}>
                     {loading ? 'Fetching...' : 'Fetch Data'}
