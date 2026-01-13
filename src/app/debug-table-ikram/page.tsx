@@ -742,13 +742,17 @@ export default function DebugTableIkramPage() {
                                                                                             <td colSpan={6} className="p-0 bg-muted/10">
                                                                                                 <div className="p-3">
                                                                                                     <h4 className="text-xs font-semibold mb-2 text-muted-foreground">
-                                                                                                        Live Sessions for {campaign.campaignName} ({campaign.liveSessions.length})
+                                                                                                        Live Sessions (Livestream Rooms) for {campaign.campaignName} ({campaign.liveSessions.length})
                                                                                                     </h4>
                                                                                                     <div className="border rounded overflow-hidden bg-background">
                                                                                                         <table className="w-full text-[10px]">
                                                                                                             <thead className="bg-muted/30">
                                                                                                                 <tr>
-                                                                                                                    <th className="p-1.5 border-b text-left">Session Time</th>
+                                                                                                                    <th className="p-1.5 border-b text-left">Live Name</th>
+                                                                                                                    <th className="p-1.5 border-b text-left">Room ID</th>
+                                                                                                                    <th className="p-1.5 border-b text-left">Launched Time</th>
+                                                                                                                    <th className="p-1.5 border-b text-left">Status</th>
+                                                                                                                    <th className="p-1.5 border-b text-left">Duration</th>
                                                                                                                     <th className="p-1.5 border-b text-right">Cost</th>
                                                                                                                     <th className="p-1.5 border-b text-right">GMV</th>
                                                                                                                     <th className="p-1.5 border-b text-right">Orders</th>
@@ -758,8 +762,26 @@ export default function DebugTableIkramPage() {
                                                                                                             <tbody>
                                                                                                                 {campaign.liveSessions.map((session: any, sessIdx: number) => (
                                                                                                                     <tr key={sessIdx} className="hover:bg-muted/20">
+                                                                                                                        <td className="p-1.5 border-b text-[10px]">
+                                                                                                                            {session.liveName || 'N/A'}
+                                                                                                                        </td>
                                                                                                                         <td className="p-1.5 border-b font-mono text-[10px]">
-                                                                                                                            {session.sessionTime ? format(new Date(session.sessionTime), 'yyyy-MM-dd HH:mm') : 'N/A'}
+                                                                                                                            {session.roomId || 'N/A'}
+                                                                                                                        </td>
+                                                                                                                        <td className="p-1.5 border-b font-mono text-[10px]">
+                                                                                                                            {session.launchedTime ? format(new Date(session.launchedTime), 'yyyy-MM-dd HH:mm:ss') : 'N/A'}
+                                                                                                                        </td>
+                                                                                                                        <td className="p-1.5 border-b text-[10px]">
+                                                                                                                            <span className={`px-1.5 py-0.5 rounded text-[9px] ${
+                                                                                                                                session.liveStatus === 'ONGOING' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                                                                                                                                session.liveStatus === 'END' ? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300' :
+                                                                                                                                'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                                                                                                                            }`}>
+                                                                                                                                {session.liveStatus || 'N/A'}
+                                                                                                                            </span>
+                                                                                                                        </td>
+                                                                                                                        <td className="p-1.5 border-b text-[10px]">
+                                                                                                                            {session.liveDuration || 'N/A'}
                                                                                                                         </td>
                                                                                                                         <td className="p-1.5 border-b font-mono text-right">
                                                                                                                             {session.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}

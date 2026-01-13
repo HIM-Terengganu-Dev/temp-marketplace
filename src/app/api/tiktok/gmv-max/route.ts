@@ -151,24 +151,35 @@ export async function GET(request: Request) {
             page_size: '1000'
         });
 
-        // For LIVE GMV MAX, also fetch hourly data for live session granularity
-        let hourlyData: any[] = [];
+        // For LIVE GMV MAX, also fetch livestream room data for live session granularity
+        let livestreamRoomData: any[] = [];
         if (promotionType === 'LIVE_GMV_MAX') {
-            const hourlyParams = new URLSearchParams({
+            // Use room_id dimension to get individual livestream sessions
+            // Include live_launched_time and other livestream metrics
+            const roomParams = new URLSearchParams({
                 advertiser_id: shopConfig.advertiserId,
                 store_ids: JSON.stringify([shopConfig.shopId]),
                 gmv_max_promotion_type: promotionType,
-                dimensions: JSON.stringify(['stat_time_hour', 'campaign_id']),
-                metrics: JSON.stringify(['cost', 'orders', 'gross_revenue', 'roi']),
+                dimensions: JSON.stringify(['campaign_id', 'room_id']),
+                metrics: JSON.stringify([
+                    'cost', 
+                    'orders', 
+                    'gross_revenue', 
+                    'roi',
+                    'live_name',
+                    'live_status',
+                    'live_launched_time',
+                    'live_duration'
+                ]),
                 start_date: startDate,
                 end_date: endDate,
                 page_size: '1000'
             });
 
-            const hourlyUrl = `${BASE_URL}/open_api/${API_VERSION}/gmv_max/report/get/?${hourlyParams.toString()}`;
+            const roomUrl = `${BASE_URL}/open_api/${API_VERSION}/gmv_max/report/get/?${roomParams.toString()}`;
             
             try {
-                const hourlyResponse = await fetch(hourlyUrl, {
+                const roomResponse = await fetch(roomUrl, {
                     method: 'GET',
                     headers: {
                         'Access-Token': accessToken,
@@ -176,17 +187,19 @@ export async function GET(request: Request) {
                     }
                 });
 
-                const hourlyResult = await hourlyResponse.json();
-                if (hourlyResult.code === 0) {
-                    const hourlyList = hourlyResult.data?.list || [];
+                const roomResult = await roomResponse.json();
+                if (roomResult.code === 0) {
+                    const roomList = roomResult.data?.list || [];
                     // Filter to only include campaigns of the correct type
-                    hourlyData = hourlyList.filter((item: any) =>
+                    livestreamRoomData = roomList.filter((item: any) =>
                         campaigns.has(item.dimensions.campaign_id)
                     );
+                } else {
+                    console.error('Error fetching livestream room data:', roomResult);
                 }
             } catch (error) {
-                console.error('Error fetching hourly data for live sessions:', error);
-                // Continue without hourly data if it fails
+                console.error('Error fetching livestream room data for live sessions:', error);
+                // Continue without room data if it fails
             }
         }
 
@@ -282,26 +295,75 @@ export async function GET(request: Request) {
         const campaignsArray = Object.values(campaignBreakdown).map((data) => {
             const accountName = extractAccountName(data.campaignName);
             
-            // For LIVE GMV MAX, attach hourly data (live sessions) to each campaign
+            // For LIVE GMV MAX, attach livestream room data (live sessions) to each campaign
             let liveSessions: any[] = [];
-            if (promotionType === 'LIVE_GMV_MAX' && hourlyData.length > 0) {
-                liveSessions = hourlyData
+            if (promotionType === 'LIVE_GMV_MAX' && livestreamRoomData.length > 0) {
+                // Group by room_id to get individual livestream sessions
+                const roomMap = new Map<string, {
+                    roomId: string;
+                    launchedTime: string;
+                    cost: number;
+                    gmv: number;
+                    orders: number;
+                }>();
+
+                livestreamRoomData
                     .filter((item: any) => item.dimensions.campaign_id === data.campaignId)
-                    .map((item: any) => {
+                    .forEach((item: any) => {
+                        const roomId = item.dimensions.room_id;
+                        // Use live_launched_time from metrics (this is the actual launched time)
+                        const launchedTime = item.metrics.live_launched_time || item.dimensions.stat_time_day;
                         const cost = parseFloat(item.metrics.cost || '0');
                         const gmv = parseFloat(item.metrics.gross_revenue || '0');
                         const orders = parseInt(item.metrics.orders || '0', 10);
-                        return {
-                            sessionTime: item.dimensions.stat_time_hour,
-                            cost: cost,
-                            gmv: gmv,
-                            orders: orders,
-                            roi: cost > 0 ? gmv / cost : 0
-                        };
-                    })
+                        const liveName = item.metrics.live_name || '';
+                        const liveStatus = item.metrics.live_status || '';
+                        const liveDuration = item.metrics.live_duration || '';
+
+                        if (!roomMap.has(roomId)) {
+                            roomMap.set(roomId, {
+                                roomId: roomId,
+                                liveName: liveName,
+                                liveStatus: liveStatus,
+                                liveDuration: liveDuration,
+                                launchedTime: launchedTime,
+                                cost: 0,
+                                gmv: 0,
+                                orders: 0
+                            });
+                        }
+
+                        const room = roomMap.get(roomId)!;
+                        // If multiple entries for same room, keep the earliest launched time
+                        if (launchedTime && (!room.launchedTime || new Date(launchedTime) < new Date(room.launchedTime))) {
+                            room.launchedTime = launchedTime;
+                            // Update other fields if they're not set
+                            if (!room.liveName && liveName) room.liveName = liveName;
+                            if (!room.liveStatus && liveStatus) room.liveStatus = liveStatus;
+                            if (!room.liveDuration && liveDuration) room.liveDuration = liveDuration;
+                        }
+                        room.cost += cost;
+                        room.gmv += gmv;
+                        room.orders += orders;
+                    });
+
+                liveSessions = Array.from(roomMap.values())
+                    .map(room => ({
+                        roomId: room.roomId,
+                        liveName: room.liveName,
+                        liveStatus: room.liveStatus,
+                        liveDuration: room.liveDuration,
+                        launchedTime: room.launchedTime,
+                        cost: room.cost,
+                        gmv: room.gmv,
+                        orders: room.orders,
+                        roi: room.cost > 0 ? room.gmv / room.cost : 0
+                    }))
                     .sort((a, b) => {
-                        // Sort by time descending (most recent first)
-                        return new Date(b.sessionTime).getTime() - new Date(a.sessionTime).getTime();
+                        // Sort by launched time descending (most recent first)
+                        const timeA = a.launchedTime ? new Date(a.launchedTime).getTime() : 0;
+                        const timeB = b.launchedTime ? new Date(b.launchedTime).getTime() : 0;
+                        return timeB - timeA;
                     });
             }
             
