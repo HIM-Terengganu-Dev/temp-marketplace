@@ -195,25 +195,61 @@ export default function DebugTablePage() {
                 <div>
                     <label className="block text-sm font-medium mb-1">Start Date</label>
                     <div className="relative">
-                        <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
                         <input
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="border rounded p-2 bg-background pl-8 w-full"
+                            className="border rounded p-2 bg-background pr-8 w-full"
+                            id="start-date-input"
                         />
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const input = document.getElementById('start-date-input') as HTMLInputElement;
+                                if (input) {
+                                    if (input.showPicker) {
+                                        input.showPicker();
+                                    } else {
+                                        input.focus();
+                                        input.click();
+                                    }
+                                }
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:opacity-70 transition-opacity bg-transparent border-0 p-0"
+                            aria-label="Open date picker"
+                        >
+                            <Calendar className="h-4 w-4 text-gray-600" />
+                        </button>
                     </div>
                 </div>
                 <div>
                     <label className="block text-sm font-medium mb-1">End Date</label>
                     <div className="relative">
-                        <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="border rounded p-2 bg-background pl-8 w-full"
+                            className="border rounded p-2 bg-background pr-8 w-full"
+                            id="end-date-input"
                         />
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const input = document.getElementById('end-date-input') as HTMLInputElement;
+                                if (input) {
+                                    if (input.showPicker) {
+                                        input.showPicker();
+                                    } else {
+                                        input.focus();
+                                        input.click();
+                                    }
+                                }
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:opacity-70 transition-opacity bg-transparent border-0 p-0"
+                            aria-label="Open date picker"
+                        >
+                            <Calendar className="h-4 w-4 text-gray-600" />
+                        </button>
                     </div>
                 </div>
                 <Button onClick={fetchData} disabled={loading}>
