@@ -708,26 +708,33 @@ export default function DebugTableIkramPage() {
                                                                             const isCampaignExpanded = expandedCampaigns.has(campaign.campaignId);
                                                                             const hasLiveSessions = selectedMetric === 'live_gmv_max' && campaign.liveSessions && campaign.liveSessions.length > 0;
                                                                             
-                                                                            const handleCampaignClick = (e: React.MouseEvent) => {
+                                                                            const handleCampaignClick = (e: React.MouseEvent<HTMLTableRowElement>) => {
                                                                                 e.preventDefault();
                                                                                 e.stopPropagation();
-                                                                                if (hasLiveSessions && campaign.campaignId) {
-                                                                                    console.log('Toggling campaign:', campaign.campaignId, 'Current expanded:', expandedCampaigns.has(campaign.campaignId));
+                                                                                console.log('Campaign row clicked:', {
+                                                                                    campaignId: campaign.campaignId,
+                                                                                    campaignName: campaign.campaignName,
+                                                                                    hasLiveSessions,
+                                                                                    liveSessionsLength: campaign.liveSessions?.length || 0,
+                                                                                    selectedMetric,
+                                                                                    liveSessions: campaign.liveSessions
+                                                                                });
+                                                                                
+                                                                                if (selectedMetric === 'live_gmv_max' && campaign.campaignId) {
                                                                                     toggleCampaignExpansion(campaign.campaignId);
-                                                                                } else {
-                                                                                    console.log('Cannot expand - hasLiveSessions:', hasLiveSessions, 'campaignId:', campaign.campaignId, 'liveSessions:', campaign.liveSessions);
+                                                                                    console.log('Toggled campaign expansion. New state:', expandedCampaigns.has(campaign.campaignId));
                                                                                 }
                                                                             };
                                                                             
                                                                             return (
                                                                                 <React.Fragment key={campIdx}>
                                                                                     <tr 
-                                                                                        className={`hover:bg-muted/30 ${hasLiveSessions ? 'cursor-pointer select-none' : ''}`}
+                                                                                        className={`hover:bg-muted/30 ${selectedMetric === 'live_gmv_max' ? 'cursor-pointer select-none' : ''}`}
                                                                                         onClick={handleCampaignClick}
-                                                                                        style={hasLiveSessions ? { userSelect: 'none' } : {}}
+                                                                                        style={selectedMetric === 'live_gmv_max' ? { userSelect: 'none' } : {}}
                                                                                     >
                                                                                         <td className="p-2 border-b">
-                                                                                            {hasLiveSessions ? (
+                                                                                            {selectedMetric === 'live_gmv_max' ? (
                                                                                                 isCampaignExpanded ? (
                                                                                                     <ChevronDown className="h-3 w-3 text-muted-foreground" />
                                                                                                 ) : (
@@ -751,30 +758,31 @@ export default function DebugTableIkramPage() {
                                                                                             {campaign.roi?.toFixed(2)}
                                                                                         </td>
                                                                                     </tr>
-                                                                                    {isCampaignExpanded && hasLiveSessions && (
+                                                                                    {isCampaignExpanded && selectedMetric === 'live_gmv_max' && (
                                                                                         <tr>
                                                                                             <td colSpan={6} className="p-0 bg-muted/10">
                                                                                                 <div className="p-3">
                                                                                                     <h4 className="text-xs font-semibold mb-2 text-muted-foreground">
-                                                                                                        Live Sessions (Livestream Rooms) for {campaign.campaignName} ({campaign.liveSessions.length})
+                                                                                                        Live Sessions (Livestream Rooms) for {campaign.campaignName} ({campaign.liveSessions?.length || 0})
                                                                                                     </h4>
-                                                                                                    <div className="border rounded overflow-hidden bg-background">
-                                                                                                        <table className="w-full text-[10px]">
-                                                                                                            <thead className="bg-muted/30">
-                                                                                                                <tr>
-                                                                                                                    <th className="p-1.5 border-b text-left">Live Name</th>
-                                                                                                                    <th className="p-1.5 border-b text-left">Room ID</th>
-                                                                                                                    <th className="p-1.5 border-b text-left">Launched Time</th>
-                                                                                                                    <th className="p-1.5 border-b text-left">Status</th>
-                                                                                                                    <th className="p-1.5 border-b text-left">Duration</th>
-                                                                                                                    <th className="p-1.5 border-b text-right">Cost</th>
-                                                                                                                    <th className="p-1.5 border-b text-right">GMV</th>
-                                                                                                                    <th className="p-1.5 border-b text-right">Orders</th>
-                                                                                                                    <th className="p-1.5 border-b text-right">ROI</th>
-                                                                                                                </tr>
-                                                                                                            </thead>
-                                                                                                            <tbody>
-                                                                                                                {campaign.liveSessions.map((session: any, sessIdx: number) => (
+                                                                                                    {campaign.liveSessions && campaign.liveSessions.length > 0 ? (
+                                                                                                        <div className="border rounded overflow-hidden bg-background">
+                                                                                                            <table className="w-full text-[10px]">
+                                                                                                                <thead className="bg-muted/30">
+                                                                                                                    <tr>
+                                                                                                                        <th className="p-1.5 border-b text-left">Live Name</th>
+                                                                                                                        <th className="p-1.5 border-b text-left">Room ID</th>
+                                                                                                                        <th className="p-1.5 border-b text-left">Launched Time</th>
+                                                                                                                        <th className="p-1.5 border-b text-left">Status</th>
+                                                                                                                        <th className="p-1.5 border-b text-left">Duration</th>
+                                                                                                                        <th className="p-1.5 border-b text-right">Cost</th>
+                                                                                                                        <th className="p-1.5 border-b text-right">GMV</th>
+                                                                                                                        <th className="p-1.5 border-b text-right">Orders</th>
+                                                                                                                        <th className="p-1.5 border-b text-right">ROI</th>
+                                                                                                                    </tr>
+                                                                                                                </thead>
+                                                                                                                <tbody>
+                                                                                                                    {campaign.liveSessions.map((session: any, sessIdx: number) => (
                                                                                                                     <tr key={sessIdx} className="hover:bg-muted/20">
                                                                                                                         <td className="p-1.5 border-b text-[10px]">
                                                                                                                             {session.liveName || 'N/A'}
@@ -809,9 +817,14 @@ export default function DebugTableIkramPage() {
                                                                                                                         </td>
                                                                                                                     </tr>
                                                                                                                 ))}
-                                                                                                            </tbody>
-                                                                                                        </table>
-                                                                                                    </div>
+                                                                                                                </tbody>
+                                                                                                            </table>
+                                                                                                        </div>
+                                                                                                    ) : (
+                                                                                                        <div className="p-4 text-center text-sm text-muted-foreground">
+                                                                                                            No live sessions found for this campaign in the selected date range.
+                                                                                                        </div>
+                                                                                                    )}
                                                                                                 </div>
                                                                                             </td>
                                                                                         </tr>
