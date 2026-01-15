@@ -211,7 +211,8 @@ export async function GET(request: Request) {
             let orderTotal = 0;
             if (order.line_items) {
                 order.line_items.forEach((item: any) => {
-                    orderTotal += parseFloat(item.sale_price || '0');
+                    // GMV = sku subtotal after discount + sku platform discount
+                    orderTotal += parseFloat(item.sale_price || '0') + parseFloat(item.platform_discount || '0');
                 });
             }
 
