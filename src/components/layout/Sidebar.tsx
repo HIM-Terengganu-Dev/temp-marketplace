@@ -10,6 +10,7 @@ import {
     Settings,
     Megaphone,
     Store,
+    RefreshCw,
 } from "lucide-react";
 
 const navigation = [
@@ -20,6 +21,7 @@ const navigation = [
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
     { name: "Debug Table", href: "/debug-table", icon: BarChart3 }, // Temporary Debug Link
     { name: "Debug Table (Ikram)", href: "/debug-table-ikram", icon: BarChart3 }, // Temporary Debug Link
+    { name: "Refresh Token", href: "/refresh-token", icon: RefreshCw },
     { name: "Settings", href: "/settings", icon: Settings },
 ];
 
