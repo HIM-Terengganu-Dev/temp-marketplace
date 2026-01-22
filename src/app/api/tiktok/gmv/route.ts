@@ -1,49 +1,7 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import tiktokShop from 'tiktok-shop';
-
-// Configuration for known shops (Best practice: Keep static config separate from logic)
-const SHOPS: Record<string, {
-    name: string;
-    id: string;
-    appKey: string | undefined;
-    appSecret: string | undefined;
-    accessToken: string | undefined;
-    shopCipher: string | undefined;
-}> = {
-    'shop1': {
-        name: 'DrSamhanWellness',
-        id: '7495609155379170274',
-        appKey: process.env.TIKTOK_SHOP_APP_KEY,
-        appSecret: process.env.TIKTOK_SHOP_APP_SECRET,
-        accessToken: process.env.TIKTOK_SHOP1_ACCESS_TOKEN,
-        shopCipher: process.env.TIKTOK_SHOP1_SHOP_CIPHER,
-    },
-    'shop2': {
-        name: 'HIM CLINIC', // Will be fetched from API if available
-        id: '7495102143139318172',
-        appKey: process.env.TIKTOK_SHOP_APP_KEY,
-        appSecret: process.env.TIKTOK_SHOP_APP_SECRET,
-        accessToken: process.env.TIKTOK_SHOP2_ACCESS_TOKEN,
-        shopCipher: process.env.TIKTOK_SHOP2_SHOP_CIPHER,
-    },
-    'shop3': {
-        name: 'Vigomax HQ', // Will be fetched from API if available
-        id: '7494799386964364219',
-        appKey: process.env.TIKTOK_SHOP_APP_KEY,
-        appSecret: process.env.TIKTOK_SHOP_APP_SECRET,
-        accessToken: process.env.TIKTOK_SHOP3_ACCESS_TOKEN,
-        shopCipher: process.env.TIKTOK_SHOP3_SHOP_CIPHER,
-    },
-    'shop4': {
-        name: 'VigomaxPlus HQ', // Will be fetched from API if available
-        id: '7495580262600706099',
-        appKey: process.env.TIKTOK_SHOP_APP_KEY,
-        appSecret: process.env.TIKTOK_SHOP_APP_SECRET,
-        accessToken: process.env.TIKTOK_SHOP4_ACCESS_TOKEN,
-        shopCipher: process.env.TIKTOK_SHOP4_SHOP_CIPHER,
-    }
-};
+import { getShopCredentials } from '@/lib/tiktok-shop-credentials';
 
 const BASE_URL = 'https://open-api.tiktokglobalshop.com';
 const ENDPOINT = '/order/202309/orders/search';
@@ -56,12 +14,12 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate'); // Expecting format: YYYY-MM-DD
     const endDate = searchParams.get('endDate');     // Expecting format: YYYY-MM-DD
-    const shopNumber = searchParams.get('shopNumber') || '1'; // Default to shop 1
+    const shopNumberParam = searchParams.get('shopNumber') || '1'; // Default to shop 1
+    const shopNumber = parseInt(shopNumberParam, 10);
 
     // Validate shop number
-    const shopKey = `shop${shopNumber}`;
-    if (!SHOPS[shopKey]) {
-        return NextResponse.json({ error: `Invalid shop number: ${shopNumber}. Valid options: 1, 2, 3, 4` }, { status: 400 });
+    if (isNaN(shopNumber) || shopNumber < 1 || shopNumber > 4) {
+        return NextResponse.json({ error: `Invalid shop number: ${shopNumberParam}. Valid options: 1, 2, 3, 4` }, { status: 400 });
     }
 
     // Helper function to convert YYYY-MM-DD to GMT+8 date
@@ -111,13 +69,16 @@ export async function GET(request: Request) {
     console.log(`  Start: ${startDate} 00:00:00 GMT+8 = ${start.toISOString()} UTC (timestamp: ${startTime})`);
     console.log(`  End: ${endDate} 23:59:59 GMT+8 = ${end.toISOString()} UTC (timestamp: ${endTime})`);
 
-    // Get shop configuration
-    const shopConfig = SHOPS[shopKey];
+    // Get shop credentials from database
+    const shopCredentials = await getShopCredentials(shopNumber);
+    if (!shopCredentials) {
+        return NextResponse.json({ error: `Failed to get credentials for shop ${shopNumber}` }, { status: 500 });
+    }
 
-    const appKey = cleanEnv(shopConfig.appKey);
-    const appSecret = cleanEnv(shopConfig.appSecret);
-    const accessToken = cleanEnv(shopConfig.accessToken);
-    const shopCipher = cleanEnv(shopConfig.shopCipher);
+    const appKey = cleanEnv(process.env.TIKTOK_SHOP_APP_KEY);
+    const appSecret = cleanEnv(process.env.TIKTOK_SHOP_APP_SECRET);
+    const accessToken = shopCredentials.access_token;
+    const shopCipher = shopCredentials.shop_cipher;
 
     if (!appKey || !appSecret || !accessToken || !shopCipher) {
         return NextResponse.json({ error: 'Missing Credentials' }, { status: 500 });
@@ -254,7 +215,7 @@ export async function GET(request: Request) {
         });
 
         return NextResponse.json({
-            shopName: shopConfig.name,
+            shopName: shopCredentials.shop_name,
             gmv: totalGMV,
             orderCount: validOrders.length,
             totalOrderCount: allOrders.length, // Include total for reference
