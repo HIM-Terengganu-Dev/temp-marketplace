@@ -7,7 +7,9 @@ export interface ShopData {
     platform: Platform;
     type: 'shop' | 'ad_account';
     roas?: number;
+    roasAfterTax?: number;
     spend?: number;
+    spendAfterTax?: number;
     revenue?: number;
     status: ConnectionStatus;
 }

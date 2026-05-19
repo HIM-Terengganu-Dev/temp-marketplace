@@ -356,8 +356,8 @@ export default function DebugTablePage() {
                                             RM {data.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </td>
                                     </tr>
-                                    {/* Show GMV Max costs only for shop 1 */}
-                                    {data.shopNumber === 1 && (
+                                    {/* Show GMV Max costs for shops that have them */}
+                                    {(data.shopNumber === 1 || data.shopNumber === 3 || data.shopNumber === 4) && (
                                         <>
                                             <tr>
                                                 <td className="p-3 border-b">Live GMV Max Cost</td>

@@ -1,0 +1,54 @@
+[dotenv@17.2.3] injecting env (19) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+--- TikTok Advertiser Discovery ---
+
+🔍 Checking advertisers for TIKTOK_ADS_ACCOUNT1_ACCESS_TOKEN...
+✅ Found 3 Advertiser Account(s):
+   - Name: HIM COFFEE1
+     ID:   7336853270385770498
+     -------------------
+   - Name: HIM WELLNESS - ADS DR SAMHAN
+     ID:   7391329013215821840
+     -------------------
+   - Name: GMV MAX VOL2
+     ID:   7505228077656621057
+     -------------------
+🔍 Checking advertisers for TIKTOK_ADS_ACCOUNT2_ACCESS_TOKEN...
+✅ Found 8 Advertiser Account(s):
+   - Name: HIM WELLNESS TEAM HIMCOFFEE
+     ID:   7345453377846837249
+     -------------------
+   - Name: HIM WELLNESS - ADS DR SAMHAN
+     ID:   7391329013215821840
+     -------------------
+   - Name: HIM WELLNESS 2
+     ID:   7397975716400513041
+     -------------------
+   - Name: HIMWELLNESS ENGAGEMENT
+     ID:   7404340904338948112
+     -------------------
+   - Name: HIMWELLNESS TTDI
+     ID:   7404355345587535873
+     -------------------
+   - Name: HIM WELLNESS - TEAM SALES
+     ID:   7404387549454008336
+     -------------------
+   - Name: HIM WELNESS - GMV MAX
+     ID:   7477419423419301889
+     -------------------
+   - Name: HIMWELLNESS ENGAGEMENT V2
+     ID:   7493009350928285712
+     -------------------
+🔍 Checking advertisers for TIKTOK_ADS_ACCOUNT3_ACCESS_TOKEN...
+✅ Found 4 Advertiser Account(s):
+   - Name: UWM Lifera
+     ID:   7259935704698929153
+     -------------------
+   - Name: ThysooGlowfit
+     ID:   7331597769787998209
+     -------------------
+   - Name: HIM WELLNESS - TEAM SALES
+     ID:   7404387549454008336
+     -------------------
+   - Name: VigomaxPlus HQ
+     ID:   7519362123559157761
+     -------------------

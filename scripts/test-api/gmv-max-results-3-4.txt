@@ -1,0 +1,144 @@
+[dotenv@17.2.3] injecting env (19) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+
+==================================================
+Checking GMV Max Campaigns for Vigomax HQ (Shop 3)
+Advertiser ID: 7259935704698929153 | Shop ID: 7494799386964364219
+==================================================
+
+Checking promotion type: PRODUCT_GMV_MAX...
+  - Campaign: maxuron_17.4.26 (ID: 1862670350852146)
+  - Campaign: 13.4.25 | KOPI 3 KOTAK BLACK GARLIC (ID: 1862336463073393)
+  - Campaign: 13.4.25 | BLACK GARLIC (ID: 1862336347659601)
+  - Campaign: 12.4.26 | VIGOMAX  (ID: 1862235803008257)
+  - Campaign: MEXURON | 12.3.26 (ID: 1859437064925409)
+  - Campaign: himcoffee + Vigomax (ID: 1857826534206610)
+  - Campaign: HIMCOFFEE | 12_2_26 (ID: 1856892997561362)
+  - Campaign: VIGOMAX | 12_2_26 (ID: 1856892952841217)
+  - Campaign: HIM & HER COFFEE (ID: 1856892661006418)
+  - Campaign: MORINGGA (ID: 1851457279365361)
+  - Campaign: KOPI USTAZLAH  (ID: 1851456952120418)
+  - Campaign: LIFERA BLACK GARLIC (ID: 1851456857929826)
+  - Campaign: GMV | VIGOMAX II (ID: 1848716223400994)
+  - Campaign: GMV | VIGOMAX 1 (ID: 1840987097748482)
+  - Campaign: ustazlah | 17.8.25 (ID: 1840678419039345)
+  - Campaign: 6.7.25 (adam) (ID: 1836904966130737)
+  - Campaign: 6.7.25 (ID: 1836868181176578)
+  - Campaign: 1.7.25 (ID: 1836394893939745)
+  - Campaign: 13_5_25 (ID: 1831986196843650)
+  - Campaign: Product GMV Max_Gross revenue_Vigomax HQ_20250510064911 (ID: 1831684905465857)
+  - Campaign: Product GMV Max_Gross revenue_Vigomax HQ_20250508235313 (ID: 1831568285260881)
+  - Campaign: Product GMV Max_Gross revenue_Vigomax HQ_20250508201617 (ID: 1831554609797218)
+  - Campaign: ALL_LISTING | 9.4.25 (ID: 1828908956936417)
+  - Campaign: Listing_Lifera | 9.4.25 (ID: 1828891006872753)
+  - Campaign: Product GMV Max_Gross revenue_Lifera HQ_20250122104034 (ID: 1821915138795570)
+  - Campaign: Product GMV Max_21.1.25 (ID: 1821822038179874)
+  - Campaign: Soultan - Test GMV Max - ROAS 5 - 250924 (ID: 1811140528267282)
+  Total campaigns discovered: 27
+
+Checking report spend for these campaigns from 2026-05-17 to 2026-05-18...
+  Report records: 24
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1856892661006418 | Spend: RM 78.24 | GMV: RM 343.64
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1840987097748482 | Spend: RM 380.00 | GMV: RM 2166.41
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1859437064925409 | Spend: RM 38.69 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1856892661006418 | Spend: RM 33.50 | GMV: RM 197.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1859437064925409 | Spend: RM 54.60 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1840987097748482 | Spend: RM 122.85 | GMV: RM 974.30
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1836868181176578 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1836394893939745 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1831986196843650 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1831986196843650 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1831684905465857 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1831568285260881 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1831554609797218 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1836868181176578 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1862235803008257 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1831568285260881 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1848716223400994 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1862235803008257 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1828891006872753 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1828891006872753 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1831554609797218 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1836394893939745 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1831684905465857 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1848716223400994 | Spend: RM 0.00 | GMV: RM 0.00
+  💡 TOTAL GMV MAX SPEND: RM 707.88 | TOTAL GMV MAX REVENUE: RM 3681.35
+
+Checking promotion type: LIVE_GMV_MAX...
+  - Campaign:  LIFERA BLACK GARLIC 1 (ID: 1864951682939313)
+  - Campaign: LIFERA HQ II (ID: 1864951656153105)
+  - Campaign: LIFERA HQ (ID: 1864951477064978)
+  - Campaign: BLACK GARLIC | CIK LISA (ID: 1863069807708178)
+  - Campaign: BLACK GARLIC | CIKMYRA (ID: 1862409570794850)
+  - Campaign: LIFERA OFFICIAL (ID: 1861703117304882)
+  - Campaign: VIGOMAX_HEROSTAMINA (ID: 1850908777181553)
+  - Campaign: ALYA | VIGOMAX (ID: 1850908724212738)
+  - Campaign: IKHTIAR DR SAHAM (ID: 1850908653392977)
+  - Campaign: VIVI | 30.9.25 (ID: 1844650351284225)
+  - Campaign: HONEY  | 30.9.25 (ID: 1844649237909618)
+  - Campaign: ikhitarustazlah (ID: 1840753038635090)
+  - Campaign: aliya | Vigomaxplus (ID: 1840307170200578)
+  - Campaign: aisyah (ID: 1840050983983330)
+  - Campaign: adikbangkit (ID: 1840028616864913)
+  - Campaign: xxtraBoost (ID: 1837137738248258)
+  - Campaign: menpower (ID: 1837136457939106)
+  - Campaign: cacacahavoc (ID: 1837135783019538)
+  - Campaign: vigomaxplus | Expert (ID: 1837134209036354)
+  - Campaign: TerunaPower (ID: 1835773916782802)
+  - Campaign: powerbrolife (ID: 1835700596523185)
+  - Campaign: LIVE GMV Max_Gross revenue_Vigomax HQ_20250620094611 (ID: 1835410642848866)
+  - Campaign: fitlelakiasli (ID: 1835159061083169)
+  - Campaign: herostamina (ID: 1835159010082834)
+  - Campaign: lelakigagah1 (ID: 1835139234567313)
+  - Campaign: usahalelaki1 (ID: 1835049044824098)
+  - Campaign: kuasalelaki1 (ID: 1835047067273457)
+  - Campaign: vigomax06 (ID: 1834508488942610)
+  - Campaign: vigomax07 (ID: 1833966367177761)
+  - Campaign: vigomax04 (ID: 1833879273877634)
+  Total campaigns discovered: 30
+
+Checking report spend for these campaigns from 2026-05-17 to 2026-05-18...
+  Report records: 32
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1835159010082834 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1835049044824098 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1834508488942610 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1837134209036354 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1835049044824098 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1835159010082834 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1837134209036354 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1834508488942610 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1833966367177761 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1835773916782802 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1837137738248258 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1837136457939106 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1833879273877634 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1833966367177761 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1840307170200578 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1835700596523185 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1835159061083169 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1835139234567313 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1835139234567313 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1835159061083169 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1837135783019538 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1837136457939106 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1835047067273457 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1835410642848866 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1835700596523185 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1840307170200578 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1835410642848866 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1835773916782802 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1837137738248258 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-17 00:00:00 | Campaign ID: 1835047067273457 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1837135783019538 | Spend: RM 0.00 | GMV: RM 0.00
+    Date: 2026-05-18 00:00:00 | Campaign ID: 1833879273877634 | Spend: RM 0.00 | GMV: RM 0.00
+  💡 TOTAL GMV MAX SPEND: RM 0.00 | TOTAL GMV MAX REVENUE: RM 0.00
+
+==================================================
+Checking GMV Max Campaigns for VigomaxPlus HQ (Shop 4)
+Advertiser ID: 7519362123559157761 | Shop ID: 7495580262600706099
+==================================================
+
+Checking promotion type: PRODUCT_GMV_MAX...
+  Total campaigns discovered: 0
+
+Checking promotion type: LIVE_GMV_MAX...
+  Total campaigns discovered: 0

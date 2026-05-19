@@ -1,0 +1,7 @@
+[dotenv@17.2.3] injecting env (19) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+Checking data for TODAY (2026-05-18) in GMT+8...
+Shop #1 (DrSamhanWellness) Today: GMV: RM 14449.00 | Orders: 144
+Shop #2 (HIM CLINIC) Today: GMV: RM 534.00 | Orders: 6
+Shop #3 (Vigomax HQ) Today: GMV: RM 1195.00 | Orders: 9
+Shop #4 (VigomaxPlus HQ) Today: GMV: RM 831.00 | Orders: 6

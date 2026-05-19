@@ -16,17 +16,26 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 const cleanEnv = (val) => val ? val.trim().replace(/^["']|["']$/g, '') : '';
 
-// Configuration for both accounts
 const accounts = [
     {
-        name: 'Account 1',
+        name: 'Account 1 (DrSamhanWellness)',
         advertiserId: '7505228077656621057',
         accessTokenEnv: 'TIKTOK_ADS_ACCOUNT1_ACCESS_TOKEN'
     },
     {
-        name: 'Account 2',
+        name: 'Account 2 (HIM CLINIC)',
         advertiserId: '7404387549454008336',
         accessTokenEnv: 'TIKTOK_ADS_ACCOUNT2_ACCESS_TOKEN'
+    },
+    {
+        name: 'Account 3 (Vigomax HQ)',
+        advertiserId: '7519362123559157761',
+        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT3_ACCESS_TOKEN'
+    },
+    {
+        name: 'Account 4 (VigomaxPlus HQ)',
+        advertiserId: '7519362123559157761',
+        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT3_ACCESS_TOKEN'
     }
 ];
 

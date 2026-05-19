@@ -199,7 +199,8 @@ export default function DebugTableIkramPage() {
                 })).sort((a, b) => b.grossRevenue - a.grossRevenue);
 
                 setData({
-                    shopName: 'DrSamhanWellness',
+                    shopName: SHOP_OPTIONS.find(s => s.value === selectedShop)?.label || 'Shop',
+                    shopNumber: parseInt(selectedShop),
                     grossRevenue: totalGrossRevenue,
                     cost: totalCost,
                     orders: totalOrders,
@@ -570,8 +571,8 @@ export default function DebugTableIkramPage() {
                                             RM {data.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </td>
                                     </tr>
-                                    {/* Show GMV Max costs only for shop 1 */}
-                                    {data.shopNumber === 1 && (
+                                    {/* Show GMV Max costs for shops that have them */}
+                                    {(data.shopNumber === 1 || data.shopNumber === 3 || data.shopNumber === 4) && (
                                         <>
                                             <tr>
                                                 <td className="p-3 border-b">Live GMV Max Cost</td>

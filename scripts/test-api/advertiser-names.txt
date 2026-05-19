@@ -1,0 +1,60 @@
+[dotenv@17.2.3] injecting env (17) from .env -- tip: ⚙️  enable debug logging with { debug: true }
+Checking advertiser details for Account 1...
+
+- Account Name: HIM COFFEE1
+  Advertiser ID: 7336853270385770498
+  Status:        STATUS_ENABLE
+  Currency:      MYR
+-----------------------------------------
+- Account Name: HIM WELLNESS - ADS DR SAMHAN
+  Advertiser ID: 7391329013215821840
+  Status:        STATUS_LIMIT
+  Currency:      MYR
+-----------------------------------------
+- Account Name: GMV MAX VOL2
+  Advertiser ID: 7505228077656621057
+  Status:        STATUS_ENABLE
+  Currency:      MYR
+-----------------------------------------
+Checking advertiser details for Account 2...
+
+- Account Name: HIM WELLNESS TEAM HIMCOFFEE
+  Advertiser ID: 7345453377846837249
+  Status:        STATUS_LIMIT
+  Currency:      MYR
+-----------------------------------------
+- Account Name: HIM WELLNESS - ADS DR SAMHAN
+  Advertiser ID: 7391329013215821840
+  Status:        STATUS_LIMIT
+  Currency:      MYR
+-----------------------------------------
+- Account Name: HIM WELLNESS 2
+  Advertiser ID: 7397975716400513041
+  Status:        STATUS_DISABLE
+  Currency:      MYR
+-----------------------------------------
+- Account Name: HIMWELLNESS ENGAGEMENT
+  Advertiser ID: 7404340904338948112
+  Status:        STATUS_LIMIT
+  Currency:      MYR
+-----------------------------------------
+- Account Name: HIMWELLNESS TTDI
+  Advertiser ID: 7404355345587535873
+  Status:        STATUS_LIMIT
+  Currency:      MYR
+-----------------------------------------
+- Account Name: HIM WELLNESS - TEAM SALES
+  Advertiser ID: 7404387549454008336
+  Status:        STATUS_ENABLE
+  Currency:      MYR
+-----------------------------------------
+- Account Name: HIM WELNESS - GMV MAX
+  Advertiser ID: 7477419423419301889
+  Status:        STATUS_LIMIT
+  Currency:      MYR
+-----------------------------------------
+- Account Name: HIMWELLNESS ENGAGEMENT V2
+  Advertiser ID: 7493009350928285712
+  Status:        STATUS_LIMIT
+  Currency:      MYR
+-----------------------------------------

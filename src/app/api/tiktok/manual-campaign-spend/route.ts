@@ -15,13 +15,25 @@ const SHOP_TO_ACCOUNT: Record<string, {
         name: 'Account 2',
         advertiserId: '7404387549454008336',
         accessTokenEnv: 'TIKTOK_ADS_ACCOUNT2_ACCESS_TOKEN'
+    },
+    '3': {
+        name: 'Vigomax Account',
+        advertiserId: '7259935704698929153',
+        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT3_ACCESS_TOKEN'
+    },
+    '4': {
+        name: 'VigomaxPlus Account',
+        advertiserId: '7259935704698929153',
+        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT3_ACCESS_TOKEN'
     }
 };
 
 // Shop names
 const SHOP_NAMES: Record<string, string> = {
     '1': 'DrSamhanWellness',
-    '2': 'HIM CLINIC'
+    '2': 'HIM CLINIC',
+    '3': 'Vigomax HQ',
+    '4': 'VigomaxPlus HQ'
 };
 
 const BASE_URL = 'https://business-api.tiktok.com';
@@ -203,7 +215,7 @@ export async function GET(request: Request) {
     // Get account configuration for the selected shop
     const accountConfig = SHOP_TO_ACCOUNT[shopNumber];
     if (!accountConfig) {
-        return NextResponse.json({ error: `Invalid shop number: ${shopNumber}. Valid options: 1, 2` }, { status: 400 });
+        return NextResponse.json({ error: `Invalid shop number: ${shopNumber}. Valid options: 1, 2, 3, 4` }, { status: 400 });
     }
 
     const shopName = SHOP_NAMES[shopNumber] || 'Unknown Shop';

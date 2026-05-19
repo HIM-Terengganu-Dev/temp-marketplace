@@ -1,0 +1,25 @@
+[dotenv@17.2.3] injecting env (19) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+Querying database for all credentials...
+Found 2 shops in DB. Testing each...
+
+==================================================
+Testing GMV for Shop 3 (Vigomax HQ)
+Using Database Token: ROW_qCNHPQAAAAB...
+==================================================
+✓ Fetched 50 orders on page 1
+✓ Fetched 50 orders on page 2
+✓ Fetched 50 orders on page 3
+✓ Fetched 33 orders on page 4
+✅ Success! Total Orders: 183 | Valid Orders: 157 | GMV: RM 22209.08
+
+==================================================
+Testing GMV for Shop 4 (VigomaxPlus HQ)
+Using Database Token: ROW_dIUwFgAAAAB...
+==================================================
+✓ Fetched 50 orders on page 1
+✓ Fetched 50 orders on page 2
+✓ Fetched 50 orders on page 3
+✓ Fetched 50 orders on page 4
+✓ Fetched 34 orders on page 5
+✅ Success! Total Orders: 234 | Valid Orders: 204 | GMV: RM 28797.42

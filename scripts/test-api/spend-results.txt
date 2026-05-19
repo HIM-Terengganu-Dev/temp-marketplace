@@ -1,0 +1,227 @@
+[dotenv@17.2.3] injecting env (19) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+============================================================
+MANUAL/BIDDING CAMPAIGN AD SPEND FETCHER
+For ROAS Calculation
+============================================================
+
+============================================================
+Fetching Manual Campaign Spend for Account 1 (DrSamhanWellness)
+Advertiser ID: 7505228077656621057
+Date Range: 2025-12-21 to 2025-12-30
+============================================================
+
+1. Fetching GMV Max campaign IDs to exclude...
+   Found 170 GMV Max campaigns to exclude
+
+2. Fetching integrated report for all campaigns...
+   Page 1/1: fetched 98 records
+   Total records fetched: 98
+
+3. Filtering to manual/bidding campaigns only...
+   Manual campaign records: 98
+
+============================================================
+SUMMARY - MANUAL/BIDDING CAMPAIGNS
+============================================================
+Total Ad Spend: RM 4145.29
+Total Billed Cost: RM 4127.63
+Total Impressions: 1,782,854
+Total Clicks: 27,985
+Number of Campaigns: 10
+
+------------------------------------------------------------
+DAILY BREAKDOWN
+------------------------------------------------------------
+  2025-12-21 00:00:00: RM 363.02
+  2025-12-22 00:00:00: RM 361.81
+  2025-12-23 00:00:00: RM 412.73
+  2025-12-24 00:00:00: RM 440.69
+  2025-12-25 00:00:00: RM 427.64
+  2025-12-26 00:00:00: RM 417.52
+  2025-12-27 00:00:00: RM 422.96
+  2025-12-28 00:00:00: RM 427.89
+  2025-12-29 00:00:00: RM 427.91
+  2025-12-30 00:00:00: RM 443.12
+
+------------------------------------------------------------
+CAMPAIGN BREAKDOWN (Top 10 by Spend)
+------------------------------------------------------------
+  ID: 1843119003941121
+    Spend: RM 940.46 | Clicks: 0
+  ID: 1842952200774673
+    Spend: RM 802.65 | Clicks: 11,544
+  ID: 1842951713079409
+    Spend: RM 602.23 | Clicks: 5,294
+  ID: 1843119249385521
+    Spend: RM 401.14 | Clicks: 1
+  ID: 1852272277112002
+    Spend: RM 396.71 | Clicks: 0
+  ID: 1849294199191650
+    Spend: RM 201.18 | Clicks: 3,003
+  ID: 1849297514096849
+    Spend: RM 200.49 | Clicks: 1,652
+  ID: 1849296396083489
+    Spend: RM 200.18 | Clicks: 6,118
+  ID: 1842955982156801
+    Spend: RM 200.16 | Clicks: 1
+  ID: 1842982207898689
+    Spend: RM 200.09 | Clicks: 372
+
+============================================================
+Fetching Manual Campaign Spend for Account 2 (HIM CLINIC)
+Advertiser ID: 7404387549454008336
+Date Range: 2025-12-21 to 2025-12-30
+============================================================
+
+1. Fetching GMV Max campaign IDs to exclude...
+   Found 0 GMV Max campaigns to exclude
+
+2. Fetching integrated report for all campaigns...
+   Page 1/1: fetched 86 records
+   Total records fetched: 86
+
+3. Filtering to manual/bidding campaigns only...
+   Manual campaign records: 86
+
+============================================================
+SUMMARY - MANUAL/BIDDING CAMPAIGNS
+============================================================
+Total Ad Spend: RM 3150.98
+Total Billed Cost: RM 3150.98
+Total Impressions: 886,768
+Total Clicks: 961
+Number of Campaigns: 10
+
+------------------------------------------------------------
+DAILY BREAKDOWN
+------------------------------------------------------------
+  2025-12-21 00:00:00: RM 322.70
+  2025-12-22 00:00:00: RM 310.00
+  2025-12-23 00:00:00: RM 313.81
+  2025-12-24 00:00:00: RM 305.20
+  2025-12-25 00:00:00: RM 315.29
+  2025-12-26 00:00:00: RM 309.68
+  2025-12-27 00:00:00: RM 307.21
+  2025-12-28 00:00:00: RM 320.51
+  2025-12-29 00:00:00: RM 319.91
+  2025-12-30 00:00:00: RM 326.67
+
+------------------------------------------------------------
+CAMPAIGN BREAKDOWN (Top 10 by Spend)
+------------------------------------------------------------
+  ID: 1842313767845889
+    Spend: RM 1001.55 | Clicks: 4
+  ID: 1842310522587137
+    Spend: RM 802.49 | Clicks: 1
+  ID: 1842311947279729
+    Spend: RM 400.98 | Clicks: 0
+  ID: 1835880591587394
+    Spend: RM 201.38 | Clicks: 362
+  ID: 1835868965830770
+    Spend: RM 200.66 | Clicks: 315
+  ID: 1840421097466050
+    Spend: RM 200.34 | Clicks: 3
+  ID: 1842319847490657
+    Spend: RM 200.14 | Clicks: 0
+  ID: 1835871791538353
+    Spend: RM 143.44 | Clicks: 276
+  ID: 1841229415346209
+    Spend: RM 0.00 | Clicks: 0
+  ID: 1841217825782033
+    Spend: RM 0.00 | Clicks: 0
+
+============================================================
+Fetching Manual Campaign Spend for Account 3 (Vigomax HQ)
+Advertiser ID: 7259935704698929153
+Date Range: 2025-12-21 to 2025-12-30
+============================================================
+
+1. Fetching GMV Max campaign IDs to exclude...
+   Found 57 GMV Max campaigns to exclude
+
+2. Fetching integrated report for all campaigns...
+   Page 1/1: fetched 27 records
+   Total records fetched: 27
+
+3. Filtering to manual/bidding campaigns only...
+   Manual campaign records: 27
+
+============================================================
+SUMMARY - MANUAL/BIDDING CAMPAIGNS
+============================================================
+Total Ad Spend: RM 355.65
+Total Billed Cost: RM 355.65
+Total Impressions: 224,839
+Total Clicks: 41
+Number of Campaigns: 4
+
+------------------------------------------------------------
+DAILY BREAKDOWN
+------------------------------------------------------------
+  2025-12-21 00:00:00: RM 120.23
+  2025-12-22 00:00:00: RM 100.64
+  2025-12-23 00:00:00: RM 59.76
+  2025-12-24 00:00:00: RM 60.18
+  2025-12-25 00:00:00: RM 14.84
+  2025-12-26 00:00:00: RM 0.00
+  2025-12-27 00:00:00: RM 0.00
+  2025-12-28 00:00:00: RM 0.00
+  2025-12-29 00:00:00: RM 0.00
+
+------------------------------------------------------------
+CAMPAIGN BREAKDOWN (Top 10 by Spend)
+------------------------------------------------------------
+  ID: 1851456784394401
+    Spend: RM 128.30 | Clicks: 25
+  ID: 1851457312654434
+    Spend: RM 127.02 | Clicks: 0
+  ID: 1851455223606306
+    Spend: RM 50.68 | Clicks: 16
+  ID: 1851457596665969
+    Spend: RM 49.65 | Clicks: 0
+
+============================================================
+Fetching Manual Campaign Spend for Account 4 (VigomaxPlus HQ)
+Advertiser ID: 7519362123559157761
+Date Range: 2025-12-21 to 2025-12-30
+============================================================
+
+1. Fetching GMV Max campaign IDs to exclude...
+   Found 0 GMV Max campaigns to exclude
+
+2. Fetching integrated report for all campaigns...
+   Page 1/1: fetched 0 records
+   Total records fetched: 0
+
+3. Filtering to manual/bidding campaigns only...
+   Manual campaign records: 0
+
+============================================================
+SUMMARY - MANUAL/BIDDING CAMPAIGNS
+============================================================
+Total Ad Spend: RM 0.00
+Total Billed Cost: RM 0.00
+Total Impressions: 0
+Total Clicks: 0
+Number of Campaigns: 0
+
+------------------------------------------------------------
+DAILY BREAKDOWN
+------------------------------------------------------------
+
+------------------------------------------------------------
+CAMPAIGN BREAKDOWN (Top 10 by Spend)
+------------------------------------------------------------
+
+============================================================
+COMBINED SUMMARY - ALL ACCOUNTS
+============================================================
+Account 1 (DrSamhanWellness): RM 4145.29
+Account 2 (HIM CLINIC): RM 3150.98
+Account 3 (Vigomax HQ): RM 355.65
+Account 4 (VigomaxPlus HQ): RM 0.00
+------------------------------------------------------------
+GRAND TOTAL AD SPEND: RM 7651.92
+
+✅ Results saved to: /Users/Pinuk/HIM-Product/temp-marketplace/scripts/test-api/manual_campaign_spend_results.json

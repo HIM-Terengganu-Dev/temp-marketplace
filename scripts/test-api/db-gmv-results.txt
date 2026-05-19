@@ -1,0 +1,50 @@
+[dotenv@17.2.3] injecting env (19) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+Querying database for all credentials...
+Found 4 shops in DB. Testing each...
+
+==================================================
+Testing GMV for Shop 1 (DrSamhanWellness)
+Using Database Token: ROW_MSWfhgAAAAB...
+==================================================
+✓ Fetched 50 orders on page 1
+✓ Fetched 50 orders on page 2
+✓ Fetched 50 orders on page 3
+✓ Fetched 50 orders on page 4
+✓ Fetched 50 orders on page 5
+✓ Fetched 50 orders on page 6
+✓ Fetched 50 orders on page 7
+✓ Fetched 50 orders on page 8
+✓ Fetched 50 orders on page 9
+✓ Fetched 50 orders on page 10
+✓ Fetched 50 orders on page 11
+✓ Fetched 50 orders on page 12
+✓ Fetched 50 orders on page 13
+✓ Fetched 50 orders on page 14
+✓ Fetched 50 orders on page 15
+✓ Fetched 50 orders on page 16
+✓ Fetched 50 orders on page 17
+✓ Fetched 50 orders on page 18
+✓ Fetched 50 orders on page 19
+✓ Fetched 50 orders on page 20
+✓ Fetched 50 orders on page 21
+✓ Fetched 50 orders on page 22
+✓ Fetched 50 orders on page 23
+✓ Fetched 50 orders on page 24
+✓ Fetched 50 orders on page 25
+✓ Fetched 50 orders on page 26
+✓ Fetched 50 orders on page 27
+✓ Fetched 50 orders on page 28
+✓ Fetched 50 orders on page 29
+✓ Fetched 50 orders on page 30
+✓ Fetched 50 orders on page 31
+✓ Fetched 50 orders on page 32
+✓ Fetched 50 orders on page 33
+✓ Fetched 50 orders on page 34
+✓ Fetched 50 orders on page 35
+✓ No orders found in this page range.
+✓ Fetched 50 orders on page 37
+✓ Fetched 50 orders on page 38
+✓ Fetched 50 orders on page 39
+✓ Fetched 50 orders on page 40
+✓ Fetched 50 orders on page 41

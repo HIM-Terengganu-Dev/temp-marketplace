@@ -21,6 +21,20 @@ const SHOPS: Record<string, {
         advertiserId: '7404387549454008336',
         accessTokenEnv: 'TIKTOK_ADS_ACCOUNT2_ACCESS_TOKEN',
         hasGMVCampaigns: false // Shop 2 doesn't have GMV campaigns
+    },
+    '3': {
+        name: 'Vigomax HQ',
+        shopId: '7494799386964364219',
+        advertiserId: '7259935704698929153',
+        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT3_ACCESS_TOKEN',
+        hasGMVCampaigns: true
+    },
+    '4': {
+        name: 'VigomaxPlus HQ',
+        shopId: '7495580262600706099',
+        advertiserId: '7259935704698929153',
+        accessTokenEnv: 'TIKTOK_ADS_ACCOUNT3_ACCESS_TOKEN',
+        hasGMVCampaigns: true
     }
 };
 
@@ -107,7 +121,7 @@ export async function GET(request: Request) {
     // Get shop configuration
     const shopConfig = SHOPS[shopNumber];
     if (!shopConfig) {
-        return NextResponse.json({ error: `Invalid shop number: ${shopNumber}. Valid options: 1, 2` }, { status: 400 });
+        return NextResponse.json({ error: `Invalid shop number: ${shopNumber}. Valid options: 1, 2, 3, 4` }, { status: 400 });
     }
 
     // If shop doesn't have GMV campaigns, return zeros

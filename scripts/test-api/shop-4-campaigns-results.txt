@@ -1,0 +1,4 @@
+[dotenv@17.2.3] injecting env (19) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+Fetching all campaigns for Shop 4 (Advertiser: 7519362123559157761)...
+API Response Status: 0 OK
+Discovered 0 campaign(s) on Shop 4:
