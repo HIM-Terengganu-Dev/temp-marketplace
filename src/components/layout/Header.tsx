@@ -1,10 +1,18 @@
 "use client";
 
-import { Bell, Calendar } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useSession, signOut } from "next-auth/react";
 
 export function Header() {
+    const { data: session } = useSession();
+    
+    // Get initials (e.g. "Admin User" -> "AU")
+    const getInitials = (name: string) => {
+        return name?.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2) || "U";
+    };
+
     return (
         <header className="sticky top-0 z-10 flex h-16 flex-shrink-0 items-center gap-x-4 border-b border-border/40 bg-background/50 backdrop-blur-xl px-6 shadow-sm">
             <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
@@ -12,9 +20,6 @@ export function Header() {
                     <h1 className="text-lg font-semibold text-foreground">Dashboard Overview</h1>
                 </div>
                 <div className="flex items-center gap-x-4">
-
-                    {/* Date Picker Placeholder */}
-                    {/* Removed dummy calendar button */}
 
                     <Separator orientation="vertical" className="h-6 bg-border/40" />
 
@@ -26,14 +31,32 @@ export function Header() {
 
                     <Separator orientation="vertical" className="h-6 bg-border/40" />
 
-                    {/* User Profile Placeholder */}
-                    <div className="flex items-center gap-x-3">
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 p-[1px]">
-                            <div className="h-full w-full rounded-full bg-background flex items-center justify-center font-bold text-xs">
-                                AD
+                    {/* User Profile */}
+                    {session?.user && (
+                        <div className="flex items-center gap-x-4">
+                            <div className="flex flex-col items-end text-sm">
+                                <span className="font-medium leading-none">{session.user.name}</span>
+                                <span className="text-xs text-muted-foreground capitalize mt-1">
+                                    {(session.user as any).role}
+                                </span>
                             </div>
+                            <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 p-[1px]">
+                                <div className="h-full w-full rounded-full bg-background flex items-center justify-center font-bold text-xs">
+                                    {getInitials(session.user.name || "User")}
+                                </div>
+                            </div>
+                            
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-2"
+                                onClick={() => signOut()}
+                                title="Sign Out"
+                            >
+                                <LogOut className="h-4 w-4" />
+                            </Button>
                         </div>
-                    </div>
+                    )}
 
                 </div>
             </div>

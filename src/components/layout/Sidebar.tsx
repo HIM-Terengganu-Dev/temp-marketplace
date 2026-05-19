@@ -13,6 +13,8 @@ import {
     RefreshCw,
 } from "lucide-react";
 
+import { useSession } from "next-auth/react";
+
 const navigation = [
     { name: "Overview", href: "/", icon: LayoutDashboard },
     { name: "TikTok Shops", href: "/tiktok-shops", icon: Store },
@@ -27,6 +29,22 @@ const navigation = [
 
 export function Sidebar() {
     const pathname = usePathname();
+    const { data: session } = useSession();
+
+    const allowedFeatures = (session?.user as any)?.allowed_features || ["overview", "tiktok", "shopee", "ads", "analytics"];
+
+    const filteredNavigation = navigation.filter(item => {
+        if (item.href === "/") return allowedFeatures.includes("overview");
+        if (item.href === "/tiktok-shops") return allowedFeatures.includes("tiktok");
+        if (item.href === "/shopee") return allowedFeatures.includes("shopee");
+        if (item.href === "/ads") return allowedFeatures.includes("ads");
+        if (item.href === "/analytics") return allowedFeatures.includes("analytics");
+        if (item.href === "/debug-table") return allowedFeatures.includes("debug");
+        if (item.href === "/debug-table-ikram") return allowedFeatures.includes("debug");
+        if (item.href === "/refresh-token") return allowedFeatures.includes("refresh_token");
+        if (item.href === "/settings") return allowedFeatures.includes("settings");
+        return true;
+    });
 
     return (
         <div className="hidden border-r border-border/40 bg-sidebar/50 backdrop-blur-xl md:flex md:w-64 md:flex-col">
@@ -37,7 +55,7 @@ export function Sidebar() {
             </div>
             <div className="flex-1 overflow-y-auto py-4">
                 <nav className="space-y-1 px-3">
-                    {navigation.map((item) => {
+                    {filteredNavigation.map((item) => {
                         const isActive = pathname === item.href;
                         return (
                             <Link

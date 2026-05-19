@@ -7,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShopCard } from "@/components/dashboard/ShopCard";
 import { SimpleDatePicker } from "@/components/dashboard/SimpleDatePicker";
+import { useSession } from "next-auth/react";
 
 export default function Home() {
+    const { data: session } = useSession();
     // Default to Today
     const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
     const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -23,8 +25,9 @@ export default function Home() {
 
             setIsLoading(true);
             try {
-                const shopIndices = [1, 2, 3, 4];
-                const results = await Promise.all(shopIndices.map(async (num) => {
+                // Get allowed shops from session, or default to all [1, 2, 3, 4] if not loaded yet
+                const shopIndices = (session?.user as any)?.allowed_tiktok_shops || [1, 2, 3, 4];
+                const results = await Promise.all(shopIndices.map(async (num: number) => {
                     try {
                         // Single smart endpoint: serves from DB for historical dates,
                         // live TikTok API for recent dates (within 14 days).
@@ -71,7 +74,7 @@ export default function Home() {
         };
 
         fetchData();
-    }, [startDate, endDate]);
+    }, [startDate, endDate, session]);
 
     // Calculate Totals
     const totalRevenue = shopData.reduce((acc, curr) => acc + (curr.revenue || 0), 0);
@@ -98,7 +101,41 @@ export default function Home() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {/* Total RoaS Hero Card */}
+                {/* 1. Revenue Card (Sales) */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total GMV</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">RM {totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Across {shopData.filter(d => d.status === 'connected').length} connected sources
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {/* 2. Spend Card (Spend) */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Ad Spend</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        <div>
+                            <p className="text-xs text-muted-foreground">Before Tax</p>
+                            <div className="text-xl font-bold">
+                                RM {totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <div className="pt-2 border-t border-border/30">
+                            <p className="text-xs text-purple-400 font-semibold">After Tax (SST + WHT)</p>
+                            <div className="text-xl font-bold text-purple-500">
+                                RM {totalSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* 3. Total RoaS Hero Card (ROAS) */}
                 <Card className="col-span-2 bg-gradient-to-br from-primary/20 to-purple-900/10 border-primary/20 backdrop-blur-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-primary">
@@ -141,40 +178,6 @@ export default function Home() {
                         <p className="text-[10px] text-muted-foreground">
                             Calculated dynamically including SST (8%) and Withholding Tax (8%)
                         </p>
-                    </CardContent>
-                </Card>
-
-                {/* Revenue Card */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total GMV</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">RM {totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Across {shopData.filter(d => d.status === 'connected').length} connected sources
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* Spend Card */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Ad Spend</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        <div>
-                            <p className="text-xs text-muted-foreground">Before Tax</p>
-                            <div className="text-xl font-bold">
-                                RM {totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </div>
-                        </div>
-                        <div className="pt-2 border-t border-border/30">
-                            <p className="text-xs text-purple-400 font-semibold">After Tax (SST + WHT)</p>
-                            <div className="text-xl font-bold text-purple-500">
-                                RM {totalSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </div>
-                        </div>
                     </CardContent>
                 </Card>
             </div>

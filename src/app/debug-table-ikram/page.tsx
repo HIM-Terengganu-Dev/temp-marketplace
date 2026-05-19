@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Calendar, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSession } from "next-auth/react";
 
 export default function DebugTableIkramPage() {
+    const { data: session } = useSession();
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -21,6 +23,9 @@ export default function DebugTableIkramPage() {
         const day = String(gmt8Date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     };
+
+    // Get allowed shops from NextAuth session
+    const allowedTiktokShops = (session?.user as any)?.allowed_tiktok_shops || [1, 2, 3, 4];
 
     // Get yesterday's date in GMT+8 timezone
     const getYesterdayGMT8 = () => {
@@ -40,8 +45,15 @@ export default function DebugTableIkramPage() {
     const [startDate, setStartDate] = useState(getTodayGMT8());
     const [endDate, setEndDate] = useState(getTodayGMT8());
     const [selectedMetric, setSelectedMetric] = useState("gross_revenue");
-    const [selectedShop, setSelectedShop] = useState("1");
+    const [selectedShop, setSelectedShop] = useState(allowedTiktokShops[0]?.toString() || "1");
     
+    // Automatically correct selected shop if it isn't in the allowed shops list
+    useEffect(() => {
+        if (allowedTiktokShops.length > 0 && !allowedTiktokShops.includes(parseInt(selectedShop))) {
+            setSelectedShop(allowedTiktokShops[0].toString());
+        }
+    }, [session, allowedTiktokShops, selectedShop]);
+
     // Track expanded accounts for granular campaign view
     const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
     
@@ -142,6 +154,10 @@ export default function DebugTableIkramPage() {
         { value: '3', label: 'Vigomax HQ' },
         { value: '4', label: 'VigomaxPlus HQ' }
     ];
+
+    const allowedShopOptions = SHOP_OPTIONS.filter(shop => 
+        allowedTiktokShops.includes(parseInt(shop.value))
+    );
 
     const fetchData = async () => {
         setLoading(true);
@@ -296,7 +312,7 @@ export default function DebugTableIkramPage() {
                         }}
                         className="border rounded p-2 bg-background w-[180px]"
                     >
-                        {SHOP_OPTIONS.map(shop => (
+                        {allowedShopOptions.map(shop => (
                             <option key={shop.value} value={shop.value}>{shop.label}</option>
                         ))}
                     </select>

@@ -46,39 +46,47 @@ export function ShopCard({ data }: ShopCardProps) {
             <CardContent className="pt-4">
                 {isConnected ? (
                     <div className="space-y-4">
-                        <div className="flex flex-col gap-2">
+                        {/* 1. Sales (GMV) */}
+                        <div className="space-y-1">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block">Sales (GMV)</span>
+                            <div className="text-xl font-bold tabular-nums tracking-tight text-foreground">
+                                RM {data.revenue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+
+                        {/* 2. Spend */}
+                        <div className="space-y-1.5 pt-3 border-t border-border/50">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Spend</span>
+                            <div className="flex justify-between items-center text-xs">
+                                <span className="text-muted-foreground">Before Tax</span>
+                                <span className="font-semibold tabular-nums text-foreground">RM {data.spend?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                                <span className="text-purple-400 font-medium">After Tax</span>
+                                <span className="font-semibold text-purple-500 dark:text-purple-400 tabular-nums">RM {data.spendAfterTax?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                        </div>
+
+                        {/* 3. ROAS */}
+                        <div className="space-y-2 pt-3 border-t border-border/50">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Return on Ad Spend (ROAS)</span>
                             <div className="flex justify-between items-baseline">
-                                <span className="text-xs text-muted-foreground font-semibold">ROAS (Before Tax)</span>
+                                <span className="text-xs text-muted-foreground">Before Tax</span>
                                 <span className={cn(
-                                    "text-xl font-bold tabular-nums tracking-tight",
+                                    "text-lg font-bold tabular-nums tracking-tight",
                                     (data.roas || 0) >= 3 ? "text-green-500" : (data.roas || 0) >= 2 ? "text-yellow-500" : "text-red-500"
                                 )}>
                                     {data.roas?.toFixed(2)}x
                                 </span>
                             </div>
                             <div className="flex justify-between items-baseline pt-1 border-t border-border/10">
-                                <span className="text-xs text-purple-400 font-semibold">ROAS (After Tax)</span>
+                                <span className="text-xs text-purple-400 font-medium">After Tax</span>
                                 <span className={cn(
-                                    "text-xl font-bold tabular-nums tracking-tight",
-                                    (data.roasAfterTax || 0) >= 3 ? "text-green-500" : (data.roasAfterTax || 0) >= 2 ? "text-yellow-500" : "text-red-500"
+                                    "text-lg font-bold tabular-nums tracking-tight",
+                                    (data.roasAfterTax || 0) >= 3 ? "text-green-500" : (data.roasAfterTax || 0) >= 2 ? "text-purple-500 dark:text-purple-400" : "text-red-500"
                                 )}>
                                     {data.roasAfterTax?.toFixed(2)}x
                                 </span>
-                            </div>
-                        </div>
-
-                        <div className="space-y-1.5 pt-2 border-t border-border/50">
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="text-muted-foreground">Spend (Before Tax)</span>
-                                <span className="font-semibold tabular-nums">RM {data.spend?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="text-purple-400 font-medium">Spend (After Tax)</span>
-                                <span className="font-semibold text-purple-500 dark:text-purple-400 tabular-nums">RM {data.spendAfterTax?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-xs pt-1 border-t border-border/30">
-                                <span className="text-muted-foreground">GMV</span>
-                                <span className="font-semibold tabular-nums">RM {data.revenue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                         </div>
                     </div>

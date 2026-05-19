@@ -7,8 +7,10 @@ import { ShopCard } from "@/components/dashboard/ShopCard";
 import { Badge } from "@/components/ui/badge";
 import { Store, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSession } from "next-auth/react";
 
 export default function TikTokShopsPage() {
+    const { data: session } = useSession();
     // Default to Today
     const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
     const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -21,8 +23,8 @@ export default function TikTokShopsPage() {
 
         setIsLoading(true);
         try {
-            const shopIndices = [1, 2, 3, 4];
-            const results = await Promise.all(shopIndices.map(async (num) => {
+            const shopIndices = (session?.user as any)?.allowed_tiktok_shops || [1, 2, 3, 4];
+            const results = await Promise.all(shopIndices.map(async (num: number) => {
                 try {
                     const [gmvRes, roasRes] = await Promise.all([
                         fetch(`/api/tiktok/gmv?startDate=${startDate}&endDate=${endDate}&shopNumber=${num}`),
@@ -62,7 +64,7 @@ export default function TikTokShopsPage() {
 
     useEffect(() => {
         fetchData();
-    }, [startDate, endDate]);
+    }, [startDate, endDate, session]);
 
     return (
         <div className="space-y-6 p-6">
