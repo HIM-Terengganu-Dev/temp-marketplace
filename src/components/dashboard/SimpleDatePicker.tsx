@@ -8,25 +8,32 @@ import { Calendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+export type DatePreset = 'today' | 'yesterday' | 'weekly' | 'monthly' | 'custom';
+
 interface SimpleDatePickerProps {
     startDate: string;
     endDate: string;
     setStartDate: (date: string) => void;
     setEndDate: (date: string) => void;
+    onPresetChange?: (preset: DatePreset) => void;
+    activePreset?: DatePreset;
 }
 
 export function SimpleDatePicker({
     startDate,
     endDate,
     setStartDate,
-    setEndDate
+    setEndDate,
+    onPresetChange,
+    activePreset,
 }: SimpleDatePickerProps) {
     const today = new Date();
-    
-    // Helper to set range
-    const setRange = (start: Date, end: Date) => {
+
+    // Helper to set range and notify parent of which preset was chosen
+    const setRange = (start: Date, end: Date, preset: DatePreset) => {
         setStartDate(format(start, "yyyy-MM-dd"));
         setEndDate(format(end, "yyyy-MM-dd"));
+        onPresetChange?.(preset);
     };
 
     // Helper to safely parse string to Date object
@@ -36,39 +43,42 @@ export function SimpleDatePicker({
         return isValid(parsed) ? parsed : new Date();
     };
 
+    const btnBase = "h-7 text-[10px] px-2 transition-all duration-150";
+    const activeClass = "bg-primary/20 text-primary font-semibold";
+
     return (
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-card/30 p-2 rounded-lg border border-border/50">
             {/* Presets */}
             <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-md">
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-7 text-[10px] px-2"
-                    onClick={() => setRange(today, today)}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(btnBase, activePreset === 'today' && activeClass)}
+                    onClick={() => setRange(today, today, 'today')}
                 >
                     Today
                 </Button>
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-7 text-[10px] px-2"
-                    onClick={() => setRange(subDays(today, 1), subDays(today, 1))}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(btnBase, activePreset === 'yesterday' && activeClass)}
+                    onClick={() => setRange(subDays(today, 1), subDays(today, 1), 'yesterday')}
                 >
                     Yesterday
                 </Button>
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-7 text-[10px] px-2"
-                    onClick={() => setRange(subDays(today, 7), today)}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(btnBase, activePreset === 'weekly' && activeClass)}
+                    onClick={() => setRange(subDays(today, 7), today, 'weekly')}
                 >
                     Weekly
                 </Button>
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-7 text-[10px] px-2"
-                    onClick={() => setRange(startOfMonth(today), endOfMonth(today))}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(btnBase, activePreset === 'monthly' && activeClass)}
+                    onClick={() => setRange(startOfMonth(today), endOfMonth(today), 'monthly')}
                 >
                     Monthly
                 </Button>
@@ -97,6 +107,7 @@ export function SimpleDatePicker({
                                 onSelect={(date) => {
                                     if (date) {
                                         setStartDate(format(date, "yyyy-MM-dd"));
+                                        onPresetChange?.('custom');
                                     }
                                 }}
                                 initialFocus
@@ -127,6 +138,7 @@ export function SimpleDatePicker({
                                 onSelect={(date) => {
                                     if (date) {
                                         setEndDate(format(date, "yyyy-MM-dd"));
+                                        onPresetChange?.('custom');
                                     }
                                 }}
                                 initialFocus

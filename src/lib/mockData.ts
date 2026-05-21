@@ -1,17 +1,29 @@
 export type Platform = 'TikTok' | 'Shopee' | 'Meta';
 export type ConnectionStatus = 'connected' | 'under_development' | 'error';
 
+export interface ShopChange {
+    gmv: number;   // percentage change vs previous period (can be negative)
+    spend: number;
+    roas: number;
+    orders: number;
+}
+
 export interface ShopData {
     id: string;
     name: string;
     platform: Platform;
     type: 'shop' | 'ad_account';
+    shopNumber?: number;
     roas?: number;
     roasAfterTax?: number;
     spend?: number;
     spendAfterTax?: number;
     revenue?: number;
+    gmv?: number;
+    orders?: number;
     status: ConnectionStatus;
+    dataSource?: string;
+    change?: ShopChange;     // trend vs previous period (%)
 }
 
 export const MOCK_DATA: ShopData[] = [
