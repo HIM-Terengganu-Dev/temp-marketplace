@@ -24,6 +24,28 @@ export default function DebugTablePage() {
         return `${year}-${month}-${day}`;
     };
 
+    // Get yesterday's date in GMT+8 timezone
+    const getYesterdayGMT8 = () => {
+        const now = new Date();
+        // Convert to GMT+8 timezone
+        const gmt8Date = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kuala_Lumpur" }));
+        // Subtract one day
+        gmt8Date.setDate(gmt8Date.getDate() - 1);
+        // Format as YYYY-MM-DD
+        const year = gmt8Date.getFullYear();
+        const month = String(gmt8Date.getMonth() + 1).padStart(2, '0');
+        const day = String(gmt8Date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    // Function to jump to yesterday
+    const jumpToYesterday = () => {
+        const yesterday = getYesterdayGMT8();
+        setStartDate(yesterday);
+        setEndDate(yesterday);
+        setData(null); // Clear data when date changes
+    };
+
     // Get allowed shops from NextAuth session
     const allowedTiktokShops = (session?.user as any)?.allowed_tiktok_shops || [1, 2, 3, 4];
 
@@ -268,6 +290,9 @@ export default function DebugTablePage() {
                         </button>
                     </div>
                 </div>
+                <Button onClick={jumpToYesterday} variant="outline" disabled={loading}>
+                    Yesterday
+                </Button>
                 <Button onClick={fetchData} disabled={loading}>
                     {loading ? 'Fetching...' : 'Fetch Data'}
                 </Button>

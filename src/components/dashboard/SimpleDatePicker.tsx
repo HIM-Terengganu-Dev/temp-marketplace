@@ -1,9 +1,12 @@
 "use client";
 
-import { format, subDays, startOfMonth, endOfMonth } from "date-fns";
+import { format, subDays, startOfMonth, endOfMonth, parseISO, isValid } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface SimpleDatePickerProps {
     startDate: string;
@@ -24,6 +27,13 @@ export function SimpleDatePicker({
     const setRange = (start: Date, end: Date) => {
         setStartDate(format(start, "yyyy-MM-dd"));
         setEndDate(format(end, "yyyy-MM-dd"));
+    };
+
+    // Helper to safely parse string to Date object
+    const parseDate = (dateStr: string) => {
+        if (!dateStr) return new Date();
+        const parsed = parseISO(dateStr);
+        return isValid(parsed) ? parsed : new Date();
     };
 
     return (
@@ -67,24 +77,62 @@ export function SimpleDatePicker({
             <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2">
                     <Label htmlFor="start-date" className="text-[10px] text-muted-foreground uppercase font-semibold">From</Label>
-                    <Input
-                        id="start-date"
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="h-8 w-[130px] text-xs bg-background/50 border-primary/20 focus:border-primary/50"
-                    />
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                id="start-date"
+                                variant="outline"
+                                className={cn(
+                                    "h-8 w-[130px] justify-start text-left font-normal border-primary/20 bg-background/50 hover:bg-primary/5 hover:text-primary transition-all text-xs text-muted-foreground px-2"
+                                )}
+                            >
+                                <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                                {startDate ? format(parseDate(startDate), "MMM dd, yyyy") : <span>Pick date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={parseDate(startDate)}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        setStartDate(format(date, "yyyy-MM-dd"));
+                                    }
+                                }}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
                 </div>
                 <span className="text-muted-foreground text-xs">to</span>
                 <div className="flex items-center gap-2">
                     <Label htmlFor="end-date" className="text-[10px] text-muted-foreground uppercase font-semibold">To</Label>
-                    <Input
-                        id="end-date"
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="h-8 w-[130px] text-xs bg-background/50 border-primary/20 focus:border-primary/50"
-                    />
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                id="end-date"
+                                variant="outline"
+                                className={cn(
+                                    "h-8 w-[130px] justify-start text-left font-normal border-primary/20 bg-background/50 hover:bg-primary/5 hover:text-primary transition-all text-xs text-muted-foreground px-2"
+                                )}
+                            >
+                                <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                                {endDate ? format(parseDate(endDate), "MMM dd, yyyy") : <span>Pick date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={parseDate(endDate)}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        setEndDate(format(date, "yyyy-MM-dd"));
+                                    }
+                                }}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
                 </div>
             </div>
         </div>
