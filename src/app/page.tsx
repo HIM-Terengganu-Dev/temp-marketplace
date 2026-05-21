@@ -10,7 +10,8 @@ import { PerformanceLineChart, PerformanceDataPoint } from "@/components/dashboa
 import { ShopDetailModal } from "@/components/dashboard/ShopDetailModal";
 import { ShopData } from "@/lib/mockData";
 import { useSession } from "next-auth/react";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /* ── helpers ────────────────────────────────────────────────────────────── */
@@ -104,6 +105,10 @@ export default function Home() {
 
     // Selected shop for the detail modal
     const [selectedShop, setSelectedShop] = useState<ShopData | null>(null);
+
+    // Live Auto-Refresh controls
+    const [autoRefresh, setAutoRefresh] = useState(true);
+    const [secondsLeft, setSecondsLeft] = useState(30);
 
     const fetchData = useCallback(async () => {
         if (!startDate || !endDate) return;
@@ -278,9 +283,35 @@ export default function Home() {
         }
     }, [startDate, endDate, activePreset, session]);
 
+    const handleManualRefresh = useCallback(() => {
+        fetchData();
+        if (activePreset === "today") {
+            setSecondsLeft(30);
+        }
+    }, [fetchData, activePreset]);
+
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    useEffect(() => {
+        if (activePreset !== "today" || !autoRefresh) {
+            setSecondsLeft(30);
+            return;
+        }
+
+        const interval = setInterval(() => {
+            setSecondsLeft((prev) => {
+                if (prev <= 1) {
+                    fetchData();
+                    return 30;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [autoRefresh, activePreset, fetchData]);
 
     /* ── totals ─────────────────────────────────────────────────────────── */
     const totalRevenue = shopData.reduce((s, d) => s + (d.revenue ?? 0), 0);
@@ -301,7 +332,38 @@ export default function Home() {
         <div className="space-y-6">
             {/* Toolbar */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div />
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    {/* Live/Paused auto-refresh controls (Only visible for Today) */}
+                    {activePreset === "today" && (
+                        <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-700/50 rounded-full px-3.5 py-1.5 backdrop-blur-sm shadow-sm select-none">
+                            <span className={cn(
+                                "h-2 w-2 rounded-full shadow-lg",
+                                autoRefresh ? "bg-emerald-500 animate-pulse shadow-emerald-500/50" : "bg-amber-500 shadow-amber-500/50"
+                            )} />
+                            <span className="text-xs font-semibold text-slate-300 min-w-[130px]">
+                                {autoRefresh ? `Live updates in ${secondsLeft}s` : "Live updates paused"}
+                            </span>
+                            <button
+                                onClick={() => setAutoRefresh(!autoRefresh)}
+                                className="text-[10px] uppercase font-bold tracking-wider text-slate-400 hover:text-white transition-colors ml-1 px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700/50"
+                            >
+                                {autoRefresh ? "Pause" : "Resume"}
+                            </button>
+                        </div>
+                    )}
+                    
+                    {/* Force Manual Refresh Button */}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleManualRefresh}
+                        disabled={isLoading}
+                        className="h-9 px-3 border-slate-700/60 bg-[#1e293b]/20 hover:bg-slate-800 text-slate-300 hover:text-white font-medium"
+                    >
+                        <RefreshCw className={cn("h-3.5 w-3.5 mr-2 text-slate-400", isLoading && "animate-spin")} />
+                        <span>Refresh</span>
+                    </Button>
+                </div>
                 <SimpleDatePicker
                     startDate={startDate}
                     setStartDate={setStartDate}
