@@ -198,6 +198,98 @@ export async function fetchShopGMV(shopNumber: number, startDateStr: string, end
     };
 }
 
+export async function fetchShopAnalytics(shopNumber: number, startDateStr: string, endDateStr: string) {
+    const shopCredentials = await getShopCredentials(shopNumber);
+    if (!shopCredentials) {
+        throw new Error(`Failed to get credentials for shop ${shopNumber}`);
+    }
+
+    const appKey = cleanEnv(process.env.TIKTOK_SHOP_APP_KEY);
+    const appSecret = cleanEnv(process.env.TIKTOK_SHOP_APP_SECRET);
+    const accessToken = shopCredentials.access_token;
+    const shopCipher = shopCredentials.shop_cipher;
+
+    const queryParams: any = {
+        access_token: accessToken,
+        app_key: appKey,
+        shop_cipher: shopCipher,
+        shop_id: '',
+        version: '202405',
+        start_date_ge: startDateStr,
+        end_date_lt: endDateStr
+    };
+
+    const sortedKeys = Object.keys(queryParams).sort();
+    const queryString = sortedKeys.map(key => `${key}=${encodeURIComponent(queryParams[key])}`).join('&');
+    const urlForSignature = `${BASE_URL_SHOP}/analytics/202405/shop/performance?${queryString}`;
+
+    const signatureResult = tiktokShop.signByUrl(urlForSignature, appSecret, {});
+
+    const finalQueryParams: any = { ...queryParams };
+    finalQueryParams.sign = signatureResult.signature;
+    finalQueryParams.timestamp = signatureResult.timestamp;
+
+    const finalSortedKeys = Object.keys(finalQueryParams).sort();
+    const finalQueryString = finalSortedKeys.map(key => `${key}=${encodeURIComponent(finalQueryParams[key])}`).join('&');
+    const finalUrl = `${BASE_URL_SHOP}/analytics/202405/shop/performance?${finalQueryString}`;
+
+    try {
+        const response = await axios.get(finalUrl, {
+            headers: {
+                'x-tts-access-token': accessToken
+            }
+        });
+
+        if (response.data.code !== 0) {
+            console.error(`Shop ${shopNumber} Analytics API Error:`, response.data.message);
+            return null;
+        }
+
+        const data = response.data.data;
+        if (!data || !data.performance || !data.performance.intervals || data.performance.intervals.length === 0) {
+            return null;
+        }
+
+        // Just sum up intervals if multiple, or return the first if one date
+        let totalVisitors = 0;
+        let totalImpressions = 0;
+        let visitorBreakdowns = { LIVE: 0, VIDEO: 0, PRODUCT_CARD: 0 };
+        let impressionBreakdowns = { LIVE: 0, VIDEO: 0, PRODUCT_CARD: 0 };
+
+        data.performance.intervals.forEach((interval: any) => {
+            totalVisitors += interval.avg_product_page_visitors || 0;
+            totalImpressions += interval.product_impressions || 0;
+
+            if (interval.avg_product_page_visitor_breakdowns) {
+                interval.avg_product_page_visitor_breakdowns.forEach((b: any) => {
+                    if (b.type === 'LIVE') visitorBreakdowns.LIVE += b.amount;
+                    if (b.type === 'VIDEO') visitorBreakdowns.VIDEO += b.amount;
+                    if (b.type === 'PRODUCT_CARD') visitorBreakdowns.PRODUCT_CARD += b.amount;
+                });
+            }
+
+            if (interval.product_impression_breakdowns) {
+                interval.product_impression_breakdowns.forEach((b: any) => {
+                    if (b.type === 'LIVE') impressionBreakdowns.LIVE += b.amount;
+                    if (b.type === 'VIDEO') impressionBreakdowns.VIDEO += b.amount;
+                    if (b.type === 'PRODUCT_CARD') impressionBreakdowns.PRODUCT_CARD += b.amount;
+                });
+            }
+        });
+
+        return {
+            visitors: totalVisitors,
+            impressions: totalImpressions,
+            visitorBreakdowns,
+            impressionBreakdowns
+        };
+    } catch (e: any) {
+        console.error(`Error fetching analytics for shop ${shopNumber}:`, e.message);
+        return null;
+    }
+}
+
+
 async function getGMVMaxCampaignIds(accessToken: string, advertiserId: string, promotionType: string): Promise<Set<string>> {
     const campaignIds = new Set<string>();
     let page = 1;

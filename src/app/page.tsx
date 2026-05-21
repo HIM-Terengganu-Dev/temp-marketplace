@@ -222,17 +222,13 @@ export default function Home() {
                     })
                 );
 
-                const totalSpendCur = shops.reduce((s, d) => s + (d.spend ?? 0), 0);
                 const points: PerformanceDataPoint[] = Object.entries(hourlyBuckets).map(([hour, b]) => ({
                     label: hour,
                     gmv: b.gmv,
-                    spend: 0, // spend isn't available at hourly granularity
-                    roas: 0,
+                    spend: 0, // hourly spend unavailable — hidden in chart
+                    roas: 0,  // hourly roas unavailable — hidden in chart
                     orders: b.orders,
                 }));
-                // Annotate average spend per hour for context
-                const avgHourlySpend = totalSpendCur / 24;
-                points.forEach((p) => { p.spend = avgHourlySpend; });
 
                 setChartData(points);
             } else {

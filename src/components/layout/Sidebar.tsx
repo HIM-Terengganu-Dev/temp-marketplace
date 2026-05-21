@@ -11,6 +11,7 @@ import {
     Megaphone,
     Store,
     RefreshCw,
+    Globe,
 } from "lucide-react";
 
 import { useSession } from "next-auth/react";
@@ -21,6 +22,7 @@ const navigation = [
     { name: "Shopee Shop", href: "/shopee", icon: ShoppingBag },
     { name: "Ad Accounts", href: "/ads", icon: Megaphone },
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
+    { name: "BOD Dashboard", href: "/bod-dashboard", icon: Globe },
     { name: "Debug Table", href: "/debug-table", icon: BarChart3 }, // Temporary Debug Link
     { name: "Debug Table (Ikram)", href: "/debug-table-ikram", icon: BarChart3 }, // Temporary Debug Link
     { name: "Refresh Token", href: "/refresh-token", icon: RefreshCw },
@@ -39,6 +41,7 @@ export function Sidebar() {
         if (item.href === "/shopee") return allowedFeatures.includes("shopee");
         if (item.href === "/ads") return allowedFeatures.includes("ads");
         if (item.href === "/analytics") return allowedFeatures.includes("analytics");
+        if (item.href === "/bod-dashboard") return allowedFeatures.includes("executive");
         if (item.href === "/debug-table") return allowedFeatures.includes("debug");
         if (item.href === "/debug-table-ikram") return allowedFeatures.includes("debug");
         if (item.href === "/refresh-token") return allowedFeatures.includes("refresh_token");
