@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import axios from 'axios';
 import { query } from './db';
+import { format, parseISO, differenceInDays, subDays } from 'date-fns';
 
 const PARTNER_ID = parseInt(process.env.SHOPEE_PARTNER_ID || '0', 10);
 const PARTNER_KEY = process.env.SHOPEE_PARTNER_KEY || '';
@@ -217,4 +218,276 @@ export async function getShopeeShopInfo(shopId: number, accessToken: string): Pr
         shop_name: data.shop_name || `Shopee Shop ${shopId}` 
     };
 }
+
+/**
+ * Parses dates timezone-safely to Asia/Kuala_Lumpur (GMT+8).
+ */
+function parseDateGMT8(dateStr: string, hour: number, minute: number, second: number, millisecond: number): Date {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const isoString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}.${String(millisecond).padStart(3, '0')}+08:00`;
+    return new Date(isoString);
+}
+
+/**
+ * Fetches order list and details, calculating timezone-safe GMV and order count.
+ */
+export async function fetchShopeeGMVAndOrders(
+    shopId: number,
+    accessToken: string,
+    startDateStr: string,
+    endDateStr: string
+) {
+    const start = parseDateGMT8(startDateStr, 0, 0, 0, 0);
+    const end = parseDateGMT8(endDateStr, 23, 59, 59, 999);
+    
+    const timeFrom = Math.floor(start.getTime() / 1000);
+    const timeTo = Math.floor(end.getTime() / 1000);
+
+    const allOrderSns: string[] = [];
+    let hasMore = true;
+    let cursor = "";
+
+    while (hasMore) {
+        const timestamp = Math.floor(Date.now() / 1000);
+        const path = '/api/v2/order/get_order_list';
+        const sign = generateShopeeSignature(path, timestamp, accessToken, shopId);
+        
+        let url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${shopId}`;
+        url += `&time_range_field=create_time&time_from=${timeFrom}&time_to=${timeTo}&page_size=50`;
+        if (cursor) {
+            url += `&cursor=${encodeURIComponent(cursor)}`;
+        }
+
+        console.log(`Fetching Shopee orders list for ${shopId} with cursor: "${cursor}"...`);
+        const response = await axios.get(url);
+        const data = response.data;
+
+        if (data.error) {
+            throw new Error(`Shopee get_order_list error: ${data.message || data.error}`);
+        }
+
+        const resp = data.response;
+        if (resp) {
+            const orders = resp.order_list || [];
+            orders.forEach((o: { order_sn?: string }) => {
+                if (o.order_sn) {
+                    allOrderSns.push(o.order_sn);
+                }
+            });
+            hasMore = !!resp.more;
+            cursor = resp.next_cursor || "";
+        } else {
+            hasMore = false;
+        }
+    }
+
+    const chunkedOrderSns: string[][] = [];
+    for (let i = 0; i < allOrderSns.length; i += 50) {
+        chunkedOrderSns.push(allOrderSns.slice(i, i + 50));
+    }
+
+    let totalGMV = 0;
+    let validOrderCount = 0;
+    const uniqueBuyers = new Set<number | string>();
+    const ordersDetails: {
+        id: string;
+        status: string;
+        createTime: number;
+        gmv: number;
+        itemCount: number;
+        buyerUserId: number | string | null;
+        isIncluded: boolean;
+    }[] = [];
+    let fetchedShopName = `Shopee Shop ${shopId}`;
+
+    for (const chunk of chunkedOrderSns) {
+        const timestamp = Math.floor(Date.now() / 1000);
+        const path = '/api/v2/order/get_order_detail';
+        const sign = generateShopeeSignature(path, timestamp, accessToken, shopId);
+        
+        const orderSnListStr = chunk.join(',');
+        const optionalFields = 'buyer_user_id,total_amount,item_list,order_status';
+        
+        let url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${shopId}`;
+        url += `&order_sn_list=${encodeURIComponent(orderSnListStr)}&response_optional_fields=${encodeURIComponent(optionalFields)}`;
+
+        console.log(`Fetching Shopee order details for batch of ${chunk.length}...`);
+        const response = await axios.get(url);
+        const data = response.data;
+
+        if (data.error) {
+            throw new Error(`Shopee get_order_detail error: ${data.message || data.error}`);
+        }
+
+        const resp = data.response;
+        if (resp && resp.order_list) {
+            for (const order of resp.order_list) {
+                const status = order.order_status?.toUpperCase();
+                const isIncluded = status !== 'CANCELLED' && status !== 'TO_RETURN';
+                
+                const orderTotal = parseFloat(order.total_amount || 0);
+
+                ordersDetails.push({
+                    id: order.order_sn,
+                    status: order.order_status,
+                    createTime: order.create_time, // UNIX timestamp in seconds
+                    gmv: orderTotal,
+                    itemCount: order.item_list?.length || 0,
+                    buyerUserId: order.buyer_user_id || null,
+                    isIncluded
+                });
+
+                if (isIncluded) {
+                    totalGMV += orderTotal;
+                    validOrderCount++;
+                    if (order.buyer_user_id) {
+                        uniqueBuyers.add(order.buyer_user_id);
+                    }
+                }
+            }
+        }
+    }
+
+    // Try to get dynamic shop name from getShopeeShopInfo or fallback
+    try {
+        const info = await getShopeeShopInfo(shopId, accessToken);
+        if (info && info.shop_name) {
+            fetchedShopName = info.shop_name;
+        }
+    } catch {
+        // Fallback is okay
+    }
+
+    return {
+        shopName: fetchedShopName,
+        gmv: totalGMV,
+        orderCount: validOrderCount,
+        totalOrderCount: allOrderSns.length,
+        uniqueCustomers: uniqueBuyers.size,
+        orders: ordersDetails
+    };
+}
+
+/**
+ * Fetches CPC ad spend for a single date, formatting in DD-MM-YYYY.
+ */
+export async function fetchShopeeAdsSpendForDate(
+    shopId: number,
+    accessToken: string,
+    dateStr: string
+): Promise<{ totalSpend: number; hourlySpend: number[] }> {
+    const [year, month, day] = dateStr.split('-');
+    const performanceDate = `${day}-${month}-${year}`;
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const path = '/api/v2/ads/get_all_cpc_ads_hourly_performance';
+    const sign = generateShopeeSignature(path, timestamp, accessToken, shopId);
+
+    const url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${shopId}&performance_date=${performanceDate}`;
+    const hourlySpend = Array.from({ length: 24 }, () => 0);
+
+    try {
+        console.log(`Fetching Shopee Ads CPC performance for ${shopId} on ${dateStr} (${performanceDate})...`);
+        const response = await axios.get(url);
+        const data = response.data;
+
+        if (data.error) {
+            console.warn(`Shopee CPC ads hourly API error for shop ${shopId} on ${dateStr}: ${data.message || data.error}`);
+            return { totalSpend: 0, hourlySpend };
+        }
+
+        const resp = data.response;
+        const list = resp?.list || resp?.cpc_ads_hourly_performance_list || [];
+
+        let totalSpend = 0;
+        for (const item of list) {
+            const cost = parseFloat(item.cost || 0);
+            totalSpend += cost;
+
+            if (item.hourly_time) {
+                const hDate = new Date(item.hourly_time * 1000);
+                const klDate = new Date(hDate.toLocaleString('en-US', { timeZone: 'Asia/Kuala_Lumpur' }));
+                const hour = klDate.getHours();
+                if (hour >= 0 && hour < 24) {
+                    hourlySpend[hour] += cost;
+                }
+            } else if (item.hour !== undefined) {
+                const hour = parseInt(item.hour, 10);
+                if (hour >= 0 && hour < 24) {
+                    hourlySpend[hour] += cost;
+                }
+            }
+        }
+
+        return { totalSpend, hourlySpend };
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        console.warn(`Failed to fetch Shopee CPC ads for ${shopId} on ${dateStr}:`, msg);
+        return { totalSpend: 0, hourlySpend };
+    }
+}
+
+/**
+ * High-level orchestrator fetching both Order details and CPC Ad spends timezone-safely,
+ * adding tax and WHT computations.
+ */
+export async function fetchShopeeShopPerformance(
+    shopId: number,
+    startDateStr: string,
+    endDateStr: string
+) {
+    const accessToken = await getValidShopeeToken(shopId);
+
+    // Fetch order metrics concurrently
+    const orderData = await fetchShopeeGMVAndOrders(shopId, accessToken, startDateStr, endDateStr);
+
+    // Fetch CPC ads spend concurrently for each date in range
+    const dates: string[] = [];
+    const start = parseISO(startDateStr);
+    const end = parseISO(endDateStr);
+    const daySpan = differenceInDays(end, start) + 1;
+
+    for (let i = 0; i < daySpan; i++) {
+        const date = format(subDays(end, daySpan - 1 - i), 'yyyy-MM-dd');
+        dates.push(date);
+    }
+
+    const adsResults = await Promise.all(
+        dates.map(date => fetchShopeeAdsSpendForDate(shopId, accessToken, date).catch(() => ({
+            totalSpend: 0,
+            hourlySpend: Array.from({ length: 24 }, () => 0)
+        })))
+    );
+
+    const spendBeforeTax = adsResults.reduce((sum, res) => sum + res.totalSpend, 0);
+
+    // TAX calculations: SST (8%) & WHT (8%)
+    const sst = spendBeforeTax * 0.08;
+    const wht = spendBeforeTax * 0.08;
+    const spendAfterTax = spendBeforeTax + sst + wht;
+
+    const roasBeforeTax = spendBeforeTax > 0 ? orderData.gmv / spendBeforeTax : 0;
+    const roasAfterTax = spendAfterTax > 0 ? orderData.gmv / spendAfterTax : 0;
+
+    return {
+        shopId,
+        shopName: orderData.shopName,
+        gmv: orderData.gmv,
+        orderCount: orderData.orderCount,
+        totalOrderCount: orderData.totalOrderCount,
+        uniqueCustomers: orderData.uniqueCustomers,
+        spendBeforeTax,
+        spendAfterTax,
+        sst,
+        wht,
+        roasBeforeTax,
+        roasAfterTax,
+        orders: orderData.orders,
+        adsHourlyBreakdowns: adsResults.map((r, i) => ({
+            date: dates[i],
+            hourlySpend: r.hourlySpend
+        }))
+    };
+}
+
 

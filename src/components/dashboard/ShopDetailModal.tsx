@@ -129,17 +129,28 @@ export function ShopDetailModal({ shop, startDate, endDate, preset, onClose }: S
     const [chartMode, setChartMode] = useState<'hourly' | 'daily'>('daily');
 
     const shopNum = shop.shopNumber;
+    const shopId = shop.shopId;
+    const isTikTok = shop.platform === 'TikTok';
 
     const fetchMetrics = useCallback(async () => {
-        if (!shopNum) return;
+        if (isTikTok && !shopNum) return;
+        if (!isTikTok && !shopId) return;
         setLoading(true);
         try {
             const prevRange = getPreviousRange(startDate, endDate, preset);
 
+            const curUrl = isTikTok 
+                ? `/api/tiktok/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopNumber=${shopNum}`
+                : `/api/shopee/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopId=${shopId}`;
+            
+            const prevUrl = isTikTok
+                ? `/api/tiktok/shop-metrics?startDate=${prevRange.start}&endDate=${prevRange.end}&shopNumber=${shopNum}`
+                : `/api/shopee/shop-metrics?startDate=${prevRange.start}&endDate=${prevRange.end}&shopId=${shopId}`;
+
             // Fetch current + previous period in parallel
             const [curRes, prevRes] = await Promise.all([
-                fetch(`/api/tiktok/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopNumber=${shopNum}`),
-                fetch(`/api/tiktok/shop-metrics?startDate=${prevRange.start}&endDate=${prevRange.end}&shopNumber=${shopNum}`),
+                fetch(curUrl),
+                fetch(prevUrl),
             ]);
 
             const [cur, prev] = await Promise.all([curRes.json(), prevRes.json()]);
@@ -163,14 +174,17 @@ export function ShopDetailModal({ shop, startDate, endDate, preset, onClose }: S
 
             if (isOneDay) {
                 // Fetch hourly breakdown for the single day
-                const hourlyRes = await fetch(`/api/tiktok/shop-metrics/hourly?date=${startDate}&shopNumber=${shopNum}`);
+                const hourlyUrl = isTikTok
+                    ? `/api/tiktok/shop-metrics/hourly?date=${startDate}&shopNumber=${shopNum}`
+                    : `/api/shopee/shop-metrics/hourly?date=${startDate}&shopId=${shopId}`;
+                const hourlyRes = await fetch(hourlyUrl);
                 if (hourlyRes.ok) {
                     const hourlyData = await hourlyRes.json();
-                    const points: PerformanceDataPoint[] = (hourlyData.hourly || []).map((h: { hour: string; gmv: number; orders: number }) => ({
+                    const points: PerformanceDataPoint[] = (hourlyData.hourly || []).map((h: { hour: string; gmv: number; orders: number; spend?: number; roas?: number }) => ({
                         label: h.hour,
                         gmv: h.gmv,
-                        spend: 0,  // spend is not available at hourly granularity
-                        roas: 0,
+                        spend: h.spend || 0,
+                        roas: h.roas || 0,
                         orders: h.orders,
                     }));
                     setChartData(points);
@@ -183,13 +197,16 @@ export function ShopDetailModal({ shop, startDate, endDate, preset, onClose }: S
                 }
 
                 const dailyPoints: PerformanceDataPoint[] = [];
-                // Batch fetch: up to 30 days, fetch day-by-day metrics from shop-metrics endpoint
+                // Batch fetch: up to 30 days, fetch day-by-day metrics
                 const dayResults = await Promise.all(
-                    days.map(day =>
-                        fetch(`/api/tiktok/shop-metrics?startDate=${day}&endDate=${day}&shopNumber=${shopNum}`)
+                    days.map(day => {
+                        const dayUrl = isTikTok
+                            ? `/api/tiktok/shop-metrics?startDate=${day}&endDate=${day}&shopNumber=${shopNum}`
+                            : `/api/shopee/shop-metrics?startDate=${day}&endDate=${day}&shopId=${shopId}`;
+                        return fetch(dayUrl)
                             .then(r => r.ok ? r.json() : null)
-                            .catch(() => null)
-                    )
+                            .catch(() => null);
+                    })
                 );
 
                 dayResults.forEach((d, idx) => {
@@ -210,7 +227,7 @@ export function ShopDetailModal({ shop, startDate, endDate, preset, onClose }: S
         } finally {
             setLoading(false);
         }
-    }, [shopNum, startDate, endDate, preset]);
+    }, [shopNum, shopId, isTikTok, startDate, endDate, preset]);
 
     useEffect(() => {
         fetchMetrics();

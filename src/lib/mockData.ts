@@ -14,6 +14,7 @@ export interface ShopData {
     platform: Platform;
     type: 'shop' | 'ad_account';
     shopNumber?: number;
+    shopId?: number;
     roas?: number;
     roasAfterTax?: number;
     spend?: number;
