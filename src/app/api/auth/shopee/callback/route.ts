@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
     if (!code || !shopIdStr) {
         console.error('Shopee Callback missing code or shop_id:', { code, shopIdStr });
-        return NextResponse.redirect(`${origin}/settings?shopee_error=missing_params`);
+        return NextResponse.redirect(`${origin}/shopee?shopee_error=missing_params`);
     }
 
     try {
@@ -49,11 +49,11 @@ export async function GET(request: Request) {
 
         console.log(`Successfully connected and saved Shopee store "${shopName}" (${shopId})!`);
 
-        // 4. Redirect the merchant back to settings with a success flag
-        return NextResponse.redirect(`${origin}/settings?shopee_connected=true`);
+        // 4. Redirect the merchant back to Shopee page with a success flag
+        return NextResponse.redirect(`${origin}/shopee?shopee_connected=true`);
 
     } catch (error: any) {
         console.error('Shopee Auth Handshake Error:', error);
-        return NextResponse.redirect(`${origin}/settings?shopee_error=${encodeURIComponent(error.message || 'handshake_failed')}`);
+        return NextResponse.redirect(`${origin}/shopee?shopee_error=${encodeURIComponent(error.message || 'handshake_failed')}`);
     }
 }
