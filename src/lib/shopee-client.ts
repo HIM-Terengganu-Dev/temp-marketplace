@@ -459,6 +459,50 @@ export async function fetchShopeeAdsSpendForDate(
 }
 
 /**
+ * Fetches Meta (Facebook) CPAS Ads spend for a single date timezone-safely from the Meta Marketing API.
+ */
+export async function fetchMetaCPASSpendForDate(
+    shopId: number,
+    dateStr: string
+): Promise<number> {
+    const accessToken = process.env.FB_ACCESS_TOKEN;
+    if (!accessToken) {
+        return 0; // Meta Ads not configured, fail-silent
+    }
+
+    const SHOPEE_FB_AD_ACCOUNTS: Record<number, string> = {
+        1298030530: process.env.SHOPEE_FB_AD_ACCOUNT_1298030530 || '', // HIM by Dr Samhan
+        1077500606: process.env.SHOPEE_FB_AD_ACCOUNT_1077500606 || '', // HIM by Dr Samhan 1
+        1256177782: process.env.SHOPEE_FB_AD_ACCOUNT_1256177782 || '', // HIM by Dr Samhan 2
+        1290223366: process.env.SHOPEE_FB_AD_ACCOUNT_1290223366 || ''  // him.drsamhan4
+    };
+
+    const adAccountId = SHOPEE_FB_AD_ACCOUNTS[shopId];
+    if (!adAccountId) {
+        return 0; // No FB ad account configured for this shop
+    }
+
+    try {
+        const timeRange = JSON.stringify({ since: dateStr, until: dateStr });
+        const url = `https://graph.facebook.com/v19.0/${adAccountId}/insights?access_token=${accessToken}&level=account&fields=spend&time_range=${encodeURIComponent(timeRange)}`;
+
+        console.log(`Fetching Meta CPAS spend for shop ${shopId} (${adAccountId}) on ${dateStr}...`);
+        const response = await axios.get(url);
+        const data = response.data;
+        const insights = data.data || [];
+        if (insights.length > 0 && insights[0].spend) {
+            const spend = parseFloat(insights[0].spend);
+            console.log(`Meta CPAS spend for shop ${shopId} on ${dateStr}: RM ${spend.toFixed(2)}`);
+            return spend;
+        }
+        return 0;
+    } catch (error: any) {
+        console.warn(`Failed to fetch Meta CPAS spend for shop ${shopId} on ${dateStr}:`, error.message);
+        return 0;
+    }
+}
+
+/**
  * High-level orchestrator fetching both Order details and CPC Ad spends timezone-safely,
  * adding tax and WHT computations.
  */
@@ -483,14 +527,22 @@ export async function fetchShopeeShopPerformance(
         dates.push(date);
     }
 
-    const adsResults = await Promise.all(
-        dates.map(date => fetchShopeeAdsSpendForDate(shopId, accessToken, date).catch(() => ({
-            totalSpend: 0,
-            hourlySpend: Array.from({ length: 24 }, () => 0)
-        })))
-    );
+    // Fetch both Shopee native CPC spends and Meta CPAS spends in parallel
+    const [adsResults, cpasResults] = await Promise.all([
+        Promise.all(
+            dates.map(date => fetchShopeeAdsSpendForDate(shopId, accessToken, date).catch(() => ({
+                totalSpend: 0,
+                hourlySpend: Array.from({ length: 24 }, () => 0)
+            })))
+        ),
+        Promise.all(
+            dates.map(date => fetchMetaCPASSpendForDate(shopId, date).catch(() => 0))
+        )
+    ]);
 
-    const spendBeforeTax = adsResults.reduce((sum, res) => sum + res.totalSpend, 0);
+    const shopeeCpcSpend = adsResults.reduce((sum, res) => sum + res.totalSpend, 0);
+    const cpasSpend = cpasResults.reduce((sum, res) => sum + res, 0);
+    const spendBeforeTax = shopeeCpcSpend + cpasSpend;
 
     // TAX calculations: SST (8%) & WHT (8%)
     const sst = spendBeforeTax * 0.08;
