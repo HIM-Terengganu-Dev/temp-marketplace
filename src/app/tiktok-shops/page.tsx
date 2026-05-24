@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { SimpleDatePicker } from "@/components/dashboard/SimpleDatePicker";
 import { ShopCard } from "@/components/dashboard/ShopCard";
+import { AffiliateLeaderboard } from "@/components/dashboard/AffiliateLeaderboard";
 import { Badge } from "@/components/ui/badge";
 import { Store, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,9 @@ export default function TikTokShopsPage() {
     const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
     const [shopData, setShopData] = useState<any[]>([]);
+    const [creators, setCreators] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isAffiliateLoading, setIsAffiliateLoading] = useState(false);
 
     const fetchData = async () => {
         if (!startDate || !endDate) return;
@@ -62,8 +65,31 @@ export default function TikTokShopsPage() {
         }
     };
 
+    const fetchAffiliateData = async () => {
+        if (!startDate || !endDate) return;
+
+        setIsAffiliateLoading(true);
+        try {
+            const res = await fetch(`/api/tiktok/affiliates?startDate=${startDate}&endDate=${endDate}`);
+            if (res.ok) {
+                const data = await res.json();
+                setCreators(data.creators || []);
+            }
+        } catch (e) {
+            console.error("Error fetching affiliate data:", e);
+        } finally {
+            setIsAffiliateLoading(false);
+        }
+    };
+
+    const handleRefreshAll = () => {
+        fetchData();
+        fetchAffiliateData();
+    };
+
     useEffect(() => {
         fetchData();
+        fetchAffiliateData();
     }, [startDate, endDate, session]);
 
     return (
@@ -82,11 +108,11 @@ export default function TikTokShopsPage() {
                     <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={fetchData} 
-                        disabled={isLoading}
+                        onClick={handleRefreshAll} 
+                        disabled={isLoading || isAffiliateLoading}
                         className="h-9 gap-2"
                     >
-                        <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                        <RefreshCw className={cn("h-4 w-4", (isLoading || isAffiliateLoading) && "animate-spin")} />
                         Refresh
                     </Button>
                     <SimpleDatePicker
@@ -109,6 +135,11 @@ export default function TikTokShopsPage() {
                     <p className="text-muted-foreground">No shops connected yet.</p>
                 </div>
             )}
+
+            {/* Affiliate Creator Performance Leaderboard Section */}
+            <div className="pt-6 border-t border-border/20">
+                <AffiliateLeaderboard creators={creators} isLoading={isAffiliateLoading} />
+            </div>
         </div>
     );
 }

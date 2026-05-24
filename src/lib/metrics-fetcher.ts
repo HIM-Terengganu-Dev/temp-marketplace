@@ -657,6 +657,9 @@ export async function ensureDailyMetricsSynced() {
                                 
                                 // Auto-sync livestream metrics for this shop and date as well
                                 await syncLivestreamMetricsForDate(shopNumber, dateStr);
+
+                                // Auto-sync affiliate metrics for this shop and date as well
+                                await syncAffiliateMetricsForDate(shopNumber, dateStr);
                             } catch (e: any) {
                                 console.error(`[Auto-Sync] Failed for shop ${shopNumber} on ${dateStr}:`, e.message);
                             }
@@ -798,5 +801,170 @@ export async function syncLivestreamMetricsForDate(shopNumber: number, dateStr: 
         console.error(`[Sync Error] Failed to sync livestreams for shop ${shopNumber} on ${dateStr}:`, e.message);
     }
 }
+
+/**
+ * Fetches affiliate creator sales performance list for a specific shop and date range
+ */
+export async function fetchTikTokAffiliatePerformance(shopNumber: number, dateStr: string) {
+    const start = parseDateGMT8(dateStr, 0, 0, 0, 0);
+    const end = parseDateGMT8(dateStr, 23, 59, 59, 999);
+
+    const startTime = Math.floor(start.getTime() / 1000);
+    const endTime = Math.floor(end.getTime() / 1000);
+
+    const shopCredentials = await getShopCredentials(shopNumber);
+    if (!shopCredentials) {
+        throw new Error(`Failed to get credentials for shop ${shopNumber}`);
+    }
+
+    const appKey = cleanEnv(process.env.TIKTOK_SHOP_APP_KEY);
+    const appSecret = cleanEnv(process.env.TIKTOK_SHOP_APP_SECRET);
+    const accessToken = shopCredentials.access_token;
+    const shopCipher = shopCredentials.shop_cipher;
+
+    if (!appKey || !appSecret || !accessToken || !shopCipher) {
+        throw new Error('Missing TikTok Shop App Key, App Secret or Cipher');
+    }
+
+    const endpoint = '/affiliate_seller/202410/orders/search';
+    let allOrders: any[] = [];
+    let pageToken = '';
+    let hasMore = true;
+
+    try {
+        console.log(`[TikTok API] Fetching Affiliate orders for shop ${shopNumber} on ${dateStr}...`);
+        while (hasMore) {
+            const queryParams: any = {
+                access_token: accessToken,
+                app_key: appKey,
+                shop_cipher: shopCipher,
+                shop_id: '',
+                version: '202410',
+                page_size: 50
+            };
+
+            if (pageToken) {
+                queryParams.page_token = pageToken;
+            }
+
+            const sortedKeys = Object.keys(queryParams).sort();
+            const queryString = sortedKeys.map(k => `${k}=${encodeURIComponent(queryParams[k])}`).join('&');
+            const urlForSignature = `${BASE_URL_SHOP}${endpoint}?${queryString}`;
+
+            const requestBody = {
+                create_time_ge: startTime,
+                create_time_lt: endTime
+            };
+
+            const signatureResult = tiktokShop.signByUrl(urlForSignature, appSecret, requestBody);
+            
+            const finalParams = { ...queryParams, sign: signatureResult.signature, timestamp: signatureResult.timestamp };
+            const finalQueryStr = Object.keys(finalParams).sort().map(k => `${k}=${encodeURIComponent(finalParams[k])}`).join('&');
+            const finalUrl = `${BASE_URL_SHOP}${endpoint}?${finalQueryStr}`;
+
+            const response = await axios.post(finalUrl, requestBody, {
+                headers: {
+                    'x-tts-access-token': accessToken,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.data.code !== 0) {
+                console.warn(`[TikTok Affiliate Warning] Affiliate orders search failed for shop ${shopNumber}:`, response.data.message);
+                break;
+            }
+
+            const data = response.data.data || {};
+            const orders = data.orders || [];
+            if (orders.length > 0) {
+                allOrders = allOrders.concat(orders);
+            }
+
+            pageToken = data.next_page_token || '';
+            hasMore = !!pageToken;
+        }
+    } catch (err: any) {
+        console.warn(`[TikTok Affiliate Error] Error calling affiliate orders search for shop ${shopNumber}:`, err.message);
+        return [];
+    }
+
+    // Process and aggregate by creator_username
+    const creatorMap: Record<string, { creatorName: string; orderCount: number; gmv: number; commission: number; ordersSet: Set<string> }> = {};
+
+    allOrders.forEach(order => {
+        const orderId = order.id;
+        const skus = order.skus || [];
+
+        skus.forEach((sku: any) => {
+            const username = sku.creator_username || sku.creator_id || '';
+            if (!username) return;
+
+            const name = sku.creator_name || sku.creator_username || username;
+            const price = parseFloat(sku.price?.amount || '0');
+            const qty = sku.quantity || 1;
+            const skuGmv = price * qty;
+            
+            // Commission
+            let skuCommission = parseFloat(sku.commission_amount || sku.creator_commission || sku.estimated_commission || '0');
+            if (skuCommission === 0 && sku.commission_rate) {
+                skuCommission = skuGmv * (parseFloat(sku.commission_rate) / 100);
+            }
+
+            if (!creatorMap[username]) {
+                creatorMap[username] = {
+                    creatorName: name,
+                    orderCount: 0,
+                    gmv: 0,
+                    commission: 0,
+                    ordersSet: new Set()
+                };
+            }
+
+            creatorMap[username].gmv += skuGmv;
+            creatorMap[username].commission += skuCommission;
+            creatorMap[username].ordersSet.add(orderId);
+        });
+    });
+
+    const result = Object.entries(creatorMap).map(([username, c]) => ({
+        creatorUsername: username,
+        creatorName: c.creatorName,
+        orderCount: c.ordersSet.size,
+        gmv: c.gmv,
+        commission: c.commission
+    }));
+
+    console.log(`[TikTok Affiliate] Aggregated ${result.length} unique affiliates for shop ${shopNumber} on ${dateStr}`);
+    return result;
+}
+
+export async function syncAffiliateMetricsForDate(shopNumber: number, dateStr: string) {
+    try {
+        const creators = await fetchTikTokAffiliatePerformance(shopNumber, dateStr);
+        // Clear existing cache for this shop and date to prevent old duplicates
+        await query(`
+            DELETE FROM credentials.tiktok_affiliate_performance 
+            WHERE shop_number = $1 AND date = $2::date
+        `, [shopNumber, dateStr]);
+
+        for (const creator of creators) {
+            await query(`
+                INSERT INTO credentials.tiktok_affiliate_performance (
+                    shop_number, date, creator_username, creator_name, order_count, gmv, commission_amount, updated_at
+                ) VALUES ($1, $2::date, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+                ON CONFLICT (shop_number, date, creator_username) DO UPDATE SET
+                    creator_name = EXCLUDED.creator_name,
+                    order_count = EXCLUDED.order_count,
+                    gmv = EXCLUDED.gmv,
+                    commission_amount = EXCLUDED.commission_amount,
+                    updated_at = CURRENT_TIMESTAMP
+            `, [shopNumber, dateStr, creator.creatorUsername, creator.creatorName, creator.orderCount, creator.gmv, creator.commission]);
+        }
+        console.log(`[Sync] Synced ${creators.length} creator affiliates for shop ${shopNumber} on ${dateStr}`);
+    } catch (e: any) {
+        console.error(`[Sync Error] Failed to sync creator affiliates for shop ${shopNumber} on ${dateStr}:`, e.message);
+    }
+}
+
 
 

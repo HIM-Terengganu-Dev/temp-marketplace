@@ -8,6 +8,7 @@ import { ShopCard } from "@/components/dashboard/ShopCard";
 import { SimpleDatePicker, DatePreset } from "@/components/dashboard/SimpleDatePicker";
 import { PerformanceLineChart, PerformanceDataPoint } from "@/components/dashboard/Charts";
 import { ShopDetailModal } from "@/components/dashboard/ShopDetailModal";
+import { AffiliateLeaderboard } from "@/components/dashboard/AffiliateLeaderboard";
 import { ShopData } from "@/lib/mockData";
 import { useSession } from "next-auth/react";
 import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag } from "lucide-react";
@@ -121,7 +122,9 @@ export default function Home() {
 
     const [shopData, setShopData] = useState<ShopData[]>([]);
     const [livestreams, setLivestreams] = useState<any[]>([]);
+    const [creators, setCreators] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isAffiliateLoading, setIsAffiliateLoading] = useState(false);
     const [dataSource, setDataSource] = useState<string>("");
 
     // Comparison (previous period) totals
@@ -392,6 +395,21 @@ export default function Home() {
             } catch (e: any) {
                 if (e.name === 'AbortError') throw e;
                 console.error("Failed to load livestream performance", e);
+            }
+
+            // ── Fetch creator affiliate leaderboard ────────────────────────
+            setIsAffiliateLoading(true);
+            try {
+                const affiliateRes = await fetch(`/api/tiktok/affiliates?startDate=${startDate}&endDate=${endDate}`, { signal });
+                if (affiliateRes.ok) {
+                    const affiliateJson = await affiliateRes.json();
+                    setCreators(affiliateJson.creators || []);
+                }
+            } catch (e: any) {
+                if (e.name === 'AbortError') throw e;
+                console.error("Failed to load affiliate performance", e);
+            } finally {
+                setIsAffiliateLoading(false);
             }
         } catch (error: any) {
             if (error.name === 'AbortError') {
@@ -772,6 +790,9 @@ export default function Home() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Affiliate Creator Performance Leaderboard Section */}
+            <AffiliateLeaderboard creators={creators} isLoading={isAffiliateLoading} />
 
             {/* Shop Cards */}
             <div className="space-y-4">
