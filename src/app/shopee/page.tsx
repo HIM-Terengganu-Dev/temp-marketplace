@@ -113,10 +113,13 @@ function ShopeeShopsContent() {
                             orders: data.orderCount || 0,
                             spend: data.totalAdsSpend || 0,
                             spendAfterTax: data.totalCostWithTaxes || 0,
+                            cpasSpend: data.cpasSpend || 0,
+                            shopeeCpcSpend: data.shopeeCpcSpend || 0,
                             roas: data.roasBeforeTax || 0,
                             roasAfterTax: data.roasAfterTax || 0,
                             status: 'connected' as const
                         };
+
                     } catch (e) {
                         console.error(`Error fetching performance for shop ${shop.shop_id}:`, e);
                         return null;

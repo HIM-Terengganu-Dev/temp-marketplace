@@ -81,11 +81,13 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
         const spendAfterTax = data.spendAfterTax || 0;
         const roasBeforeTax = data.roasBeforeTax || 0;
         const roasAfterTax = data.roasAfterTax || 0;
+        const cpasSpend = data.cpasSpend || 0;
+        const shopeeCpcSpend = data.shopeeCpcSpend || 0;
 
         await query(`
             INSERT INTO credentials.daily_shopee_metrics (
-                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_id, date) DO UPDATE SET
                 gmv = EXCLUDED.gmv,
                 spend_before_tax = EXCLUDED.spend_before_tax,
@@ -93,15 +95,18 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
                 roas_before_tax = EXCLUDED.roas_before_tax,
                 roas_after_tax = EXCLUDED.roas_after_tax,
                 order_count = EXCLUDED.order_count,
+                cpas_spend = EXCLUDED.cpas_spend,
+                shopee_cpc_spend = EXCLUDED.shopee_cpc_spend,
                 updated_at = CURRENT_TIMESTAMP
-        `, [shopId, data.shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount]);
+        `, [shopId, data.shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend]);
 
-        return { gmv, spend: spendBeforeTax, orders: orderCount };
+        return { gmv, spend: spendBeforeTax, orders: orderCount, cpasSpend, shopeeCpcSpend };
     } catch (e: any) {
         console.error(`[summary] Shopee Shop ${shopId} failed for ${date}:`, e.message);
-        return { gmv: 0, spend: 0, orders: 0 };
+        return { gmv: 0, spend: 0, orders: 0, cpasSpend: 0, shopeeCpcSpend: 0 };
     }
 }
+
 
 async function fetchTikTokShopMetricsSWR(
     shopNumber: number,
@@ -230,7 +235,7 @@ async function fetchShopeeShopMetricsSWR(
     
     // Fetch DB rows
     const dbResult = await query(`
-        SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, shop_name
+        SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, cpas_spend, shopee_cpc_spend, shop_name
         FROM credentials.daily_shopee_metrics
         WHERE shop_id = $1 AND date >= $2::date AND date <= $3::date
     `, [shopId, startDate, endDate]);
@@ -241,6 +246,8 @@ async function fetchShopeeShopMetricsSWR(
             gmv: parseFloat(row.gmv),
             spend: parseFloat(row.spend_before_tax),
             orders: parseInt(row.order_count, 10),
+            cpasSpend: parseFloat(row.cpas_spend || 0),
+            shopeeCpcSpend: parseFloat(row.shopee_cpc_spend || 0),
             shopName: row.shop_name
         };
     });
@@ -248,11 +255,13 @@ async function fetchShopeeShopMetricsSWR(
     let totalGMV = 0;
     let totalSpend = 0;
     let totalOrders = 0;
+    let totalCpasSpend = 0;
+    let totalShopeeCpcSpend = 0;
     let shopName = `Shopee Shop ${shopId}`;
     let loadedFromDbCount = 0;
     let loadedFromApiCount = 0;
 
-    const syncPromises: Promise<{ gmv: number; spend: number; orders: number }>[] = [];
+    const syncPromises: Promise<{ gmv: number; spend: number; orders: number; cpasSpend: number; shopeeCpcSpend: number }>[] = [];
 
     dates.forEach(date => {
         const isToday = date === today;
@@ -268,6 +277,8 @@ async function fetchShopeeShopMetricsSWR(
                 totalGMV += cached.gmv;
                 totalSpend += cached.spend;
                 totalOrders += cached.orders;
+                totalCpasSpend += cached.cpasSpend;
+                totalShopeeCpcSpend += cached.shopeeCpcSpend;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
                 backgroundThunks.push({
@@ -284,6 +295,8 @@ async function fetchShopeeShopMetricsSWR(
                 totalGMV += cached.gmv;
                 totalSpend += cached.spend;
                 totalOrders += cached.orders;
+                totalCpasSpend += cached.cpasSpend;
+                totalShopeeCpcSpend += cached.shopeeCpcSpend;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
             } else {
@@ -299,6 +312,8 @@ async function fetchShopeeShopMetricsSWR(
             totalGMV += r.gmv;
             totalSpend += r.spend;
             totalOrders += r.orders;
+            totalCpasSpend += r.cpasSpend || 0;
+            totalShopeeCpcSpend += r.shopeeCpcSpend || 0;
         });
     }
 
@@ -322,10 +337,13 @@ async function fetchShopeeShopMetricsSWR(
         orderCount: totalOrders,
         totalAdsSpend: totalSpend,
         totalCostWithTaxes,
+        cpasSpend: totalCpasSpend,
+        shopeeCpcSpend: totalShopeeCpcSpend,
         sst,
         wht,
         roasBeforeTax,
         roasAfterTax,
+
         dataSource,
         dateRange: { start: startDate, end: endDate }
     };

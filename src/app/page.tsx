@@ -275,10 +275,13 @@ export default function Home() {
                         orders: d.orderCount ?? 0,
                         spend: d.totalAdsSpend ?? 0,
                         spendAfterTax: d.totalCostWithTaxes ?? 0,
+                        cpasSpend: d.cpasSpend ?? 0,
+                        shopeeCpcSpend: d.shopeeCpcSpend ?? 0,
                         roas: curRoas,
                         roasAfterTax: d.roasAfterTax ?? 0,
                         dataSource: d.dataSource ?? "live_api",
                         status: "connected",
+
                         change: {
                             gmv: pctChange(d.gmv ?? 0, p?.gmv ?? 0),
                             spend: pctChange(d.totalAdsSpend ?? 0, p?.totalAdsSpend ?? 0),

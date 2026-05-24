@@ -110,11 +110,24 @@ export function ShopCard({ data, onClick }: ShopCardProps) {
                                     <TrendArrow pct={data.change?.spend} />
                                 </div>
                             </div>
-                            <div className="flex justify-between items-center text-xs">
+                            {data.cpasSpend !== undefined && data.cpasSpend > 0 && (
+                                <div className="pl-3 border-l-2 border-slate-700/80 space-y-1 mt-1 pb-1">
+                                    <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                                        <span>Shopee CPC Ads</span>
+                                        <span className="tabular-nums text-slate-300">RM {data.shopeeCpcSpend?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                                        <span className="text-blue-400 font-medium">Meta CPAS Ads</span>
+                                        <span className="font-semibold tabular-nums text-blue-400">RM {data.cpasSpend?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center text-xs pt-1 border-t border-border/10">
                                 <span className="text-purple-400 font-medium">After Tax</span>
                                 <span className="font-semibold text-purple-500 dark:text-purple-400 tabular-nums">RM {data.spendAfterTax?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                         </div>
+
 
                         {/* 3. ROAS */}
                         <div className="space-y-2 pt-3 border-t border-border/50">

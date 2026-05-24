@@ -573,6 +573,8 @@ export async function fetchShopeeShopPerformance(
         uniqueCustomers: orderData.uniqueCustomers,
         spendBeforeTax,
         spendAfterTax,
+        cpasSpend,
+        shopeeCpcSpend,
         sst,
         wht,
         roasBeforeTax,
@@ -583,6 +585,7 @@ export async function fetchShopeeShopPerformance(
             hourlySpend: r.hourlySpend
         }))
     };
+
 }
 
 

@@ -42,11 +42,13 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
         const spendAfterTax = data.spendAfterTax || 0;
         const roasBeforeTax = data.roasBeforeTax || 0;
         const roasAfterTax = data.roasAfterTax || 0;
+        const cpasSpend = data.cpasSpend || 0;
+        const shopeeCpcSpend = data.shopeeCpcSpend || 0;
 
         await query(`
             INSERT INTO credentials.daily_shopee_metrics (
-                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_id, date) DO UPDATE SET
                 gmv = EXCLUDED.gmv,
                 spend_before_tax = EXCLUDED.spend_before_tax,
@@ -54,15 +56,18 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
                 roas_before_tax = EXCLUDED.roas_before_tax,
                 roas_after_tax = EXCLUDED.roas_after_tax,
                 order_count = EXCLUDED.order_count,
+                cpas_spend = EXCLUDED.cpas_spend,
+                shopee_cpc_spend = EXCLUDED.shopee_cpc_spend,
                 updated_at = CURRENT_TIMESTAMP
-        `, [shopId, data.shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount]);
+        `, [shopId, data.shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend]);
 
-        return { gmv, spend: spendBeforeTax, spendAfterTax, orders: orderCount, shopName: data.shopName };
+        return { gmv, spend: spendBeforeTax, spendAfterTax, orders: orderCount, cpasSpend, shopeeCpcSpend, shopName: data.shopName };
     } catch (e: any) {
         console.error(`[shopee-shop-metrics-swr] Shopee Shop ${shopId} failed for ${date}:`, e.message);
-        return { gmv: 0, spend: 0, spendAfterTax: 0, orders: 0, shopName: `Shopee Shop ${shopId}` };
+        return { gmv: 0, spend: 0, spendAfterTax: 0, orders: 0, cpasSpend: 0, shopeeCpcSpend: 0, shopName: `Shopee Shop ${shopId}` };
     }
 }
+
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -85,7 +90,7 @@ export async function GET(request: Request) {
 
         // 1. Fetch bulk rows from DB for this shop and range
         const dbResult = await query(`
-            SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, shop_name
+            SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, cpas_spend, shopee_cpc_spend, shop_name
             FROM credentials.daily_shopee_metrics
             WHERE shop_id = $1 AND date >= $2::date AND date <= $3::date
         `, [shopId, startDate, endDate]);
@@ -97,6 +102,8 @@ export async function GET(request: Request) {
                 spend: parseFloat(row.spend_before_tax),
                 spendAfterTax: parseFloat(row.spend_after_tax),
                 orders: parseInt(row.order_count, 10),
+                cpasSpend: parseFloat(row.cpas_spend || 0),
+                shopeeCpcSpend: parseFloat(row.shopee_cpc_spend || 0),
                 shopName: row.shop_name
             };
         });
@@ -105,11 +112,13 @@ export async function GET(request: Request) {
         let totalSpend = 0;
         let totalSpendAfterTax = 0;
         let totalOrders = 0;
+        let totalCpasSpend = 0;
+        let totalShopeeCpcSpend = 0;
         let shopName = `Shopee Shop ${shopId}`;
         let loadedFromDbCount = 0;
         let loadedFromApiCount = 0;
 
-        const syncFetchPromises: { date: string; promise: Promise<{ gmv: number; spend: number; spendAfterTax: number; orders: number; shopName?: string }> }[] = [];
+        const syncFetchPromises: { date: string; promise: Promise<{ gmv: number; spend: number; spendAfterTax: number; orders: number; cpasSpend: number; shopeeCpcSpend: number; shopName?: string }> }[] = [];
         const backgroundRevalidateThunks: { key: string; date: string; fn: () => Promise<any> }[] = [];
 
         dates.forEach(date => {
@@ -127,6 +136,8 @@ export async function GET(request: Request) {
                     totalSpend += cached.spend;
                     totalSpendAfterTax += cached.spendAfterTax;
                     totalOrders += cached.orders;
+                    totalCpasSpend += cached.cpasSpend;
+                    totalShopeeCpcSpend += cached.shopeeCpcSpend;
                     if (cached.shopName) shopName = cached.shopName;
                     loadedFromDbCount++;
                     backgroundRevalidateThunks.push({
@@ -144,6 +155,8 @@ export async function GET(request: Request) {
                     totalSpend += cached.spend;
                     totalSpendAfterTax += cached.spendAfterTax;
                     totalOrders += cached.orders;
+                    totalCpasSpend += cached.cpasSpend;
+                    totalShopeeCpcSpend += cached.shopeeCpcSpend;
                     if (cached.shopName) shopName = cached.shopName;
                     loadedFromDbCount++;
                 } else {
@@ -162,6 +175,8 @@ export async function GET(request: Request) {
                 totalSpend += r.spend;
                 totalSpendAfterTax += r.spendAfterTax;
                 totalOrders += r.orders;
+                totalCpasSpend += r.cpasSpend;
+                totalShopeeCpcSpend += r.shopeeCpcSpend;
                 if (r.shopName) shopName = r.shopName;
             });
         }
@@ -201,6 +216,8 @@ export async function GET(request: Request) {
             orderCount: totalOrders,
             totalAdsSpend: totalSpend,
             totalCostWithTaxes: totalSpendAfterTax,
+            cpasSpend: totalCpasSpend,
+            shopeeCpcSpend: totalShopeeCpcSpend,
             sst: totalSpend * 0.08,
             wht: totalSpend * 0.08,
             roasBeforeTax,
@@ -208,6 +225,7 @@ export async function GET(request: Request) {
             dataSource,
             dateRange: { start: startDate, end: endDate }
         });
+
 
     } catch (error: any) {
         console.error(`[shopee-shop-metrics-swr] Error:`, error.message);

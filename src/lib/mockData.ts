@@ -19,6 +19,8 @@ export interface ShopData {
     roasAfterTax?: number;
     spend?: number;
     spendAfterTax?: number;
+    cpasSpend?: number;
+    shopeeCpcSpend?: number;
     revenue?: number;
     gmv?: number;
     orders?: number;
@@ -26,6 +28,7 @@ export interface ShopData {
     dataSource?: string;
     change?: ShopChange;     // trend vs previous period (%)
 }
+
 
 export const MOCK_DATA: ShopData[] = [
     // TikTok Shops (x4)
