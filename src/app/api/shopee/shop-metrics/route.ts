@@ -123,7 +123,7 @@ export async function GET(request: Request) {
 
         dates.forEach(date => {
             const isToday = date === today;
-            const isRecentPast = !isToday && dateDiffDays(date, today) <= 3;
+            const isRecentPast = !isToday && dateDiffDays(date, today) <= 1; // only yesterday - avoids overwriting historical corrections
             const cached = dbMap[date];
             const key = `shopee_${date}_${shopId}`;
 

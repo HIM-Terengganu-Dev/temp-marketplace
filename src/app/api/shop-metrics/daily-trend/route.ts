@@ -176,7 +176,7 @@ export async function GET(request: Request) {
         dates.forEach(date => {
             const isToday = date === today;
             const diff = dateDiffDays(date, today);
-            const isRecentPast = !isToday && diff <= 3; // last 3 days (excluding today)
+            const isRecentPast = !isToday && diff <= 1; // only yesterday (excluding today) - avoids overwriting historical corrections
 
             // TikTok Shops
             shopIndices.forEach(shopNumber => {
