@@ -72,7 +72,7 @@ export default function DebugTablePage() {
 
     // Shop names - will be displayed from API response, but using these for dropdown labels
     const SHOP_OPTIONS = [
-        { value: '1', label: 'DrSamhanWellness' },
+        { value: '1', label: 'HIM by Dr Samhan' },
         { value: '2', label: 'HIM CLINIC' },
         { value: '3', label: 'Vigomax HQ' },
         { value: '4', label: 'VigomaxPlus HQ' }

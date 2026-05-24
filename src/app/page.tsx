@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 /* ── helpers ────────────────────────────────────────────────────────────── */
 
 const SHOP_NAMES: Record<number, string> = {
-    1: 'DrSamhanWellness',
+    1: 'HIM by Dr Samhan',
     2: 'HIM CLINIC',
     3: 'Vigomax HQ',
     4: 'VigomaxPlus HQ'

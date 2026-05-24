@@ -30,7 +30,7 @@ const SHOP_TO_ACCOUNT: Record<string, {
 
 // Shop names
 const SHOP_NAMES: Record<string, string> = {
-    '1': 'DrSamhanWellness',
+    '1': 'HIM by Dr Samhan',
     '2': 'HIM CLINIC',
     '3': 'Vigomax HQ',
     '4': 'VigomaxPlus HQ'
