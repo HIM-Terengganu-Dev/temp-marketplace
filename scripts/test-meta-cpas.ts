@@ -33,7 +33,7 @@ async function main() {
     let anyConfigured = false;
 
     for (const shop of SHOPEE_SHOPS) {
-        const adAccountId = process.env[shop.envVar];
+        let adAccountId = process.env[shop.envVar];
         console.log(`----------------------------------------------------------------`);
         console.log(`Shopee Shop: ${shop.name} (ID: ${shop.id})`);
         console.log(`Env Variable: ${shop.envVar}`);
@@ -43,8 +43,13 @@ async function main() {
             continue;
         }
 
+        if (!adAccountId.startsWith('act_')) {
+            adAccountId = `act_${adAccountId}`;
+        }
+
         anyConfigured = true;
         console.log(`Mapped Ad Account ID: ${adAccountId}`);
+
 
         for (const date of [yesterdayKL, todayKL]) {
             console.log(`  Querying spend for ${date}...`);

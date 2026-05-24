@@ -483,10 +483,16 @@ export async function fetchMetaCPASSpendForDate(
     };
 
 
-    const adAccountId = SHOPEE_FB_AD_ACCOUNTS[shopId];
+    let adAccountId = SHOPEE_FB_AD_ACCOUNTS[shopId];
     if (!adAccountId) {
         return 0; // No FB ad account configured for this shop
     }
+
+    // Ensure the ad account ID has the "act_" prefix required by Meta Graph API
+    if (!adAccountId.startsWith('act_')) {
+        adAccountId = `act_${adAccountId}`;
+    }
+
 
     try {
         const timeRange = JSON.stringify({ since: dateStr, until: dateStr });
