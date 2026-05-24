@@ -90,7 +90,7 @@ export async function GET(request: Request) {
 
         // 1. Fetch bulk rows from DB for this shop and range
         const dbResult = await query(`
-            SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, cpas_spend, shopee_cpc_spend, shop_name
+            SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, cpas_spend, shopee_cpc_spend, shop_name, updated_at
             FROM credentials.daily_shopee_metrics
             WHERE shop_id = $1 AND date >= $2::date AND date <= $3::date
         `, [shopId, startDate, endDate]);
@@ -104,7 +104,8 @@ export async function GET(request: Request) {
                 orders: parseInt(row.order_count, 10),
                 cpasSpend: parseFloat(row.cpas_spend || 0),
                 shopeeCpcSpend: parseFloat(row.shopee_cpc_spend || 0),
-                shopName: row.shop_name
+                shopName: row.shop_name,
+                updatedAt: row.updated_at // for freshness check
             };
         });
 
@@ -128,8 +129,36 @@ export async function GET(request: Request) {
             const key = `shopee_${date}_${shopId}`;
 
             if (isToday) {
-                syncFetchPromises.push({ date, promise: fetchAndSaveShopee(shopId, date) });
-                loadedFromApiCount++;
+                // For today: use SWR pattern too — serve DB cache if fresh (< 5 min), refresh in background
+                const FIVE_MIN_MS = 5 * 60 * 1000;
+                const isCacheFresh = cached?.updatedAt && (Date.now() - new Date(cached.updatedAt).getTime()) < FIVE_MIN_MS;
+
+                if (cached && isCacheFresh) {
+                    // Fresh cache: serve immediately, no background refresh needed
+                    totalGMV += cached.gmv;
+                    totalSpend += cached.spend;
+                    totalSpendAfterTax += cached.spendAfterTax;
+                    totalOrders += cached.orders;
+                    totalCpasSpend += cached.cpasSpend;
+                    totalShopeeCpcSpend += cached.shopeeCpcSpend;
+                    if (cached.shopName) shopName = cached.shopName;
+                    loadedFromDbCount++;
+                } else if (cached) {
+                    // Stale cache: serve instantly, refresh in background
+                    totalGMV += cached.gmv;
+                    totalSpend += cached.spend;
+                    totalSpendAfterTax += cached.spendAfterTax;
+                    totalOrders += cached.orders;
+                    totalCpasSpend += cached.cpasSpend;
+                    totalShopeeCpcSpend += cached.shopeeCpcSpend;
+                    if (cached.shopName) shopName = cached.shopName;
+                    loadedFromDbCount++;
+                    backgroundRevalidateThunks.push({ key, date, fn: () => fetchAndSaveShopee(shopId, date) });
+                } else {
+                    // No cache at all: must fetch synchronously (first load of the day)
+                    syncFetchPromises.push({ date, promise: fetchAndSaveShopee(shopId, date) });
+                    loadedFromApiCount++;
+                }
             } else if (isRecentPast) {
                 if (cached) {
                     totalGMV += cached.gmv;
