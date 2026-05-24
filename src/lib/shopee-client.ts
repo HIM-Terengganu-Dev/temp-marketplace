@@ -342,20 +342,27 @@ export async function fetchShopeeGMVAndOrders(
                 const status = order.order_status?.toUpperCase();
                 const isIncluded = status !== 'CANCELLED' && status !== 'TO_RETURN';
                 
-                const orderTotal = parseFloat(order.total_amount || 0);
+                // Calculate item-level discounted subtotal (original price before customer vouchers are applied)
+                let productSubtotal = 0;
+                if (order.item_list) {
+                    order.item_list.forEach((item: any) => {
+                        const priceVal = item.model_discounted_price !== undefined ? item.model_discounted_price : (item.model_original_price !== undefined ? item.model_original_price : 0);
+                        productSubtotal += parseFloat(priceVal || 0) * (item.model_quantity_purchased || 1);
+                    });
+                }
 
                 ordersDetails.push({
                     id: order.order_sn,
                     status: order.order_status,
                     createTime: order.create_time, // UNIX timestamp in seconds
-                    gmv: orderTotal,
+                    gmv: productSubtotal,
                     itemCount: order.item_list?.length || 0,
                     buyerUserId: order.buyer_user_id || null,
                     isIncluded
                 });
 
                 if (isIncluded) {
-                    totalGMV += orderTotal;
+                    totalGMV += productSubtotal;
                     validOrderCount++;
                     if (order.buyer_user_id) {
                         uniqueBuyers.add(order.buyer_user_id);
