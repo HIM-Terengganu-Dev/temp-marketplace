@@ -13,11 +13,16 @@ import {
     TrendingUp,
     Users,
     Percent,
-    DollarSign
+    DollarSign,
+    AlertCircle,
+    RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ShopCard } from "@/components/dashboard/ShopCard";
+import { SimpleDatePicker } from "@/components/dashboard/SimpleDatePicker";
+import { cn } from "@/lib/utils";
 
 interface ShopeeShop {
     id: number;
@@ -27,12 +32,25 @@ interface ShopeeShop {
     updated_at: string;
 }
 
+/** Returns today's date string YYYY-MM-DD in Asia/Kuala_Lumpur timezone */
+function todayKL(): string {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+}
+
 function ShopeeShopsContent() {
     const searchParams = useSearchParams();
     const [shops, setShops] = useState<ShopeeShop[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isConnecting, setIsConnecting] = useState(false);
     const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    // Date selection states
+    const [startDate, setStartDate] = useState(todayKL());
+    const [endDate, setEndDate] = useState(todayKL());
+
+    // Performance metrics state
+    const [shopPerformance, setShopPerformance] = useState<any[]>([]);
+    const [isPerfLoading, setIsPerfLoading] = useState(false);
 
     // Parse success/error parameters from Shopee redirect callback URL
     useEffect(() => {
@@ -71,9 +89,55 @@ function ShopeeShopsContent() {
         }
     };
 
+    // Fetch performance metrics for each connected shop
+    const fetchPerformance = async () => {
+        if (shops.length === 0 || !startDate || !endDate) return;
+
+        setIsPerfLoading(true);
+        try {
+            const results = await Promise.all(
+                shops.map(async (shop) => {
+                    try {
+                        const res = await fetch(
+                            `/api/shopee/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopId=${shop.shop_id}`
+                        );
+                        if (!res.ok) return null;
+                        const data = await res.json();
+                        return {
+                            id: `shp_${shop.shop_id}`,
+                            name: shop.shop_name,
+                            platform: 'Shopee' as const,
+                            type: 'shop' as const,
+                            gmv: data.gmv || 0,
+                            revenue: data.gmv || 0,
+                            orders: data.orderCount || 0,
+                            spend: data.totalAdsSpend || 0,
+                            spendAfterTax: data.totalCostWithTaxes || 0,
+                            roas: data.roasBeforeTax || 0,
+                            roasAfterTax: data.roasAfterTax || 0,
+                            status: 'connected' as const
+                        };
+                    } catch (e) {
+                        console.error(`Error fetching performance for shop ${shop.shop_id}:`, e);
+                        return null;
+                    }
+                })
+            );
+            setShopPerformance(results.filter(r => r !== null));
+        } catch (error) {
+            console.error("Error fetching shop performance data:", error);
+        } finally {
+            setIsPerfLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchShops();
     }, []);
+
+    useEffect(() => {
+        fetchPerformance();
+    }, [shops, startDate, endDate]);
 
     // Initiates the OAuth flow
     const handleConnectShopee = async () => {
@@ -103,7 +167,7 @@ function ShopeeShopsContent() {
     return (
         <div className="space-y-6 p-6">
             {/* Header section */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                     <div className="p-2 bg-orange-500/10 rounded-lg">
                         <ShoppingBag className="h-6 w-6 text-orange-500" />
@@ -113,18 +177,36 @@ function ShopeeShopsContent() {
                         <p className="text-sm text-muted-foreground">Expose sales, orders, and listing metrics from your Shopee Seller Center</p>
                     </div>
                 </div>
-                <Button 
-                    onClick={handleConnectShopee} 
-                    disabled={isConnecting}
-                    className="bg-orange-500 hover:bg-orange-600 text-white gap-2 transition-all shadow-lg shadow-orange-500/15"
-                >
-                    {isConnecting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                        <Plus className="h-4 w-4" />
-                    )}
-                    Connect Shopee Store
-                </Button>
+                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto self-stretch xl:self-auto justify-end">
+                    <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { fetchShops(); fetchPerformance(); }}
+                        disabled={isLoading || isPerfLoading}
+                        className="h-9 gap-2 text-xs border-orange-500/20 hover:border-orange-500/40 text-slate-300 hover:text-white"
+                    >
+                        <RefreshCw className={cn("h-4 w-4", (isLoading || isPerfLoading) && "animate-spin")} />
+                        Refresh
+                    </Button>
+                    <SimpleDatePicker
+                        startDate={startDate}
+                        setStartDate={setStartDate}
+                        endDate={endDate}
+                        setEndDate={setEndDate}
+                    />
+                    <Button 
+                        onClick={handleConnectShopee} 
+                        disabled={isConnecting}
+                        className="bg-orange-500 hover:bg-orange-600 text-white gap-2 transition-all shadow-lg shadow-orange-500/15 text-xs h-9 shrink-0"
+                    >
+                        {isConnecting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Plus className="h-4 w-4" />
+                        )}
+                        Connect Shopee Store
+                    </Button>
+                </div>
             </div>
 
             {/* Notification alert states */}
@@ -297,6 +379,42 @@ function ShopeeShopsContent() {
                         </div>
                     </CardContent>
                 </Card>
+            </div>
+
+            {/* Shop Performance Cards Grid */}
+            <div className="space-y-4 pt-6 border-t border-border/20">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                            <ShoppingBag className="h-5 w-5 text-orange-500" />
+                            Shopee Shop Performance
+                        </h2>
+                        <p className="text-xs text-muted-foreground">Detailed metrics breakdowns including GMV, orders, spend, and ROAS across selected dates</p>
+                    </div>
+                </div>
+
+                {isPerfLoading ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-3 bg-card/10 rounded-xl border border-border/40 min-h-[200px]">
+                        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                        <p className="text-sm text-muted-foreground">Loading performance metrics...</p>
+                    </div>
+                ) : shopPerformance.length > 0 ? (
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2">
+                        {shopPerformance.map((shop) => (
+                            <ShopCard key={shop.id} data={shop} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-16 bg-card/10 border-2 border-dashed border-border/40 rounded-xl text-center space-y-3 min-h-[200px]">
+                        <AlertCircle className="h-8 w-8 text-muted-foreground opacity-50" />
+                        <div className="space-y-1">
+                            <h3 className="font-semibold text-sm">No Performance Data Available</h3>
+                            <p className="text-xs text-muted-foreground max-w-sm px-4">
+                                Connect Shopee store channels to begin syncing live ads performance and order logs.
+                            </p>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

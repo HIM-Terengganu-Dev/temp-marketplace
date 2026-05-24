@@ -205,6 +205,17 @@ export async function getConnectedShopeeShops() {
  * Fetches shop info (like shop_name) from Shopee.
  */
 export async function getShopeeShopInfo(shopId: number, accessToken: string): Promise<{ shop_name: string }> {
+    const SHOPEE_SHOP_NAMES: Record<number, string> = {
+        1298030530: 'HIM by Dr Samhan',
+        1077500606: 'HIM by Dr Samhan 1',
+        1256177782: 'HIM by Dr Samhan 2',
+        1290223366: 'him.drsamhan4'
+    };
+
+    if (SHOPEE_SHOP_NAMES[shopId]) {
+        return { shop_name: SHOPEE_SHOP_NAMES[shopId] };
+    }
+
     const timestamp = Math.floor(Date.now() / 1000);
     const path = '/api/v2/shop/get_shop_info';
     const sign = generateShopeeSignature(path, timestamp, accessToken, shopId);
@@ -219,8 +230,9 @@ export async function getShopeeShopInfo(shopId: number, accessToken: string): Pr
         throw new Error(`Shopee shop info error: ${data.message || data.error}`);
     }
 
+    const resp = data.response;
     return { 
-        shop_name: data.shop_name || `Shopee Shop ${shopId}` 
+        shop_name: (resp && resp.shop_name) ? resp.shop_name : `Shopee Shop ${shopId}` 
     };
 }
 
