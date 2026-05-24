@@ -266,7 +266,7 @@ export default function Home() {
 
                     const shopItem: ShopData = {
                         id: `shp_${shop.shop_id}`,
-                        name: d.shopName || shop.shop_name,
+                        name: shop.shop_name || d.shopName,
                         platform: "Shopee",
                         type: "shop",
                         shopId: parseInt(shop.shop_id, 10),

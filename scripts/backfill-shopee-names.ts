@@ -39,6 +39,16 @@ async function main() {
             }
         }
         
+        // Bulk update the credentials.daily_shopee_metrics table
+        console.log('\nBulk updating credentials.daily_shopee_metrics table with beautiful names...');
+        const bulkUpdateResult = await query(`
+            UPDATE credentials.daily_shopee_metrics m
+            SET shop_name = t.shop_name
+            FROM credentials.refresh_shopeeshops_token t
+            WHERE m.shop_id = t.shop_id;
+        `);
+        console.log(`Successfully completed daily metrics name backfill. Rows affected: ${bulkUpdateResult.rowCount || 0}`);
+        
         process.exit(0);
     } catch (e) {
         console.error('Error in main:', e);
