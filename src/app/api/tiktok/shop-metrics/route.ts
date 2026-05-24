@@ -2,18 +2,6 @@ import { NextResponse } from 'next/server';
 import { fetchShopGMV, fetchShopROAS, SHOPS } from '@/lib/metrics-fetcher';
 import { query } from '@/lib/db';
 
-/**
- * Smart data endpoint for shop metrics.
- *
- * Strategy:
- *  - If the ENTIRE requested date range is older than 14 days:
- *      → Read from DB. If any dates are missing, fetch from TikTok API, save, then return.
- *  - If ANY part of the date range is within the last 14 days (still-settling):
- *      → Always call TikTok live API directly (data may still change).
- *
- * This prevents wasted API calls for historical queries while keeping live data fresh.
- */
-
 function getKLToday(): string {
     const now = new Date();
     // Get current date in KL timezone (GMT+8) as a YYYY-MM-DD string
@@ -21,7 +9,6 @@ function getKLToday(): string {
 }
 
 function dateDiffDays(dateStr: string, todayStr: string): number {
-    // Parse as UTC midnight to avoid local timezone shifting the day
     const [dy, dm, dd] = dateStr.split('-').map(Number);
     const [ty, tm, td] = todayStr.split('-').map(Number);
     const d1 = Date.UTC(dy, dm - 1, dd);
@@ -31,7 +18,6 @@ function dateDiffDays(dateStr: string, todayStr: string): number {
 
 function generateDateRange(startStr: string, endStr: string): string[] {
     const dates: string[] = [];
-    // Use Date.UTC to avoid local-timezone shifting during date iteration
     const [sy, sm, sd] = startStr.split('-').map(Number);
     const [ey, em, ed] = endStr.split('-').map(Number);
     const curr = new Date(Date.UTC(sy, sm - 1, sd));
@@ -46,82 +32,42 @@ function generateDateRange(startStr: string, endStr: string): string[] {
     return dates;
 }
 
-type MetricRow = {
-    date: string;
-    gmv: number;
-    spendBeforeTax: number;
-    spendAfterTax: number;
-    orderCount: number;
-    shopName: string;
-    source: 'database' | 'api';
-};
+async function fetchAndSaveTikTok(shopNumber: number, date: string) {
+    try {
+        const shopConfig = SHOPS[shopNumber.toString()];
+        if (!shopConfig) return { gmv: 0, spend: 0, orders: 0 };
 
-async function getFromDB(shopNumber: number, startDate: string, endDate: string): Promise<MetricRow[]> {
-    const result = await query(`
-        SELECT
-            TO_CHAR(date, 'YYYY-MM-DD') AS date,
-            gmv,
-            spend_before_tax,
-            spend_after_tax,
-            order_count,
-            shop_name
-        FROM credentials.daily_shop_metrics
-        WHERE shop_number = $1
-          AND date >= $2::date
-          AND date <= $3::date
-        ORDER BY date ASC
-    `, [shopNumber, startDate, endDate]);
+        const [gmvData, roasData] = await Promise.all([
+            fetchShopGMV(shopNumber, date, date),
+            fetchShopROAS(shopNumber, date, date)
+        ]);
 
-    return result.rows.map(row => ({
-        date: row.date,   // plain YYYY-MM-DD string from TO_CHAR — no timezone shift
-        gmv: parseFloat(row.gmv),
-        spendBeforeTax: parseFloat(row.spend_before_tax),
-        spendAfterTax: parseFloat(row.spend_after_tax),
-        orderCount: parseInt(row.order_count, 10),
-        shopName: row.shop_name,
-        source: 'database' as const
-    }));
-}
+        const gmv = gmvData.gmv || 0;
+        const orderCount = gmvData.orderCount || 0;
+        const spendBeforeTax = roasData.totalAdsSpend || 0;
+        const spendAfterTax = roasData.totalCostWithTaxes || 0;
+        const roasBeforeTax = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
+        const roasAfterTax = spendAfterTax > 0 ? gmv / spendAfterTax : 0;
 
-async function fetchAndSaveDay(shopNumber: number, date: string): Promise<MetricRow> {
-    const shopConfig = SHOPS[shopNumber.toString()];
+        await query(`
+            INSERT INTO credentials.daily_shop_metrics (
+                shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+            ON CONFLICT (shop_number, date) DO UPDATE SET
+                gmv = EXCLUDED.gmv,
+                spend_before_tax = EXCLUDED.spend_before_tax,
+                spend_after_tax = EXCLUDED.spend_after_tax,
+                roas_before_tax = EXCLUDED.roas_before_tax,
+                roas_after_tax = EXCLUDED.roas_after_tax,
+                order_count = EXCLUDED.order_count,
+                updated_at = CURRENT_TIMESTAMP
+        `, [shopNumber, gmvData.shopName || shopConfig.name, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount]);
 
-    const [gmvData, roasData] = await Promise.all([
-        fetchShopGMV(shopNumber, date, date),
-        fetchShopROAS(shopNumber, date, date)
-    ]);
-
-    const gmv = gmvData.gmv || 0;
-    const orderCount = gmvData.orderCount || 0;
-    const spendBeforeTax = roasData.totalAdsSpend || 0;
-    const spendAfterTax = roasData.totalCostWithTaxes || 0;
-    const roasBeforeTax = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
-    const roasAfterTax = spendAfterTax > 0 ? gmv / spendAfterTax : 0;
-
-    // Save to database for future queries
-    await query(`
-        INSERT INTO credentials.daily_shop_metrics (
-            shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
-        ON CONFLICT (shop_number, date) DO UPDATE SET
-            gmv = EXCLUDED.gmv,
-            spend_before_tax = EXCLUDED.spend_before_tax,
-            spend_after_tax = EXCLUDED.spend_after_tax,
-            roas_before_tax = EXCLUDED.roas_before_tax,
-            roas_after_tax = EXCLUDED.roas_after_tax,
-            order_count = EXCLUDED.order_count,
-            updated_at = CURRENT_TIMESTAMP
-    `, [shopNumber, gmvData.shopName || shopConfig.name, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount]);
-
-    return {
-        date,
-        gmv,
-        spendBeforeTax,
-        spendAfterTax,
-        orderCount,
-        shopName: gmvData.shopName || shopConfig.name,
-        source: 'api' as const
-    };
+        return { gmv, spend: spendBeforeTax, orders: orderCount };
+    } catch (e: any) {
+        console.error(`[shop-metrics-swr] TikTok Shop ${shopNumber} failed for ${date}:`, e.message);
+        return { gmv: 0, spend: 0, orders: 0 };
+    }
 }
 
 export async function GET(request: Request) {
@@ -139,82 +85,135 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: `Invalid shop number: ${shopNumberParam}` }, { status: 400 });
     }
 
-    const today = getKLToday();
-    const daysOldStart = dateDiffDays(startDate, today);
-    const daysOldEnd = dateDiffDays(endDate, today);
-
-    // If BOTH start and end are strictly older than 14 days → use DB-first strategy
-    const isHistorical = daysOldStart > 14 && daysOldEnd > 14;
-
     try {
+        const today = getKLToday();
+        const dates = generateDateRange(startDate, endDate);
+
+        // 1. Fetch bulk rows from DB for this shop and range
+        const dbResult = await query(`
+            SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, shop_name
+            FROM credentials.daily_shop_metrics
+            WHERE shop_number = $1 AND date >= $2::date AND date <= $3::date
+        `, [shopNumber, startDate, endDate]);
+
+        const dbMap: Record<string, any> = {};
+        dbResult.rows.forEach(row => {
+            dbMap[row.date] = {
+                gmv: parseFloat(row.gmv),
+                spend: parseFloat(row.spend_before_tax),
+                spendAfterTax: parseFloat(row.spend_after_tax),
+                orders: parseInt(row.order_count, 10),
+                shopName: row.shop_name
+            };
+        });
+
         let totalGMV = 0;
-        let totalSpendBeforeTax = 0;
+        let totalSpend = 0;
         let totalSpendAfterTax = 0;
-        let totalOrderCount = 0;
-        let shopName = SHOPS[shopNumber.toString()]?.name || `Shop ${shopNumber}`;
-        let dataSource = 'live_api';
+        let totalOrders = 0;
+        const shopConfig = SHOPS[shopNumber.toString()];
+        let shopName = shopConfig?.name || `Shop ${shopNumber}`;
+        let loadedFromDbCount = 0;
+        let loadedFromApiCount = 0;
 
-        if (isHistorical) {
-            // === DB-FIRST PATH ===
-            dataSource = 'database';
-            const dates = generateDateRange(startDate, endDate);
+        const syncFetchPromises: { date: string; promise: Promise<{ gmv: number; spend: number; orders: number }> }[] = [];
+        const backgroundRevalidateThunks: { key: string; date: string; fn: () => Promise<any> }[] = [];
 
-            // Load whatever we have in the DB
-            const dbRows = await getFromDB(shopNumber, startDate, endDate);
-            const dbDateSet = new Set(dbRows.map(r => r.date));
+        dates.forEach(date => {
+            const isToday = date === today;
+            const isRecentPast = !isToday && dateDiffDays(date, today) <= 3;
+            const cached = dbMap[date];
+            const key = `tiktok_${date}_${shopNumber}`;
 
-            // Find which dates are missing from DB
-            const missingDates = dates.filter(d => !dbDateSet.has(d));
-
-            // Fetch missing dates from TikTok API and save them
-            const apiRows: typeof dbRows = [];
-            for (const date of missingDates) {
-                try {
-                    console.log(`[DB-First] Cache miss for shop ${shopNumber} on ${date}. Fetching from API...`);
-                    const row = await fetchAndSaveDay(shopNumber, date);
-                    apiRows.push(row);
-                    dataSource = 'database+api'; // mixed
-                } catch (e: any) {
-                    console.error(`[DB-First] Failed to fetch shop ${shopNumber} for ${date}:`, e.message);
+            if (isToday) {
+                // Today is live - fetch synchronously
+                syncFetchPromises.push({ date, promise: fetchAndSaveTikTok(shopNumber, date) });
+                loadedFromApiCount++;
+            } else if (isRecentPast) {
+                if (cached) {
+                    totalGMV += cached.gmv;
+                    totalSpend += cached.spend;
+                    totalSpendAfterTax += cached.spendAfterTax;
+                    totalOrders += cached.orders;
+                    if (cached.shopName) shopName = cached.shopName;
+                    loadedFromDbCount++;
+                    // Queue background revalidation thunk
+                    backgroundRevalidateThunks.push({
+                        key,
+                        date,
+                        fn: () => fetchAndSaveTikTok(shopNumber, date)
+                    });
+                } else {
+                    syncFetchPromises.push({ date, promise: fetchAndSaveTikTok(shopNumber, date) });
+                    loadedFromApiCount++;
+                }
+            } else {
+                // Historical
+                if (cached) {
+                    totalGMV += cached.gmv;
+                    totalSpend += cached.spend;
+                    totalSpendAfterTax += cached.spendAfterTax;
+                    totalOrders += cached.orders;
+                    if (cached.shopName) shopName = cached.shopName;
+                    loadedFromDbCount++;
+                } else {
+                    syncFetchPromises.push({ date, promise: fetchAndSaveTikTok(shopNumber, date) });
+                    loadedFromApiCount++;
                 }
             }
+        });
 
-            // Aggregate all rows (DB + freshly fetched)
-            const allRows = [...dbRows, ...apiRows];
-            for (const row of allRows) {
-                totalGMV += row.gmv;
-                totalSpendBeforeTax += row.spendBeforeTax;
-                totalSpendAfterTax += row.spendAfterTax;
-                totalOrderCount += row.orderCount;
-                if (row.shopName) shopName = row.shopName;
-            }
-
-        } else {
-            // === LIVE API PATH (within 14-day window) ===
-            const [gmvData, roasData] = await Promise.all([
-                fetchShopGMV(shopNumber, startDate, endDate),
-                fetchShopROAS(shopNumber, startDate, endDate)
-            ]);
-
-            totalGMV = gmvData.gmv || 0;
-            totalSpendBeforeTax = roasData.totalAdsSpend || 0;
-            totalSpendAfterTax = roasData.totalCostWithTaxes || 0;
-            totalOrderCount = gmvData.orderCount || 0;
-            shopName = gmvData.shopName || shopName;
+        // Resolve synchronous fetches in parallel
+        if (syncFetchPromises.length > 0) {
+            console.log(`[tiktok-shop-metrics-swr] Synchronously fetching ${syncFetchPromises.length} cache misses/live shop metrics...`);
+            const syncResults = await Promise.all(syncFetchPromises.map(p => p.promise));
+            syncFetchPromises.forEach((item, idx) => {
+                const r = syncResults[idx];
+                totalGMV += r.gmv;
+                totalSpend += r.spend;
+                // Since spendAfterTax is not returned directly, approximate or look up after tax
+                totalSpendAfterTax += r.spend * 1.16; // 8% SST + 8% WHT
+                totalOrders += r.orders;
+            });
         }
 
-        const roasBeforeTax = totalSpendBeforeTax > 0 ? totalGMV / totalSpendBeforeTax : 0;
+        const roasBeforeTax = totalSpend > 0 ? totalGMV / totalSpend : 0;
         const roasAfterTax = totalSpendAfterTax > 0 ? totalGMV / totalSpendAfterTax : 0;
+
+        let dataSource = 'live_api';
+        if (loadedFromDbCount > 0 && loadedFromApiCount > 0) {
+            dataSource = 'database+api';
+        } else if (loadedFromDbCount > 0) {
+            dataSource = 'database';
+        }
+
+        // Trigger background revalidations sequentially spaced by 200ms
+        if (backgroundRevalidateThunks.length > 0) {
+            console.log(`[tiktok-shop-metrics-swr] SWR: Triggering ${backgroundRevalidateThunks.length} background revalidations sequentially...`);
+            (async () => {
+                try {
+                    for (let i = 0; i < backgroundRevalidateThunks.length; i++) {
+                        const item = backgroundRevalidateThunks[i];
+                        console.log(`[tiktok-shop-metrics-swr] SWR: [${i + 1}/${backgroundRevalidateThunks.length}] Revalidating ${item.key} for ${item.date}...`);
+                        await item.fn();
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                    console.log(`[tiktok-shop-metrics-swr] SWR: Background revalidation completed successfully`);
+                } catch (e: any) {
+                    console.error('[tiktok-shop-metrics-swr] SWR: Background revalidation error:', e.message);
+                }
+            })();
+        }
 
         return NextResponse.json({
             shopNumber,
             shopName,
             gmv: totalGMV,
-            orderCount: totalOrderCount,
-            totalAdsSpend: totalSpendBeforeTax,
+            orderCount: totalOrders,
+            totalAdsSpend: totalSpend,
             totalCostWithTaxes: totalSpendAfterTax,
-            sst: totalSpendBeforeTax * 0.08,
-            wht: totalSpendBeforeTax * 0.08,
+            sst: totalSpend * 0.08,
+            wht: totalSpend * 0.08,
             roasBeforeTax,
             roasAfterTax,
             dataSource,
@@ -222,7 +221,7 @@ export async function GET(request: Request) {
         });
 
     } catch (error: any) {
-        console.error(`[shop-metrics] Error for shop ${shopNumber}:`, error.message);
+        console.error(`[tiktok-shop-metrics-swr] Error:`, error.message);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

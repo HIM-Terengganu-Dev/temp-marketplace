@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { format, subDays, parseISO, differenceInDays } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,11 +10,37 @@ import { PerformanceLineChart, PerformanceDataPoint } from "@/components/dashboa
 import { ShopDetailModal } from "@/components/dashboard/ShopDetailModal";
 import { ShopData } from "@/lib/mockData";
 import { useSession } from "next-auth/react";
-import { TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /* ── helpers ────────────────────────────────────────────────────────────── */
+
+const SHOP_NAMES: Record<number, string> = {
+    1: 'DrSamhanWellness',
+    2: 'HIM CLINIC',
+    3: 'Vigomax HQ',
+    4: 'VigomaxPlus HQ'
+};
+
+const SHOP_THEME_COLORS: Record<number, string> = {
+    1: 'border-blue-500/30 text-blue-400 bg-blue-500/10',
+    2: 'border-purple-500/30 text-purple-400 bg-purple-500/10',
+    3: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10',
+    4: 'border-pink-500/30 text-pink-400 bg-pink-500/10'
+};
+
+/** Returns today's date string YYYY-MM-DD in Asia/Kuala_Lumpur timezone */
+function todayKL(): string {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+}
+
+/** Subtracts N days from a KL date string, returns YYYY-MM-DD */
+function subDaysKL(dateStr: string, n: number): string {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d - n));
+    return dt.toISOString().split('T')[0];
+}
 
 function pctChange(cur: number, prev: number) {
     if (prev === 0) return cur > 0 ? 100 : 0;
@@ -88,12 +114,13 @@ function TrendBadge({ pct }: { pct: number }) {
 export default function Home() {
     const { data: session } = useSession();
 
-    // Default preset: today
+    // Use KL timezone for all date state — prevents SSR/client mismatch
     const [activePreset, setActivePreset] = useState<DatePreset>("today");
-    const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
-    const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+    const [startDate, setStartDate] = useState(todayKL());
+    const [endDate, setEndDate] = useState(todayKL());
 
     const [shopData, setShopData] = useState<ShopData[]>([]);
+    const [livestreams, setLivestreams] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [dataSource, setDataSource] = useState<string>("");
 
@@ -110,8 +137,20 @@ export default function Home() {
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [secondsLeft, setSecondsLeft] = useState(30);
 
+    // Track the active fetch request to prevent race conditions
+    const abortControllerRef = useRef<AbortController | null>(null);
+
     const fetchData = useCallback(async () => {
         if (!startDate || !endDate) return;
+
+        // Cancel previous request if still in flight
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        const signal = controller.signal;
 
         setIsLoading(true);
         try {
@@ -122,72 +161,41 @@ export default function Home() {
             // 1. Fetch connected Shopee shops dynamically
             let shopeeShops: { id: number; shop_id: string; shop_name: string }[] = [];
             try {
-                const shopeeShopsRes = await fetch('/api/shopee/shops');
+                const shopeeShopsRes = await fetch('/api/shopee/shops', { signal });
                 if (shopeeShopsRes.ok) {
                     shopeeShops = await shopeeShopsRes.json();
                 }
-            } catch (e) {
+            } catch (e: any) {
+                if (e.name === 'AbortError') throw e;
                 console.error("Failed to load Shopee shops", e);
             }
 
             const prevRange = getPreviousRange(startDate, endDate, activePreset);
 
             // 2. Fetch current and previous metrics for TikTok and Shopee shops in parallel
-            const [
-                curResults,
-                prevResults,
-                shopeeCurResults,
-                shopeePrevResults
-            ] = await Promise.all([
-                Promise.all(
-                    shopIndices.map(async (num) => {
-                        try {
-                            const res = await fetch(
-                                `/api/tiktok/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopNumber=${num}`
-                            );
-                            return res.ok ? res.json() : null;
-                        } catch {
-                            return null;
-                        }
-                    })
-                ),
-                Promise.all(
-                    shopIndices.map(async (num) => {
-                        try {
-                            const res = await fetch(
-                                `/api/tiktok/shop-metrics?startDate=${prevRange.start}&endDate=${prevRange.end}&shopNumber=${num}`
-                            );
-                            return res.ok ? res.json() : null;
-                        } catch {
-                            return null;
-                        }
-                    })
-                ),
-                Promise.all(
-                    shopeeShops.map(async (shop) => {
-                        try {
-                            const res = await fetch(
-                                `/api/shopee/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopId=${shop.shop_id}`
-                            );
-                            return res.ok ? res.json() : null;
-                        } catch {
-                            return null;
-                        }
-                    })
-                ),
-                Promise.all(
-                    shopeeShops.map(async (shop) => {
-                        try {
-                            const res = await fetch(
-                                `/api/shopee/shop-metrics?startDate=${prevRange.start}&endDate=${prevRange.end}&shopId=${shop.shop_id}`
-                            );
-                            return res.ok ? res.json() : null;
-                        } catch {
-                            return null;
-                        }
-                    })
-                ),
-            ]);
+            let curResults: any[] = [];
+            let prevResults: any[] = [];
+            let shopeeCurResults: any[] = [];
+            let shopeePrevResults: any[] = [];
+
+            try {
+                const summaryRes = await fetch(
+                    `/api/shop-metrics/summary?startDate=${startDate}&endDate=${endDate}&prevStartDate=${prevRange.start}&prevEndDate=${prevRange.end}`,
+                    { signal }
+                );
+                if (summaryRes.ok) {
+                    const data = await summaryRes.json();
+                    curResults = data.curResults || [];
+                    prevResults = data.prevResults || [];
+                    shopeeCurResults = data.shopeeCurResults || [];
+                    shopeePrevResults = data.shopeePrevResults || [];
+                } else {
+                    console.error("Failed to load metrics summary:", summaryRes.statusText);
+                }
+            } catch (e: any) {
+                if (e.name === 'AbortError') throw e;
+                console.error("Error fetching metrics summary:", e);
+            }
 
             // 3. Build previous period aggregate totals across all channels
             const prevGmv = prevResults.reduce((s, d) => s + (d?.gmv ?? 0), 0) +
@@ -305,7 +313,8 @@ export default function Home() {
                         shopIndices.map(async (num) => {
                             try {
                                 const res = await fetch(
-                                    `/api/tiktok/shop-metrics/hourly?date=${startDate}&shopNumber=${num}`
+                                    `/api/tiktok/shop-metrics/hourly?date=${startDate}&shopNumber=${num}`,
+                                    { signal }
                                 );
                                 if (!res.ok) return;
                                 const data = await res.json();
@@ -315,14 +324,18 @@ export default function Home() {
                                         hourlyBuckets[h.hour].orders += h.orders;
                                     }
                                 });
-                            } catch { /* ignore */ }
+                            } catch (e: any) {
+                                if (e.name === 'AbortError') throw e;
+                                /* ignore other errors */
+                            }
                         })
                     ),
                     Promise.all(
                         shopeeShops.map(async (shop) => {
                             try {
                                 const res = await fetch(
-                                    `/api/shopee/shop-metrics/hourly?date=${startDate}&shopId=${shop.shop_id}`
+                                    `/api/shopee/shop-metrics/hourly?date=${startDate}&shopId=${shop.shop_id}`,
+                                    { signal }
                                 );
                                 if (!res.ok) return;
                                 const data = await res.json();
@@ -333,7 +346,10 @@ export default function Home() {
                                         hourlyBuckets[h.hour].spend += h.spend || 0;
                                     }
                                 });
-                            } catch { /* ignore */ }
+                            } catch (e: any) {
+                                if (e.name === 'AbortError') throw e;
+                                /* ignore other errors */
+                            }
                         })
                     )
                 ]);
@@ -348,67 +364,42 @@ export default function Home() {
 
                 setChartData(points);
             } else {
-                // Multi-day → daily chart
-                const days: string[] = [];
-                for (let i = 0; i < daySpan; i++) {
-                    days.push(format(subDays(parseISO(endDate), daySpan - 1 - i), "yyyy-MM-dd"));
+                // Multi-day → daily chart (using single consolidated endpoint)
+                try {
+                    const res = await fetch(`/api/shop-metrics/daily-trend?startDate=${startDate}&endDate=${endDate}`, { signal });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setChartData(data);
+                    } else {
+                        console.error("Failed to load daily trend metrics:", res.statusText);
+                    }
+                } catch (e: any) {
+                    if (e.name === 'AbortError') throw e;
+                    console.error("Error fetching daily trend metrics:", e);
                 }
-
-                // For each day, aggregate all shops
-                const dayResults = await Promise.all(
-                    days.map(async (day) => {
-                        const [dayShopResults, dayShopeeResults] = await Promise.all([
-                            Promise.all(
-                                shopIndices.map(async (num) => {
-                                    try {
-                                        const res = await fetch(
-                                            `/api/tiktok/shop-metrics?startDate=${day}&endDate=${day}&shopNumber=${num}`
-                                        );
-                                        return res.ok ? res.json() : null;
-                                    } catch {
-                                        return null;
-                                    }
-                                })
-                            ),
-                            Promise.all(
-                                shopeeShops.map(async (shop) => {
-                                    try {
-                                        const res = await fetch(
-                                            `/api/shopee/shop-metrics?startDate=${day}&endDate=${day}&shopId=${shop.shop_id}`
-                                        );
-                                        return res.ok ? res.json() : null;
-                                    } catch {
-                                        return null;
-                                    }
-                                })
-                            ),
-                        ]);
-
-                        const gmv = dayShopResults.reduce((s, d) => s + (d?.gmv ?? 0), 0) +
-                                    dayShopeeResults.reduce((s, d) => s + (d?.gmv ?? 0), 0);
-                        const spend = dayShopResults.reduce((s, d) => s + (d?.totalAdsSpend ?? 0), 0) +
-                                      dayShopeeResults.reduce((s, d) => s + (d?.totalAdsSpend ?? 0), 0);
-                        const roas = spend > 0 ? gmv / spend : 0;
-                        const orders = dayShopResults.reduce((s, d) => s + (d?.orderCount ?? 0), 0) +
-                                       dayShopeeResults.reduce((s, d) => s + (d?.orderCount ?? 0), 0);
-                        return { gmv, spend, roas, orders };
-                    })
-                );
-
-                setChartData(
-                    days.map((day, i) => ({
-                        label: format(parseISO(day), "MMM d"),
-                        gmv: dayResults[i].gmv,
-                        spend: dayResults[i].spend,
-                        roas: dayResults[i].roas,
-                        orders: dayResults[i].orders,
-                    }))
-                );
             }
-        } catch (error) {
+
+            // ── Fetch livestream leaderboard ──────────────────────────────
+            try {
+                const liveRes = await fetch(`/api/tiktok/livestream-performance?startDate=${startDate}&endDate=${endDate}`, { signal });
+                if (liveRes.ok) {
+                    const liveJson = await liveRes.json();
+                    setLivestreams(liveJson.leaderboard || []);
+                }
+            } catch (e: any) {
+                if (e.name === 'AbortError') throw e;
+                console.error("Failed to load livestream performance", e);
+            }
+        } catch (error: any) {
+            if (error.name === 'AbortError') {
+                // Silent catch abort
+                return;
+            }
             console.error("Error fetching shop data:", error);
         } finally {
-            setIsLoading(false);
+            if (abortControllerRef.current === controller) {
+                setIsLoading(false);
+            }
         }
     }, [startDate, endDate, activePreset, session]);
 
@@ -492,6 +483,38 @@ export default function Home() {
                         <RefreshCw className={cn("h-3.5 w-3.5 mr-2 text-slate-400", isLoading && "animate-spin")} />
                         <span>Refresh</span>
                     </Button>
+
+                    {/* Data Source Indicator */}
+                    {!isLoading && dataSource && (
+                        <Badge
+                            variant="outline"
+                            className={cn(
+                                "h-9 px-3 flex items-center gap-1.5 font-semibold text-xs border select-none transition-all duration-300 rounded-md",
+                                dataSource.includes("database") && !dataSource.includes("api")
+                                    ? "border-blue-500/30 text-blue-400 bg-blue-500/5 hover:bg-blue-500/5 shadow-[0_0_12px_rgba(59,130,246,0.05)]"
+                                    : dataSource.includes("database") && dataSource.includes("api")
+                                    ? "border-purple-500/30 text-purple-400 bg-purple-500/5 hover:bg-purple-500/5 shadow-[0_0_12px_rgba(168,85,247,0.05)]"
+                                    : "border-emerald-500/30 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/5 shadow-[0_0_12px_rgba(16,185,129,0.05)]"
+                            )}
+                        >
+                            {dataSource.includes("database") && !dataSource.includes("api") ? (
+                                <>
+                                    <span className="h-1.5 w-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
+                                    <span>📦 Database Cache</span>
+                                </>
+                            ) : dataSource.includes("database") && dataSource.includes("api") ? (
+                                <>
+                                    <span className="h-1.5 w-1.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]" />
+                                    <span>📦+🔴 Mixed Mode</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+                                    <span>🔴 Live API Mode</span>
+                                </>
+                            )}
+                        </Badge>
+                    )}
                 </div>
                 <SimpleDatePicker
                     startDate={startDate}
@@ -618,6 +641,130 @@ export default function Home() {
                             isLoading && "animate-pulse"
                         )}>
                             {isLoading ? "Fetching data..." : "No data available for this period"}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Livestream Performance Leaderboard Section */}
+            <Card className="border-border/50 bg-card/40 backdrop-blur-sm overflow-hidden hover:border-blue-500/30 transition-colors">
+                <CardHeader className="border-b border-border/30 pb-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <CardTitle className="text-base font-bold flex items-center gap-2">
+                                <Trophy className="h-5 w-5 text-yellow-400" />
+                                TikTok Shop Livestream Leaderboard
+                            </CardTitle>
+                            <p className="text-xs text-muted-foreground mt-0.5">Rankings based on sales volume and total order counts generated from active live sessions</p>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-slate-300">
+                            <span className="flex items-center gap-1 bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20"><Tv className="h-3 w-5" /> {livestreams.length} Sessions</span>
+                            <span className="flex items-center gap-1 bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20"><Users className="h-3.5 w-3.5" /> {livestreams.reduce((sum, s) => sum + parseInt(s.viewer_count || 0, 10), 0).toLocaleString()} Peak Viewers</span>
+                            <span className="flex items-center gap-1 bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20"><ShoppingBag className="h-3.5 w-3.5" /> {livestreams.reduce((sum, s) => sum + parseInt(s.order_count || 0, 10), 0).toLocaleString()} Total Orders</span>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    {livestreams.length > 0 ? (
+                        <div className="overflow-x-auto overflow-y-auto max-h-[520px] scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                            <table className="w-full text-left text-sm border-collapse">
+                                <thead className="sticky top-0 bg-slate-900 z-10 shadow-[0_1px_0_rgba(255,255,255,0.05)]">
+                                    <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                        <th className="py-3 px-4 text-center w-16">Rank</th>
+                                        <th className="py-3 px-4">Account</th>
+                                        <th className="py-3 px-4 text-center">Date</th>
+                                        <th className="py-3 px-4 text-center">Duration</th>
+                                        <th className="py-3 px-4 max-w-[280px] truncate">Livestream Campaign / Title</th>
+                                        <th className="py-3 px-4 text-center">Peak Viewers</th>
+                                        <th className="py-3 px-4 text-center">Orders</th>
+                                        <th className="py-3 px-4 text-right">Revenue (GMV)</th>
+                                        <th className="py-3 px-4 text-center">Start Time</th>
+                                        <th className="py-3 px-4 text-center">End Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {livestreams.map((stream, idx) => {
+                                        const rankSymbol = idx === 0 ? "🏆" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}`;
+                                        const rankClass = idx === 0 ? "text-lg font-bold" : idx === 1 || idx === 2 ? "text-base font-bold" : "text-slate-400 font-medium";
+                                        
+                                        const shopName = SHOP_NAMES[stream.shop_number] || `Shop ${stream.shop_number}`;
+                                        const themeColor = SHOP_THEME_COLORS[stream.shop_number] || "border-slate-500/30 text-slate-400 bg-slate-500/10";
+                                        
+                                        const ordersCount = parseInt(stream.order_count || 0, 10);
+                                        const gmvAmount = parseFloat(stream.gmv || 0);
+
+                                        // All times are stored as KL local time in DB.
+                                        // Always format in KL timezone explicitly — never rely on browser locale.
+                                        const start = stream.start_time ? new Date(stream.start_time) : null;
+                                        const end = stream.end_time ? new Date(stream.end_time) : null;
+
+                                        const KL = 'Asia/Kuala_Lumpur';
+
+                                        const dateStr = start
+                                            ? start.toLocaleDateString('en-MY', { timeZone: KL, day: '2-digit', month: 'short', year: 'numeric' })
+                                            : '-';
+
+                                        const startTimeStr = start
+                                            ? start.toLocaleTimeString('en-MY', { timeZone: KL, hour: '2-digit', minute: '2-digit', hour12: false })
+                                            : '-';
+
+                                        const endTimeStr = end
+                                            ? end.toLocaleTimeString('en-MY', { timeZone: KL, hour: '2-digit', minute: '2-digit', hour12: false })
+                                            : '-';
+
+                                        let durationStr = '-';
+                                        if (start && end) {
+                                            const diffMs = end.getTime() - start.getTime();
+                                            if (diffMs > 0) {
+                                                const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                                                const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                                                durationStr = `${hours}h ${mins}m`;
+                                            }
+                                        }
+
+                                        return (
+                                            <tr key={`${stream.shop_number}-${stream.live_id}`} className="border-b border-border/10 hover:bg-muted/10 transition-colors group">
+                                                <td className="py-3 px-4 text-center font-semibold">
+                                                    <span className={rankClass}>{rankSymbol}</span>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <Badge variant="outline" className={`font-semibold border text-xs px-2.5 py-0.5 rounded-full ${themeColor}`}>
+                                                        {shopName}
+                                                    </Badge>
+                                                </td>
+                                                <td className="py-3 px-4 text-center text-slate-300 font-medium">
+                                                    {dateStr}
+                                                </td>
+                                                <td className="py-3 px-4 text-center text-slate-400 text-xs">
+                                                    {durationStr}
+                                                </td>
+                                                <td className="py-3 px-4 font-medium text-slate-300 group-hover:text-blue-400 transition-colors max-w-[280px] truncate" title={stream.live_title}>
+                                                    {stream.live_title}
+                                                </td>
+                                                <td className="py-3 px-4 text-center text-slate-300">
+                                                    {parseInt(stream.viewer_count || 0, 10).toLocaleString()}
+                                                </td>
+                                                <td className="py-3 px-4 text-center font-bold text-slate-200">
+                                                    {ordersCount.toLocaleString()}
+                                                </td>
+                                                <td className="py-3 px-4 text-right font-bold text-emerald-400">
+                                                    RM {gmvAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </td>
+                                                <td className="py-3 px-4 text-center text-slate-300 text-xs font-mono">
+                                                    {startTimeStr}
+                                                </td>
+                                                <td className="py-3 px-4 text-center text-slate-300 text-xs font-mono">
+                                                    {endTimeStr}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="h-[160px] flex items-center justify-center text-muted-foreground text-sm">
+                            No livestream performance records found in this date range.
                         </div>
                     )}
                 </CardContent>

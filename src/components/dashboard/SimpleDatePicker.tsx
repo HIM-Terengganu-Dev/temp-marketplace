@@ -1,6 +1,22 @@
 "use client";
 
-import { format, subDays, startOfMonth, endOfMonth, parseISO, isValid } from "date-fns";
+import { parseISO, isValid } from "date-fns";
+
+/** Format a YYYY-MM-DD string for display in KL timezone */
+function displayDate(dateStr: string): string {
+    if (!dateStr) return 'Pick date';
+    // Parse as UTC midnight so the KL display is correct
+    const d = new Date(dateStr + 'T00:00:00Z');
+    if (!isValid(d)) return 'Pick date';
+    return d.toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+/** Parse a YYYY-MM-DD string to a Date for the calendar widget (treat as local midnight) */
+function parseKLDate(dateStr: string): Date {
+    if (!dateStr) return new Date();
+    const parsed = parseISO(dateStr);
+    return isValid(parsed) ? parsed : new Date();
+}
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -27,20 +43,26 @@ export function SimpleDatePicker({
     onPresetChange,
     activePreset,
 }: SimpleDatePickerProps) {
-    const today = new Date();
+    // Always compute dates in KL timezone so presets are correct regardless of server timezone
+    const todayKL = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
 
-    // Helper to set range and notify parent of which preset was chosen
-    const setRange = (start: Date, end: Date, preset: DatePreset) => {
-        setStartDate(format(start, "yyyy-MM-dd"));
-        setEndDate(format(end, "yyyy-MM-dd"));
-        onPresetChange?.(preset);
+    /** Subtract N days from a YYYY-MM-DD string, return YYYY-MM-DD */
+    const subDaysKL = (dateStr: string, n: number): string => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d - n));
+        return dt.toISOString().split('T')[0];
     };
 
-    // Helper to safely parse string to Date object
-    const parseDate = (dateStr: string) => {
-        if (!dateStr) return new Date();
-        const parsed = parseISO(dateStr);
-        return isValid(parsed) ? parsed : new Date();
+    /** First day of month for a YYYY-MM-DD string */
+    const startOfMonthKL = (dateStr: string): string => {
+        return dateStr.slice(0, 8) + '01';
+    };
+
+    /** Last day of month for a YYYY-MM-DD string */
+    const endOfMonthKL = (dateStr: string): string => {
+        const [y, m] = dateStr.split('-').map(Number);
+        const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        return `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
     };
 
     const btnBase = "h-7 text-[10px] px-2 transition-all duration-150";
@@ -54,7 +76,7 @@ export function SimpleDatePicker({
                     variant="ghost"
                     size="sm"
                     className={cn(btnBase, activePreset === 'today' && activeClass)}
-                    onClick={() => setRange(today, today, 'today')}
+                    onClick={() => { setStartDate(todayKL); setEndDate(todayKL); onPresetChange?.('today'); }}
                 >
                     Today
                 </Button>
@@ -62,7 +84,7 @@ export function SimpleDatePicker({
                     variant="ghost"
                     size="sm"
                     className={cn(btnBase, activePreset === 'yesterday' && activeClass)}
-                    onClick={() => setRange(subDays(today, 1), subDays(today, 1), 'yesterday')}
+                    onClick={() => { const y = subDaysKL(todayKL, 1); setStartDate(y); setEndDate(y); onPresetChange?.('yesterday'); }}
                 >
                     Yesterday
                 </Button>
@@ -70,7 +92,7 @@ export function SimpleDatePicker({
                     variant="ghost"
                     size="sm"
                     className={cn(btnBase, activePreset === 'weekly' && activeClass)}
-                    onClick={() => setRange(subDays(today, 7), today, 'weekly')}
+                    onClick={() => { setStartDate(subDaysKL(todayKL, 7)); setEndDate(todayKL); onPresetChange?.('weekly'); }}
                 >
                     Weekly
                 </Button>
@@ -78,7 +100,7 @@ export function SimpleDatePicker({
                     variant="ghost"
                     size="sm"
                     className={cn(btnBase, activePreset === 'monthly' && activeClass)}
-                    onClick={() => setRange(startOfMonth(today), endOfMonth(today), 'monthly')}
+                    onClick={() => { setStartDate(startOfMonthKL(todayKL)); setEndDate(endOfMonthKL(todayKL)); onPresetChange?.('monthly'); }}
                 >
                     Monthly
                 </Button>
@@ -97,16 +119,20 @@ export function SimpleDatePicker({
                                 )}
                             >
                                 <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                                {startDate ? format(parseDate(startDate), "MMM dd, yyyy") : <span>Pick date</span>}
+                                {startDate ? displayDate(startDate) : <span>Pick date</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                             <Calendar
                                 mode="single"
-                                selected={parseDate(startDate)}
+                                selected={parseKLDate(startDate)}
                                 onSelect={(date) => {
                                     if (date) {
-                                        setStartDate(format(date, "yyyy-MM-dd"));
+                                        // Calendar returns midnight local-time Date; format as YYYY-MM-DD
+                                        const y = date.getFullYear();
+                                        const m = String(date.getMonth() + 1).padStart(2, '0');
+                                        const d = String(date.getDate()).padStart(2, '0');
+                                        setStartDate(`${y}-${m}-${d}`);
                                         onPresetChange?.('custom');
                                     }
                                 }}
@@ -128,16 +154,19 @@ export function SimpleDatePicker({
                                 )}
                             >
                                 <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                                {endDate ? format(parseDate(endDate), "MMM dd, yyyy") : <span>Pick date</span>}
+                                {endDate ? displayDate(endDate) : <span>Pick date</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                             <Calendar
                                 mode="single"
-                                selected={parseDate(endDate)}
+                                selected={parseKLDate(endDate)}
                                 onSelect={(date) => {
                                     if (date) {
-                                        setEndDate(format(date, "yyyy-MM-dd"));
+                                        const y = date.getFullYear();
+                                        const m = String(date.getMonth() + 1).padStart(2, '0');
+                                        const d = String(date.getDate()).padStart(2, '0');
+                                        setEndDate(`${y}-${m}-${d}`);
                                         onPresetChange?.('custom');
                                     }
                                 }}

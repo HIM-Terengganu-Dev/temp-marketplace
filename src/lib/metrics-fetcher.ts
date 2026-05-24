@@ -349,35 +349,55 @@ async function fetchGMVMaxCost(accessToken: string, advertiserId: string, shopId
 
     const url = `${BASE_URL_ADS}/open_api/${API_VERSION_ADS}/gmv_max/report/get/?${params.toString()}`;
 
-    try {
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Access-Token': accessToken,
-                'Content-Type': 'application/json'
+    const MAX_RETRIES = 3;
+    let delayMs = 1000; // start at 1 second, doubles each retry
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Access-Token': accessToken,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.code === 40100) {
+                // Rate limit hit — wait and retry
+                console.warn(`[GMV Max] Rate limit (40100) on attempt ${attempt}/${MAX_RETRIES} for ${promotionType}. Retrying in ${delayMs}ms...`);
+                if (attempt < MAX_RETRIES) {
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                    delayMs *= 2;
+                    continue;
+                } else {
+                    console.error(`[GMV Max] Rate limit persisted after ${MAX_RETRIES} retries for ${promotionType}. Returning 0.`);
+                    return 0;
+                }
             }
-        });
 
-        const data = await response.json();
+            if (data.code !== 0) {
+                console.error('GMV Max report error:', data);
+                return 0;
+            }
 
-        if (data.code !== 0) {
-            console.error('GMV Max report error:', data);
+            const list = data.data?.list || [];
+            const filteredList = list.filter((item: any) => validCampaignIds.has(item.dimensions.campaign_id));
+
+            let totalCost = 0;
+            filteredList.forEach((item: any) => {
+                totalCost += parseFloat(item.metrics.cost || 0);
+            });
+
+            return totalCost;
+        } catch (error) {
+            console.error('Error fetching GMV Max cost:', error);
             return 0;
         }
-
-        const list = data.data?.list || [];
-        const filteredList = list.filter((item: any) => validCampaignIds.has(item.dimensions.campaign_id));
-
-        let totalCost = 0;
-        filteredList.forEach((item: any) => {
-            totalCost += parseFloat(item.metrics.cost || 0);
-        });
-
-        return totalCost;
-    } catch (error) {
-        console.error('Error fetching GMV Max cost:', error);
-        return 0;
     }
+
+    return 0;
 }
 
 async function getGMVMaxCampaignIdsForAccount(advertiserId: string, accessToken: string): Promise<Set<string>> {
@@ -509,10 +529,9 @@ export async function fetchShopROAS(shopNumber: number, startDateStr: string, en
     let manualCampaignSpend = 0;
 
     if (shopConfig.hasGMVCampaigns) {
-        [liveGMVMaxCost, productGMVMaxCost] = await Promise.all([
-            fetchGMVMaxCost(accessToken, shopConfig.advertiserId, shopConfig.shopId, startDateStr, endDateStr, 'LIVE_GMV_MAX'),
-            fetchGMVMaxCost(accessToken, shopConfig.advertiserId, shopConfig.shopId, startDateStr, endDateStr, 'PRODUCT_GMV_MAX')
-        ]);
+        // Serialize these to avoid concurrent Ads API pressure which can trigger rate limits
+        liveGMVMaxCost = await fetchGMVMaxCost(accessToken, shopConfig.advertiserId, shopConfig.shopId, startDateStr, endDateStr, 'LIVE_GMV_MAX');
+        productGMVMaxCost = await fetchGMVMaxCost(accessToken, shopConfig.advertiserId, shopConfig.shopId, startDateStr, endDateStr, 'PRODUCT_GMV_MAX');
     }
 
     // FIX: For shops sharing an advertiser (Shop 3 & 4), manual spend is already 0
@@ -635,6 +654,9 @@ export async function ensureDailyMetricsSynced() {
                                 `, [shopNumber, gmvData.shopName || shopConfig.name, dateStr, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount]);
                                 
                                 console.log(`[Auto-Sync] Synced shop ${shopNumber} successfully for date ${dateStr}`);
+                                
+                                // Auto-sync livestream metrics for this shop and date as well
+                                await syncLivestreamMetricsForDate(shopNumber, dateStr);
                             } catch (e: any) {
                                 console.error(`[Auto-Sync] Failed for shop ${shopNumber} on ${dateStr}:`, e.message);
                             }
@@ -656,4 +678,125 @@ export async function ensureDailyMetricsSynced() {
         console.error('[Auto-Sync] Global trigger error:', err.message);
     }
 }
+
+/**
+ * Fetches livestream performance list for a specific shop and date range
+ */
+export async function fetchShopLivePerformance(shopNumber: number, startDateStr: string, endDateStr: string) {
+    const shopCredentials = await getShopCredentials(shopNumber);
+    if (!shopCredentials) {
+        throw new Error(`Failed to get credentials for shop ${shopNumber}`);
+    }
+
+    const appKey = cleanEnv(process.env.TIKTOK_SHOP_APP_KEY);
+    const appSecret = cleanEnv(process.env.TIKTOK_SHOP_APP_SECRET);
+    const accessToken = shopCredentials.access_token;
+    const shopCipher = shopCredentials.shop_cipher;
+
+    if (!appKey || !appSecret || !accessToken || !shopCipher) {
+        throw new Error('Missing TikTok Shop App Key, App Secret or Cipher');
+    }
+
+    // The TikTok API uses UTC dates for its date range filtering, but lives start in KL time (UTC+8).
+    // A session starting at 2AM KL on May 23 = UTC May 22 — the API may return it under May 22.
+    // To capture all sessions for a KL date, request a wider UTC window: (startDate - 1) to (endDate + 1),
+    // then filter by KL date after the fact.
+    const [sy, sm, sd] = startDateStr.split('-').map(Number);
+    const [ey, em, ed] = endDateStr.split('-').map(Number);
+    const dStart = new Date(Date.UTC(sy, sm - 1, sd - 1)); // one day before start
+    const dEnd   = new Date(Date.UTC(ey, em - 1, ed + 1)); // one day after end
+
+    const apiStartDate = dStart.toISOString().split('T')[0];
+    const apiEndDate   = dEnd.toISOString().split('T')[0];
+
+    const queryParams: any = {
+        access_token: accessToken,
+        app_key: appKey,
+        shop_cipher: shopCipher,
+        shop_id: '',
+        version: '202509',
+        start_date_ge: apiStartDate,
+        end_date_lt: apiEndDate
+    };
+
+    const sortedKeys = Object.keys(queryParams).sort();
+    const queryString = sortedKeys.map(key => `${key}=${encodeURIComponent(queryParams[key])}`).join('&');
+    const urlForSignature = `${BASE_URL_SHOP}/analytics/202509/shop_lives/performance?${queryString}`;
+
+    const signatureResult = tiktokShop.signByUrl(urlForSignature, appSecret, {});
+
+    const finalQueryParams: any = { ...queryParams };
+    finalQueryParams.sign = signatureResult.signature;
+    finalQueryParams.timestamp = signatureResult.timestamp;
+
+    const finalSortedKeys = Object.keys(finalQueryParams).sort();
+    const finalQueryString = finalSortedKeys.map(key => `${key}=${encodeURIComponent(finalQueryParams[key])}`).join('&');
+    const finalUrl = `${BASE_URL_SHOP}/analytics/202509/shop_lives/performance?${finalQueryString}`;
+
+    try {
+        console.log(`[TikTok API] Fetching LIVE performance list for shop ${shopNumber} (API window: ${apiStartDate} to ${apiEndDate})...`);
+        const response = await axios.get(finalUrl, {
+            headers: {
+                'x-tts-access-token': accessToken
+            }
+        });
+
+        if (response.data.code === 0) {
+            const sessions = response.data.data?.live_stream_sessions || [];
+            const mapped = sessions.map((item: any) => ({
+                liveId: item.id,
+                liveTitle: item.title || `LIVE Stream ${item.id}`,
+                startTime: item.start_time ? new Date(parseInt(item.start_time, 10) * 1000) : null,
+                endTime: item.end_time ? new Date(parseInt(item.end_time, 10) * 1000) : null,
+                orderCount: parseInt(item.sales_performance?.sku_orders || '0', 10),
+                gmv: parseFloat(item.sales_performance?.gmv?.amount || '0.00'),
+                viewerCount: parseInt(item.sales_performance?.customers || '0', 10)
+            }));
+
+            // Filter sessions to only those that fall on the requested KL date(s)
+            const filtered = mapped.filter((s: any) => {
+                if (!s.startTime) return false;
+                const klDateStr = s.startTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+                return klDateStr >= startDateStr && klDateStr <= endDateStr;
+            });
+
+            console.log(`[TikTok API] Got ${sessions.length} sessions from API, ${filtered.length} match KL date range ${startDateStr}~${endDateStr} for shop ${shopNumber}`);
+            return filtered;
+        } else {
+            console.warn(`[TikTok API Warning] Live performance list failed for shop ${shopNumber}:`, response.data.message);
+            return [];
+        }
+    } catch (e: any) {
+        console.error(`[TikTok API Error] Failed fetching live performance for shop ${shopNumber}:`, e.message);
+        return [];
+    }
+}
+
+/**
+ * Synchronizes livestream metrics for a specific shop and date into the database
+ */
+export async function syncLivestreamMetricsForDate(shopNumber: number, dateStr: string) {
+    try {
+        const streams = await fetchShopLivePerformance(shopNumber, dateStr, dateStr);
+        for (const stream of streams) {
+            await query(`
+                INSERT INTO credentials.shop_livestream_performance (
+                    shop_number, live_id, live_title, start_time, end_time, order_count, gmv, viewer_count, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+                ON CONFLICT (shop_number, live_id) DO UPDATE SET
+                    live_title = EXCLUDED.live_title,
+                    start_time = EXCLUDED.start_time,
+                    end_time = EXCLUDED.end_time,
+                    order_count = EXCLUDED.order_count,
+                    gmv = EXCLUDED.gmv,
+                    viewer_count = EXCLUDED.viewer_count,
+                    updated_at = CURRENT_TIMESTAMP
+            `, [shopNumber, stream.liveId, stream.liveTitle, stream.startTime, stream.endTime, stream.orderCount, stream.gmv, stream.viewerCount]);
+        }
+        console.log(`[Sync] Synced ${streams.length} livestreams for shop ${shopNumber} on ${dateStr}`);
+    } catch (e: any) {
+        console.error(`[Sync Error] Failed to sync livestreams for shop ${shopNumber} on ${dateStr}:`, e.message);
+    }
+}
+
 

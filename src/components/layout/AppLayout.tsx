@@ -7,14 +7,16 @@ import { Header } from "./Header";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("sidebar-collapsed");
-      return saved === "true";
-    }
-    return false;
-  });
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // Read sidebar collapse preference timezone-safely on client mount
+  useEffect(() => {
+    const saved = localStorage.getItem("sidebar-collapsed");
+    if (saved === "true") {
+      setIsCollapsed(true);
+    }
+  }, []);
 
   const handleToggleCollapse = () => {
     setIsCollapsed((prev) => {

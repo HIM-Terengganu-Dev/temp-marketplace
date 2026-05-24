@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:setup": "tsx scripts/setup-database.ts",
     "db:setup-metrics": "tsx scripts/setup-metrics-db.ts",
+    "db:setup-livestream": "tsx scripts/setup-livestream-db.ts",
     "db:populate": "tsx scripts/populate-tokens.ts",
     "db:sync-daily": "tsx scripts/sync-daily-metrics.ts",
     "db:backfill-history": "tsx scripts/backfill-history.ts"
