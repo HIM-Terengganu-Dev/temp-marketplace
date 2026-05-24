@@ -110,11 +110,16 @@ export async function saveShopeeTokens(
     shopName: string,
     accessToken: string,
     refreshToken: string,
-    expireInSeconds: number,
-    refreshExpireInSeconds: number
+    expireInSeconds?: number,
+    refreshExpireInSeconds?: number
 ) {
-    const accessTokenExpiresAt = new Date(Date.now() + expireInSeconds * 1000);
-    const refreshTokenExpiresAt = new Date(Date.now() + refreshExpireInSeconds * 1000);
+    // Standard Shopee access token validity is 4 hours (14400 seconds)
+    const expire = (expireInSeconds !== undefined && expireInSeconds !== null && !isNaN(expireInSeconds)) ? expireInSeconds : 14400;
+    // Standard Shopee refresh token validity is 30 days (2592000 seconds)
+    const refreshExpire = (refreshExpireInSeconds !== undefined && refreshExpireInSeconds !== null && !isNaN(refreshExpireInSeconds)) ? refreshExpireInSeconds : 2592000;
+
+    const accessTokenExpiresAt = new Date(Date.now() + expire * 1000);
+    const refreshTokenExpiresAt = new Date(Date.now() + refreshExpire * 1000);
 
     const sql = `
         INSERT INTO credentials.refresh_shopeeshops_token 
