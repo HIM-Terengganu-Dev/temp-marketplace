@@ -38,7 +38,7 @@ export async function GET(request: Request) {
             FROM credentials.shop_livestream_performance
             WHERE start_time::date >= $1::date
               AND start_time::date <= $2::date
-            ORDER BY order_count DESC
+            ORDER BY gmv DESC, order_count DESC
             LIMIT 50;
         `, [startDate, endDate]);
 
