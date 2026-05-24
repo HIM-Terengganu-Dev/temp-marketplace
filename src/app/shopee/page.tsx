@@ -11,7 +11,6 @@ import {
     Calendar,
     ArrowRight,
     TrendingUp,
-    Users,
     Percent,
     DollarSign,
     AlertCircle,
@@ -250,7 +249,7 @@ function ShopeeShopsContent() {
                             Connected Shops ({shops.length})
                         </CardTitle>
                         <CardDescription>
-                            Active sandbox channels communicating with this dashboard
+                            Live Shopee stores with active API credentials connected to this dashboard
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -297,7 +296,7 @@ function ShopeeShopsContent() {
                                 <div className="space-y-1 max-w-sm px-4">
                                     <h3 className="font-semibold text-sm">No Shopee Shops Connected</h3>
                                     <p className="text-xs text-muted-foreground">
-                                        Your Shopee data fields are currently showing static data. Connect a sandbox seller store to start capturing live transaction logs.
+                                        No stores connected yet. Authorize a Shopee Seller account to start syncing live sales, orders, and ad performance data.
                                     </p>
                                 </div>
                                 <Button 
@@ -313,70 +312,143 @@ function ShopeeShopsContent() {
                     </CardContent>
                 </Card>
 
-                {/* Dashboard Previews or Sync Status */}
+                {/* Live Metrics Summary + Connection Status */}
                 <Card className="md:col-span-5 border-border/40 bg-card/30 backdrop-blur-sm">
                     <CardHeader>
-                        <CardTitle className="text-lg font-bold">Metrics Simulation</CardTitle>
+                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-orange-500" />
+                            Live Metrics Summary
+                        </CardTitle>
                         <CardDescription>
-                            Expected live analytics dashboard layout when active
+                            {shopPerformance.length > 0
+                                ? `Aggregated from ${shopPerformance.length} connected shop${shopPerformance.length > 1 ? 's' : ''} · ${startDate === endDate ? startDate : `${startDate} → ${endDate}`}`
+                                : 'Connect a shop to see real-time aggregated metrics here'}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                        {/* Real aggregate metrics */}
                         <div className="grid grid-cols-2 gap-3">
+                            {/* GMV */}
                             <div className="p-3 rounded-lg bg-muted/10 border border-border/20 flex flex-col gap-1">
                                 <div className="flex items-center gap-1 text-[10px] uppercase font-semibold text-muted-foreground">
                                     <DollarSign className="h-3.5 w-3.5 text-green-400" />
-                                    Shopee GMV
+                                    Total GMV
                                 </div>
-                                <div className="font-bold text-sm text-foreground">$12,450.00</div>
-                                <div className="text-[9px] text-green-400 flex items-center gap-0.5">
-                                    <TrendingUp className="h-2.5 w-2.5" /> +14.2% today
-                                </div>
+                                {isPerfLoading ? (
+                                    <div className="h-4 w-20 bg-muted/30 rounded animate-pulse mt-1" />
+                                ) : shopPerformance.length > 0 ? (
+                                    <>
+                                        <div className="font-bold text-sm text-foreground">
+                                            RM {shopPerformance.reduce((s, p) => s + (p.gmv || 0), 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </div>
+                                        <div className="text-[9px] text-green-400 flex items-center gap-0.5">
+                                            <TrendingUp className="h-2.5 w-2.5" /> Live data
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="font-bold text-sm text-muted-foreground/40">RM —</div>
+                                )}
                             </div>
+                            {/* Orders */}
                             <div className="p-3 rounded-lg bg-muted/10 border border-border/20 flex flex-col gap-1">
                                 <div className="flex items-center gap-1 text-[10px] uppercase font-semibold text-muted-foreground">
                                     <ShoppingBag className="h-3.5 w-3.5 text-orange-400" />
-                                    Orders
+                                    Total Orders
                                 </div>
-                                <div className="font-bold text-sm text-foreground">340 orders</div>
-                                <div className="text-[9px] text-green-400 flex items-center gap-0.5">
-                                    <TrendingUp className="h-2.5 w-2.5" /> +8.5% today
-                                </div>
+                                {isPerfLoading ? (
+                                    <div className="h-4 w-16 bg-muted/30 rounded animate-pulse mt-1" />
+                                ) : shopPerformance.length > 0 ? (
+                                    <>
+                                        <div className="font-bold text-sm text-foreground">
+                                            {shopPerformance.reduce((s, p) => s + (p.orders || 0), 0).toLocaleString()} orders
+                                        </div>
+                                        <div className="text-[9px] text-orange-400 flex items-center gap-0.5">
+                                            <ShoppingBag className="h-2.5 w-2.5" /> Across all shops
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="font-bold text-sm text-muted-foreground/40">— orders</div>
+                                )}
                             </div>
-                            <div className="p-3 rounded-lg bg-muted/10 border border-border/20 flex flex-col gap-1">
-                                <div className="flex items-center gap-1 text-[10px] uppercase font-semibold text-muted-foreground">
-                                    <Users className="h-3.5 w-3.5 text-blue-400" />
-                                    Total Visitors
-                                </div>
-                                <div className="font-bold text-sm text-foreground">1,820 clicks</div>
-                                <div className="text-[9px] text-red-400 flex items-center gap-0.5">
-                                    <TrendingUp className="h-2.5 w-2.5 rotate-180" /> -2.1% today
-                                </div>
-                            </div>
+                            {/* Ad Spend */}
                             <div className="p-3 rounded-lg bg-muted/10 border border-border/20 flex flex-col gap-1">
                                 <div className="flex items-center gap-1 text-[10px] uppercase font-semibold text-muted-foreground">
                                     <Percent className="h-3.5 w-3.5 text-purple-400" />
-                                    Conversion Rate
+                                    Total Ad Spend
                                 </div>
-                                <div className="font-bold text-sm text-foreground">18.6%</div>
-                                <div className="text-[9px] text-green-400 flex items-center gap-0.5">
-                                    <TrendingUp className="h-2.5 w-2.5" /> +1.2% average
+                                {isPerfLoading ? (
+                                    <div className="h-4 w-20 bg-muted/30 rounded animate-pulse mt-1" />
+                                ) : shopPerformance.length > 0 ? (
+                                    <>
+                                        <div className="font-bold text-sm text-foreground">
+                                            RM {shopPerformance.reduce((s, p) => s + (p.spend || 0), 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </div>
+                                        <div className="text-[9px] text-purple-400 flex items-center gap-0.5">
+                                            <Percent className="h-2.5 w-2.5" /> Before tax
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="font-bold text-sm text-muted-foreground/40">RM —</div>
+                                )}
+                            </div>
+                            {/* ROAS */}
+                            <div className="p-3 rounded-lg bg-muted/10 border border-border/20 flex flex-col gap-1">
+                                <div className="flex items-center gap-1 text-[10px] uppercase font-semibold text-muted-foreground">
+                                    <TrendingUp className="h-3.5 w-3.5 text-blue-400" />
+                                    Avg ROAS
                                 </div>
+                                {isPerfLoading ? (
+                                    <div className="h-4 w-14 bg-muted/30 rounded animate-pulse mt-1" />
+                                ) : shopPerformance.length > 0 ? (() => {
+                                    const totalGMV = shopPerformance.reduce((s, p) => s + (p.gmv || 0), 0);
+                                    const totalSpend = shopPerformance.reduce((s, p) => s + (p.spend || 0), 0);
+                                    const roas = totalSpend > 0 ? totalGMV / totalSpend : 0;
+                                    return (
+                                        <>
+                                            <div className="font-bold text-sm text-foreground">{roas.toFixed(2)}x</div>
+                                            <div className="text-[9px] text-blue-400 flex items-center gap-0.5">
+                                                <TrendingUp className="h-2.5 w-2.5" /> Combined ROAS
+                                            </div>
+                                        </>
+                                    );
+                                })() : (
+                                    <div className="font-bold text-sm text-muted-foreground/40">—x</div>
+                                )}
                             </div>
                         </div>
 
+                        {/* Real Connection Status Log */}
                         <div className="p-3 rounded-lg bg-muted/10 border border-border/20 space-y-2">
-                            <div className="text-[10px] uppercase font-bold text-muted-foreground">Sandbox Status Log</div>
-                            <div className="text-[9px] font-mono text-muted-foreground leading-relaxed space-y-1">
-                                <div>[SYS] Connection helper initialized.</div>
-                                <div>[SYS] Localtunnel bypass handshake checked.</div>
-                                {shops.length > 0 ? (
-                                    <>
-                                        <div className="text-green-400">[OK] OAuth token sync matches credentials!</div>
-                                        <div className="text-green-400">[OK] Active tokens ready to fetch API endpoints.</div>
-                                    </>
+                            <div className="text-[10px] uppercase font-bold text-muted-foreground">Connection Status Log</div>
+                            <div className="text-[9px] font-mono leading-relaxed space-y-1 max-h-[120px] overflow-y-auto pr-1">
+                                <div className="text-muted-foreground">[SYS] Shopee Open API v2 integration active.</div>
+                                {isLoading ? (
+                                    <div className="text-muted-foreground animate-pulse">[SYS] Loading shop registry...</div>
+                                ) : shops.length === 0 ? (
+                                    <div className="text-amber-400">[WARN] No authorized shops found. OAuth required.</div>
                                 ) : (
-                                    <div className="text-amber-500">[WARN] Storing tokens is pending authorization.</div>
+                                    <>
+                                        <div className="text-green-400">[OK] {shops.length} shop{shops.length > 1 ? 's' : ''} authorized in credentials store.</div>
+                                        {shops.map((shop: ShopeeShop) => {
+                                            const expiresAt = new Date(shop.access_token_expires_at);
+                                            const now = new Date();
+                                            const hoursLeft = Math.floor((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60));
+                                            const isExpired = expiresAt < now;
+                                            const isWarning = !isExpired && hoursLeft < 2;
+                                            return (
+                                                <div key={shop.shop_id} className={isExpired ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-green-400'}>
+                                                    [{isExpired ? 'ERR' : isWarning ? 'WARN' : 'OK'}] {shop.shop_name} · token {isExpired ? 'EXPIRED' : `expires in ${hoursLeft}h`}
+                                                </div>
+                                            );
+                                        })}
+                                        {shopPerformance.length > 0 && (
+                                            <div className="text-green-400">[OK] Metrics synced · GMV RM {shopPerformance.reduce((s, p) => s + (p.gmv || 0), 0).toFixed(2)} · {shopPerformance.reduce((s, p) => s + (p.orders || 0), 0)} orders</div>
+                                        )}
+                                        {isPerfLoading && (
+                                            <div className="text-blue-400 animate-pulse">[SYNC] Fetching latest metrics from API...</div>
+                                        )}
+                                        <div className="text-muted-foreground">[SYS] Last refreshed: {new Date().toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</div>
+                                    </>
                                 )}
                             </div>
                         </div>
