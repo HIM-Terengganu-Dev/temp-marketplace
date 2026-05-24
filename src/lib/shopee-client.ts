@@ -402,11 +402,18 @@ export async function fetchShopeeAdsSpendForDate(
         }
 
         const resp = data.response;
-        const list = resp?.list || resp?.cpc_ads_hourly_performance_list || [];
+        let list: any[] = [];
+        if (Array.isArray(resp)) {
+            list = resp;
+        } else if (resp) {
+            list = resp.list || resp.cpc_ads_hourly_performance_list || [];
+        }
 
         let totalSpend = 0;
         for (const item of list) {
-            const cost = parseFloat(item.cost || 0);
+            // Shopee CPC Ads API uses 'expense' field for CPC spend, fallback to 'cost'
+            const costVal = item.expense !== undefined ? item.expense : (item.cost !== undefined ? item.cost : 0);
+            const cost = parseFloat(costVal || 0);
             totalSpend += cost;
 
             if (item.hourly_time) {
