@@ -432,12 +432,12 @@ function ShopeeShopsContent() {
                                         {shops.map((shop: ShopeeShop) => {
                                             const expiresAt = new Date(shop.access_token_expires_at);
                                             const now = new Date();
-                                            const hoursLeft = Math.floor((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60));
+                                            const daysLeft = Math.floor((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                                             const isExpired = expiresAt < now;
-                                            const isWarning = !isExpired && hoursLeft < 2;
+                                            const isWarning = !isExpired && daysLeft < 7;
                                             return (
                                                 <div key={shop.shop_id} className={isExpired ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-green-400'}>
-                                                    [{isExpired ? 'ERR' : isWarning ? 'WARN' : 'OK'}] {shop.shop_name} · token {isExpired ? 'EXPIRED' : `expires in ${hoursLeft}h`}
+                                                    [{isExpired ? 'ERR' : isWarning ? 'WARN' : 'OK'}] {shop.shop_name} · token {isExpired ? 'EXPIRED' : `expires in ${daysLeft}d`}
                                                 </div>
                                             );
                                         })}
