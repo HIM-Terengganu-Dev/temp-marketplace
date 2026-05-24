@@ -343,7 +343,7 @@ export async function fetchShopeeGMVAndOrders(
         if (resp && resp.order_list) {
             for (const order of resp.order_list) {
                 const status = order.order_status?.toUpperCase();
-                const isIncluded = status !== 'CANCELLED' && status !== 'TO_RETURN';
+                const isIncluded = status !== 'CANCELLED' && status !== 'TO_RETURN' && status !== 'UNPAID';
                 
                 // Calculate item-level discounted subtotal (original price before customer vouchers are applied)
                 let productSubtotal = 0;
