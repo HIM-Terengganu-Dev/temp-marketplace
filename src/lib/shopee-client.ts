@@ -209,8 +209,11 @@ export async function getShopeeShopInfo(shopId: number, accessToken: string): Pr
         1298030530: 'HIM by Dr Samhan',
         1077500606: 'HIM by Dr Samhan 1',
         1256177782: 'HIM by Dr Samhan 2',
-        1290223366: 'him.drsamhan4'
+        1290223366: 'him.drsamhan4',
+        793855746: 'Vigomaxplus08',
+        562396517: 'VigomaxPlus'
     };
+
 
     if (SHOPEE_SHOP_NAMES[shopId]) {
         return { shop_name: SHOPEE_SHOP_NAMES[shopId] };
@@ -474,8 +477,11 @@ export async function fetchMetaCPASSpendForDate(
         1298030530: process.env.SHOPEE_FB_AD_ACCOUNT_1298030530 || '', // HIM by Dr Samhan
         1077500606: process.env.SHOPEE_FB_AD_ACCOUNT_1077500606 || '', // HIM by Dr Samhan 1
         1256177782: process.env.SHOPEE_FB_AD_ACCOUNT_1256177782 || '', // HIM by Dr Samhan 2
-        1290223366: process.env.SHOPEE_FB_AD_ACCOUNT_1290223366 || ''  // him.drsamhan4
+        1290223366: process.env.SHOPEE_FB_AD_ACCOUNT_1290223366 || '', // him.drsamhan4
+        793855746: process.env.SHOPEE_FB_AD_ACCOUNT_793855746 || '',   // Vigomaxplus08
+        562396517: process.env.SHOPEE_FB_AD_ACCOUNT_562396517 || ''    // VigomaxPlus
     };
+
 
     const adAccountId = SHOPEE_FB_AD_ACCOUNTS[shopId];
     if (!adAccountId) {
