@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
+import { syncAffiliateMetricsForDate } from '@/lib/metrics-fetcher';
 
 export async function GET(request: Request) {
     try {
@@ -17,6 +18,23 @@ export async function GET(request: Request) {
 
         if (!startDate || !endDate) {
             return NextResponse.json({ error: 'Missing start or end date' }, { status: 400 });
+        }
+
+        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+        const yesterdayStr = new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+
+        const isToday = startDate <= todayStr && endDate >= todayStr;
+        const isYesterday = startDate <= yesterdayStr && endDate >= yesterdayStr;
+
+        if (isToday || isYesterday) {
+            console.log(`[API] Live-syncing affiliate creators for today/yesterday...`);
+            const shopNumbers = [1, 2, 3, 4];
+            await Promise.all(shopNumbers.map(num => 
+                Promise.all([
+                    isToday ? syncAffiliateMetricsForDate(num, todayStr).catch(() => {}) : Promise.resolve(),
+                    isYesterday ? syncAffiliateMetricsForDate(num, yesterdayStr).catch(() => {}) : Promise.resolve()
+                ])
+            ));
         }
 
         let sql = `
