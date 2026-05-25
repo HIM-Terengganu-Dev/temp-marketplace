@@ -206,11 +206,11 @@ export async function getConnectedShopeeShops() {
  */
 export async function getShopeeShopInfo(shopId: number, accessToken: string): Promise<{ shop_name: string }> {
     const SHOPEE_SHOP_NAMES: Record<number, string> = {
-        1298030530: 'HIM by Dr Samhan',
-        1077500606: 'HIM by Dr Samhan 1',
-        1256177782: 'HIM by Dr Samhan 2',
-        1285322524: 'HIM by Dr Samhan 3',
-        1290223366: 'him.drsamhan4',
+        1298030530: 'Himclinic Official',
+        1077500606: 'Him Clinic by Dr Samhan',
+        1256177782: 'Forhimclinic',
+        1285322524: 'HIMWELLNESS',
+        1290223366: 'Perkongsian Dr Samhan',
         793855746: 'Vigomaxplus08',
         562396517: 'VigomaxPlus'
     };
