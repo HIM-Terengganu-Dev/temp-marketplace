@@ -209,6 +209,7 @@ export async function getShopeeShopInfo(shopId: number, accessToken: string): Pr
         1298030530: 'HIM by Dr Samhan',
         1077500606: 'HIM by Dr Samhan 1',
         1256177782: 'HIM by Dr Samhan 2',
+        1285322524: 'HIM by Dr Samhan 3',
         1290223366: 'him.drsamhan4',
         793855746: 'Vigomaxplus08',
         562396517: 'VigomaxPlus'
@@ -233,9 +234,9 @@ export async function getShopeeShopInfo(shopId: number, accessToken: string): Pr
         throw new Error(`Shopee shop info error: ${data.message || data.error}`);
     }
 
-    const resp = data.response;
+    const shopName = data.shop_name || data.response?.shop_name || `Shopee Shop ${shopId}`;
     return { 
-        shop_name: (resp && resp.shop_name) ? resp.shop_name : `Shopee Shop ${shopId}` 
+        shop_name: shopName 
     };
 }
 
