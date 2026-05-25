@@ -10,6 +10,8 @@ const SHOPEE_SHOPS = [
     { id: 1290223366, name: 'him.drsamhan4', envVar: 'SHOPEE_FB_AD_ACCOUNT_1290223366' }
 ];
 
+import { fetchMetaCPASSpendForDate } from '../src/lib/shopee-client';
+
 async function main() {
     console.log('\n================================================================');
     console.log('         META / FACEBOOK ADS CPAS INTEGRATION TESTING          ');
@@ -43,38 +45,16 @@ async function main() {
             continue;
         }
 
-        if (!adAccountId.startsWith('act_')) {
-            adAccountId = `act_${adAccountId}`;
-        }
-
         anyConfigured = true;
         console.log(`Mapped Ad Account ID: ${adAccountId}`);
 
-
         for (const date of [yesterdayKL, todayKL]) {
-            console.log(`  Querying spend for ${date}...`);
+            console.log(`\n  --- Querying spend for date: ${date} ---`);
             try {
-                const timeRange = JSON.stringify({ since: date, until: date });
-                const url = `https://graph.facebook.com/v19.0/${adAccountId}/insights?access_token=${accessToken}&level=account&fields=spend&time_range=${encodeURIComponent(timeRange)}`;
-                
-                const response = await axios.get(url);
-                const data = response.data;
-                const insights = data.data || [];
-                
-                if (insights.length > 0 && insights[0].spend) {
-                    const spend = parseFloat(insights[0].spend);
-                    console.log(`  ✅ SUCCESS: RM ${spend.toFixed(2)} spend found`);
-                } else {
-                    console.log(`  ℹ️ INFO: No spend recorded (RM 0.00) or inactive for this day`);
-                }
+                const spend = await fetchMetaCPASSpendForDate(shop.id, date);
+                console.log(`  ✅ RESULT: RM ${spend.toFixed(2)}`);
             } catch (error: any) {
-                console.error(`  ❌ ERROR: Failed to retrieve spend for ${date}`);
-                if (error.response) {
-                    console.error(`     Response Code: ${error.response.status}`);
-                    console.error(`     Error Message:`, error.response.data?.error?.message || error.response.statusText);
-                } else {
-                    console.error(`     Message: ${error.message}`);
-                }
+                console.error(`  ❌ ERROR: Failed to retrieve spend for ${date}:`, error.message);
             }
         }
     }

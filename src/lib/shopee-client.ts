@@ -482,6 +482,10 @@ export async function fetchMetaCPASSpendForDate(
         562396517: process.env.SHOPEE_FB_AD_ACCOUNT_562396517 || ''    // VigomaxPlus
     };
 
+    const SHOPEE_FB_CAMPAIGN_FILTERS: Record<number, string> = {
+        1077500606: 'HIM.DRSAMHAN1',
+        1256177782: 'HIM.DRSAMHAN2'
+    };
 
     let adAccountId = SHOPEE_FB_AD_ACCOUNTS[shopId];
     if (!adAccountId) {
@@ -493,23 +497,52 @@ export async function fetchMetaCPASSpendForDate(
         adAccountId = `act_${adAccountId}`;
     }
 
+    const campaignFilter = SHOPEE_FB_CAMPAIGN_FILTERS[shopId];
 
     try {
         const timeRange = JSON.stringify({ since: dateStr, until: dateStr });
-        const url = `https://graph.facebook.com/v19.0/${adAccountId}/insights?access_token=${accessToken}&level=account&fields=spend&time_range=${encodeURIComponent(timeRange)}`;
-
-        console.log(`Fetching Meta CPAS spend for shop ${shopId} (${adAccountId}) on ${dateStr}...`);
-        const response = await axios.get(url);
-        const data = response.data;
-        const insights = data.data || [];
-        if (insights.length > 0 && insights[0].spend) {
-            const spend = parseFloat(insights[0].spend);
-            console.log(`Meta CPAS spend for shop ${shopId} on ${dateStr}: RM ${spend.toFixed(2)}`);
-            return spend;
+        
+        if (campaignFilter) {
+            const url = `https://graph.facebook.com/v19.0/${adAccountId}/insights?access_token=${accessToken}&level=campaign&fields=campaign_name,spend&time_range=${encodeURIComponent(timeRange)}&limit=100`;
+            console.log(`Fetching Meta CPAS campaign-level spend for shop ${shopId} (${adAccountId}) with filter "${campaignFilter}" on ${dateStr}...`);
+            
+            const response = await axios.get(url);
+            const data = response.data;
+            const insights = data.data || [];
+            
+            let totalFilteredSpend = 0;
+            const filterUpper = campaignFilter.toUpperCase();
+            
+            insights.forEach((item: any) => {
+                const campaignName = item.campaign_name || '';
+                const spend = parseFloat(item.spend || '0');
+                if (campaignName.toUpperCase().includes(filterUpper)) {
+                    totalFilteredSpend += spend;
+                    console.log(`  Matching Campaign: "${campaignName}" | Spend: RM ${spend.toFixed(2)}`);
+                }
+            });
+            
+            console.log(`Total filtered Meta CPAS spend for shop ${shopId} on ${dateStr}: RM ${totalFilteredSpend.toFixed(2)}`);
+            return totalFilteredSpend;
+        } else {
+            const url = `https://graph.facebook.com/v19.0/${adAccountId}/insights?access_token=${accessToken}&level=account&fields=spend&time_range=${encodeURIComponent(timeRange)}`;
+            console.log(`Fetching Meta CPAS account-level spend for shop ${shopId} (${adAccountId}) on ${dateStr}...`);
+            
+            const response = await axios.get(url);
+            const data = response.data;
+            const insights = data.data || [];
+            if (insights.length > 0 && insights[0].spend) {
+                const spend = parseFloat(insights[0].spend);
+                console.log(`Meta CPAS spend for shop ${shopId} on ${dateStr}: RM ${spend.toFixed(2)}`);
+                return spend;
+            }
+            return 0;
         }
-        return 0;
     } catch (error: any) {
         console.warn(`Failed to fetch Meta CPAS spend for shop ${shopId} on ${dateStr}:`, error.message);
+        if (error.response?.data) {
+            console.warn(`Meta API Error Detail:`, JSON.stringify(error.response.data));
+        }
         return 0;
     }
 }

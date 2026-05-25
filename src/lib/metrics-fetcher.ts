@@ -884,7 +884,11 @@ export async function fetchTikTokAffiliatePerformance(shopNumber: number, dateSt
             hasMore = !!pageToken;
         }
     } catch (err: any) {
-        console.warn(`[TikTok Affiliate Error] Error calling affiliate orders search for shop ${shopNumber}:`, err.message);
+        console.warn(
+            `[TikTok Affiliate Error] Error calling affiliate orders search for shop ${shopNumber}:`,
+            err.message,
+            err.response ? JSON.stringify(err.response.data) : ''
+        );
         return [];
     }
 
