@@ -21,17 +21,17 @@ import {
 
 // Definitions of existing shops in the ecosystem
 const TIKTOK_SHOPS = [
-    { id: 1, name: "HIM by Dr Samhan" },
+    { id: 1, name: "Himclinic Official" },
     { id: 2, name: "HIM CLINIC" },
     { id: 3, name: "Vigomax HQ" },
     { id: 4, name: "VigomaxPlus HQ" },
 ];
 
 const SHOPEE_SHOPS = [
-    { id: 1, name: "HIM Shopee Store 1" },
-    { id: 2, name: "HIM Shopee Store 2" },
-    { id: 3, name: "HIM Shopee Store 3" },
-    { id: 4, name: "HIM Shopee Store 4" },
+    { id: 1, name: "Himclinic Official" },
+    { id: 2, name: "Him Clinic by Dr Samhan" },
+    { id: 3, name: "Forhimclinic" },
+    { id: 4, name: "HIMWELLNESS" },
 ];
 
 interface User {

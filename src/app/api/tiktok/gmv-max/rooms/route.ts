@@ -12,7 +12,7 @@ const SHOPS: Record<string, {
     hasGMVCampaigns: boolean;
 }> = {
     '1': {
-        name: 'HIM by Dr Samhan',
+        name: 'Himclinic Official',
         shopId: '7495609155379170274',
         advertiserId: '7505228077656621057',
         accessTokenEnv: 'TIKTOK_ADS_ACCOUNT1_ACCESS_TOKEN',
