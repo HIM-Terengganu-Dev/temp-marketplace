@@ -4,10 +4,10 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 const SHOPEE_SHOPS = [
-    { id: 1298030530, name: 'Himclinic Official', envVar: 'SHOPEE_FB_AD_ACCOUNT_1298030530' },
-    { id: 1077500606, name: 'Him Clinic by Dr Samhan', envVar: 'SHOPEE_FB_AD_ACCOUNT_1077500606' },
-    { id: 1256177782, name: 'Forhimclinic', envVar: 'SHOPEE_FB_AD_ACCOUNT_1256177782' },
-    { id: 1290223366, name: 'Perkongsian Dr Samhan', envVar: 'SHOPEE_FB_AD_ACCOUNT_1290223366' }
+    { id: 1298030530, name: 'him.drsamhan', envVar: 'SHOPEE_FB_AD_ACCOUNT_1298030530' },
+    { id: 1077500606, name: 'him.drsamhan1', envVar: 'SHOPEE_FB_AD_ACCOUNT_1077500606' },
+    { id: 1256177782, name: 'him.drsamhan2', envVar: 'SHOPEE_FB_AD_ACCOUNT_1256177782' },
+    { id: 1290223366, name: 'him.drsamhan4', envVar: 'SHOPEE_FB_AD_ACCOUNT_1290223366' }
 ];
 
 import { fetchMetaCPASSpendForDate } from '../src/lib/shopee-client';

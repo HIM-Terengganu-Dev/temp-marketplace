@@ -206,13 +206,14 @@ export async function getConnectedShopeeShops() {
  */
 export async function getShopeeShopInfo(shopId: number, accessToken: string): Promise<{ shop_name: string }> {
     const SHOPEE_SHOP_NAMES: Record<number, string> = {
-        1298030530: 'Himclinic Official',
-        1077500606: 'Him Clinic by Dr Samhan',
-        1256177782: 'Forhimclinic',
-        1285322524: 'HIMWELLNESS',
-        1290223366: 'Perkongsian Dr Samhan',
-        793855746: 'Vigomaxplus08',
-        562396517: 'VigomaxPlus'
+        1298030530: 'him.drsamhan',
+        1077500606: 'him.drsamhan1',
+        1256177782: 'him.drsamhan2',
+        1285322524: 'him.drsamhan3',
+        1290223366: 'him.drsamhan4',
+        1245549673: 'Vigomax+Hq',
+        793855746: 'vigomaxplus08',
+        562396517: 'drsamhansharing'
     };
 
 

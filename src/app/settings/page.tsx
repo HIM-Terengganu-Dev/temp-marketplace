@@ -28,10 +28,14 @@ const TIKTOK_SHOPS = [
 ];
 
 const SHOPEE_SHOPS = [
-    { id: 1, name: "Himclinic Official" },
-    { id: 2, name: "Him Clinic by Dr Samhan" },
-    { id: 3, name: "Forhimclinic" },
-    { id: 4, name: "HIMWELLNESS" },
+    { id: 1, name: "him.drsamhan" },
+    { id: 2, name: "him.drsamhan1" },
+    { id: 3, name: "him.drsamhan2" },
+    { id: 4, name: "him.drsamhan3" },
+    { id: 5, name: "him.drsamhan4" },
+    { id: 6, name: "Vigomax+Hq" },
+    { id: 7, name: "vigomaxplus08" },
+    { id: 8, name: "drsamhansharing" },
 ];
 
 interface User {
