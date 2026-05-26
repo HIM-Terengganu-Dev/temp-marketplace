@@ -562,199 +562,181 @@ export default function Home() {
 
     /* ── render ─────────────────────────────────────────────────────────── */
     return (
-        <div className="space-y-6">
-            {/* Toolbar */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                    {/* Company Filter Switcher */}
-                    <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-700/50 rounded-lg p-1 backdrop-blur-sm select-none mr-2">
-                        <button
-                            onClick={() => setCompanyFilter("ALL")}
-                            className={cn(
-                                "text-xs font-semibold px-3 py-1.5 rounded transition-all cursor-pointer",
-                                companyFilter === "ALL"
-                                    ? "bg-primary text-white shadow-md shadow-primary/20"
-                                    : "text-slate-400 hover:text-white"
-                            )}
-                        >
-                            All
-                        </button>
-                        <button
-                            onClick={() => setCompanyFilter("HIMWELLNESS")}
-                            className={cn(
-                                "text-xs font-semibold px-3 py-1.5 rounded transition-all cursor-pointer",
-                                companyFilter === "HIMWELLNESS"
-                                    ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-                                    : "text-slate-400 hover:text-white"
-                            )}
-                        >
-                            HIMWELLNESS
-                        </button>
-                        <button
-                            onClick={() => setCompanyFilter("WEROCA")}
-                            className={cn(
-                                "text-xs font-semibold px-3 py-1.5 rounded transition-all cursor-pointer",
-                                companyFilter === "WEROCA"
-                                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
-                                    : "text-slate-400 hover:text-white"
-                            )}
-                        >
-                            WEROCA
-                        </button>
+        <div className="space-y-4 md:space-y-6">
+
+            {/* ── Toolbar ────────────────────────────────────────────────── */}
+            <div className="flex flex-col gap-3">
+
+                {/* Row 1: Company filter + live status + refresh */}
+                <div className="flex flex-wrap items-center gap-2">
+
+                    {/* Company filter pills */}
+                    <div className="flex items-center gap-0.5 bg-slate-900/70 border border-slate-700/50 rounded-xl p-1 backdrop-blur-sm select-none">
+                        {(["ALL", "HIMWELLNESS", "WEROCA"] as const).map((filter) => (
+                            <button
+                                key={filter}
+                                onClick={() => setCompanyFilter(filter)}
+                                className={cn(
+                                    "text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-200 cursor-pointer whitespace-nowrap",
+                                    companyFilter === filter
+                                        ? filter === "ALL"
+                                            ? "bg-primary text-white shadow-md shadow-primary/25"
+                                            : filter === "HIMWELLNESS"
+                                            ? "bg-blue-600 text-white shadow-md shadow-blue-500/25"
+                                            : "bg-purple-600 text-white shadow-md shadow-purple-500/25"
+                                        : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                                )}
+                            >
+                                {filter === "ALL" ? "All" : filter === "HIMWELLNESS" ? "HIM" : "WEROCA"}
+                            </button>
+                        ))}
                     </div>
-                    {/* Live/Paused auto-refresh controls (Only visible for Today) */}
+
+                    {/* Live countdown (today only) */}
                     {activePreset === "today" && (
-                        <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-700/50 rounded-full px-3.5 py-1.5 backdrop-blur-sm shadow-sm select-none">
+                        <div className="flex items-center gap-2 bg-slate-900/70 border border-slate-700/50 rounded-xl px-3 py-1.5 backdrop-blur-sm select-none">
                             <span className={cn(
-                                "h-2 w-2 rounded-full shadow-lg",
-                                autoRefresh ? "bg-emerald-500 animate-pulse shadow-emerald-500/50" : "bg-amber-500 shadow-amber-500/50"
+                                "h-2 w-2 rounded-full flex-shrink-0",
+                                autoRefresh ? "bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.5)]" : "bg-amber-500"
                             )} />
-                            <span className="text-xs font-semibold text-slate-300 min-w-[130px]">
-                                {autoRefresh ? `Live updates in ${secondsLeft}s` : "Live updates paused"}
+                            <span className="text-[11px] font-semibold text-slate-300 whitespace-nowrap">
+                                {autoRefresh ? `Live · ${secondsLeft}s` : "Paused"}
                             </span>
                             <button
                                 onClick={() => setAutoRefresh(!autoRefresh)}
-                                className="text-[10px] uppercase font-bold tracking-wider text-slate-400 hover:text-white transition-colors ml-1 px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700/50"
+                                className="text-[10px] font-bold text-slate-400 hover:text-white transition-colors px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700/50"
                             >
                                 {autoRefresh ? "Pause" : "Resume"}
                             </button>
                         </div>
                     )}
-                    
-                    {/* Force Manual Refresh Button */}
+
+                    {/* Refresh button */}
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={handleManualRefresh}
                         disabled={isLoading}
-                        className="h-9 px-3 border-slate-700/60 bg-[#1e293b]/20 hover:bg-slate-800 text-slate-300 hover:text-white font-medium"
+                        className="h-9 px-3 rounded-xl border-slate-700/60 bg-slate-900/50 hover:bg-slate-800 text-slate-300 hover:text-white font-semibold text-[11px] gap-1.5"
                     >
-                        <RefreshCw className={cn("h-3.5 w-3.5 mr-2 text-slate-400", isLoading && "animate-spin")} />
-                        <span>Refresh</span>
+                        <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
+                        Refresh
                     </Button>
 
-                    {/* Data Source Indicator */}
+                    {/* Data source badge */}
                     {!isLoading && dataSource && (
-                        <Badge
-                            variant="outline"
-                            className={cn(
-                                "h-9 px-3 flex items-center gap-1.5 font-semibold text-xs border select-none transition-all duration-300 rounded-md",
-                                dataSource.includes("database") && !dataSource.includes("api")
-                                    ? "border-blue-500/30 text-blue-400 bg-blue-500/5 hover:bg-blue-500/5 shadow-[0_0_12px_rgba(59,130,246,0.05)]"
-                                    : dataSource.includes("database") && dataSource.includes("api")
-                                    ? "border-purple-500/30 text-purple-400 bg-purple-500/5 hover:bg-purple-500/5 shadow-[0_0_12px_rgba(168,85,247,0.05)]"
-                                    : "border-emerald-500/30 text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/5 shadow-[0_0_12px_rgba(16,185,129,0.05)]"
-                            )}
-                        >
-                            {dataSource.includes("database") && !dataSource.includes("api") ? (
-                                <>
-                                    <span className="h-1.5 w-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
-                                    <span>📦 Database Cache</span>
-                                </>
-                            ) : dataSource.includes("database") && dataSource.includes("api") ? (
-                                <>
-                                    <span className="h-1.5 w-1.5 rounded-full bg-purple-400 shadow-[0_0_8px_rgba(192,132,252,0.5)]" />
-                                    <span>📦+🔴 Mixed Mode</span>
-                                </>
-                            ) : (
-                                <>
-                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
-                                    <span>🔴 Live API Mode</span>
-                                </>
-                            )}
-                        </Badge>
+                        <span className={cn(
+                            "inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-[11px] font-semibold border select-none",
+                            dataSource.includes("database") && !dataSource.includes("api")
+                                ? "border-blue-500/30 text-blue-400 bg-blue-500/8"
+                                : dataSource.includes("database") && dataSource.includes("api")
+                                ? "border-purple-500/30 text-purple-400 bg-purple-500/8"
+                                : "border-emerald-500/30 text-emerald-400 bg-emerald-500/8"
+                        )}>
+                            <span className={cn(
+                                "h-1.5 w-1.5 rounded-full flex-shrink-0",
+                                dataSource.includes("database") && !dataSource.includes("api") ? "bg-blue-400"
+                                : dataSource.includes("database") ? "bg-purple-400"
+                                : "bg-emerald-400 animate-pulse"
+                            )} />
+                            {dataSource.includes("database") && !dataSource.includes("api") ? "DB Cache"
+                             : dataSource.includes("database") ? "Mixed"
+                             : "Live"}
+                        </span>
                     )}
                 </div>
-                <SimpleDatePicker
-                    startDate={startDate}
-                    setStartDate={setStartDate}
-                    endDate={endDate}
-                    setEndDate={setEndDate}
-                    activePreset={activePreset}
-                    onPresetChange={setActivePreset}
-                />
+
+                {/* Row 2: Date picker — full width on mobile */}
+                <div className="w-full">
+                    <SimpleDatePicker
+                        startDate={startDate}
+                        setStartDate={setStartDate}
+                        endDate={endDate}
+                        setEndDate={setEndDate}
+                        activePreset={activePreset}
+                        onPresetChange={setActivePreset}
+                    />
+                </div>
             </div>
 
-            {/* Summary Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {/* ── Summary Cards — 2-col on mobile, 4-col on lg ────────── */}
+            <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
                 {/* 1. GMV */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total GMV</CardTitle>
+                <Card className="col-span-2 sm:col-span-1 border-border/40 bg-card/70 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
+                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total GMV</CardTitle>
                         {!isLoading && <TrendBadge pct={gmvPct} />}
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
+                    <CardContent className="px-4 pb-4">
+                        <div className="text-xl sm:text-2xl font-extrabold tabular-nums leading-none">
                             RM {totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            {totalOrders.toLocaleString()} orders • {cmpLabel}
+                        <p className="text-[10px] text-muted-foreground mt-1.5">
+                            {totalOrders.toLocaleString()} orders · {cmpLabel}
                         </p>
                     </CardContent>
                 </Card>
 
                 {/* 2. Ad Spend */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Ad Spend</CardTitle>
+                <Card className="col-span-2 sm:col-span-1 border-border/40 bg-card/70 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
+                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ad Spend</CardTitle>
                         {!isLoading && <TrendBadge pct={spendPct} />}
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="px-4 pb-4 space-y-2">
                         <div>
-                            <p className="text-xs text-muted-foreground">Before Tax</p>
-                            <div className="text-xl font-bold">
+                            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Before Tax</p>
+                            <div className="text-xl font-extrabold tabular-nums">
                                 RM {totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                         </div>
-                        <div className="pt-2 border-t border-border/30">
-                            <p className="text-xs text-purple-400 font-semibold">After Tax (SST + WHT)</p>
-                            <div className="text-xl font-bold text-purple-500">
+                        <div className="pt-1.5 border-t border-border/30">
+                            <p className="text-[9px] text-purple-400 font-bold uppercase tracking-wider">After Tax</p>
+                            <div className="text-xl font-extrabold text-purple-400 tabular-nums">
                                 RM {totalSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                         </div>
-                        <p className="text-[10px] text-muted-foreground">{cmpLabel}</p>
+                        <p className="text-[9px] text-muted-foreground">{cmpLabel}</p>
                     </CardContent>
                 </Card>
 
-                {/* 3. ROAS Hero Card */}
-                <Card className="col-span-2 bg-gradient-to-br from-primary/20 to-purple-900/10 border-primary/20 backdrop-blur-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-primary">
-                            Return on Ad Spend (ROAS)
+                {/* 3. ROAS Hero Card — spans full width on mobile, 2 cols on md+ */}
+                <Card className="col-span-2 lg:col-span-2 bg-gradient-to-br from-primary/15 to-purple-900/10 border-primary/25 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
+                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-primary">
+                            ROAS
                         </CardTitle>
                         <div className="flex items-center gap-2">
                             {!isLoading && <TrendBadge pct={roasPct} />}
                             <Badge
                                 variant="outline"
-                                className={
+                                className={cn(
+                                    "text-[9px] h-5 px-1.5",
                                     isLoading
                                         ? "border-yellow-500/50 text-yellow-400"
                                         : dataSource.includes("database")
                                         ? "border-blue-500/50 text-blue-400"
                                         : "border-primary/50 text-primary"
-                                }
+                                )}
                             >
-                                {isLoading
-                                    ? "Updating..."
-                                    : dataSource.includes("database") && !dataSource.includes("api")
-                                    ? "📦 Database"
-                                    : dataSource.includes("database") && dataSource.includes("api")
-                                    ? "📦+🔴 Mixed"
-                                    : "🔴 Live"}
+                                {isLoading ? "…"
+                                    : dataSource.includes("database") && !dataSource.includes("api") ? "DB"
+                                    : dataSource.includes("database") ? "Mixed"
+                                    : "Live"}
                             </Badge>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="px-4 pb-4 space-y-3">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-xs text-muted-foreground">ROAS (Before Tax)</p>
-                                <div className="text-3xl font-bold text-foreground tracking-tight">
+                                <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Before Tax</p>
+                                <div className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight tabular-nums">
                                     {totalRoas.toFixed(2)}x
                                 </div>
                             </div>
                             <div>
-                                <p className="text-xs text-purple-400 font-semibold">ACTUAL ROAS (After Tax)</p>
-                                <div className="text-3xl font-bold text-purple-500 tracking-tight">
+                                <p className="text-[9px] text-purple-400 font-bold uppercase tracking-wider">After Tax</p>
+                                <div className="text-2xl sm:text-3xl font-extrabold text-purple-400 tracking-tight tabular-nums">
                                     {totalRoasAfterTax.toFixed(2)}x
                                 </div>
                             </div>
@@ -1097,20 +1079,20 @@ export default function Home() {
                 </CardHeader>
                 <CardContent className="p-0">
                     {livestreams.length > 0 ? (
-                        <div className="overflow-x-auto overflow-y-auto max-h-[520px] scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-                            <table className="w-full text-left text-sm border-collapse">
-                                <thead className="sticky top-0 bg-slate-900 z-10 shadow-[0_1px_0_rgba(255,255,255,0.05)]">
-                                    <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                                        <th className="py-3 px-4 text-center w-16">Rank</th>
-                                        <th className="py-3 px-4">Account</th>
-                                        <th className="py-3 px-4 text-center">Date</th>
-                                        <th className="py-3 px-4 text-center">Duration</th>
-                                        <th className="py-3 px-4 max-w-[280px] truncate">Livestream Campaign / Title</th>
-                                        <th className="py-3 px-4 text-center">Peak Viewers</th>
-                                        <th className="py-3 px-4 text-center">Orders</th>
-                                        <th className="py-3 px-4 text-right">Revenue (GMV)</th>
-                                        <th className="py-3 px-4 text-center">Start Time</th>
-                                        <th className="py-3 px-4 text-center">End Time</th>
+                        <div className="overflow-x-auto overflow-y-auto max-h-[520px] scrollbar-thin -webkit-overflow-scrolling-touch">
+                            <table className="w-full min-w-[720px] text-left text-sm border-collapse">
+                                <thead className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur-sm shadow-[0_1px_0_rgba(255,255,255,0.05)]">
+                                    <tr className="border-b border-border/30 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                        <th className="py-3 px-3 text-center w-14">Rank</th>
+                                        <th className="py-3 px-3">Account</th>
+                                        <th className="py-3 px-3 text-center">Date</th>
+                                        <th className="py-3 px-3 text-center">Dur.</th>
+                                        <th className="py-3 px-3 min-w-[200px]">Title</th>
+                                        <th className="py-3 px-3 text-center">Viewers</th>
+                                        <th className="py-3 px-3 text-center">Orders</th>
+                                        <th className="py-3 px-3 text-right">GMV</th>
+                                        <th className="py-3 px-3 text-center">Start</th>
+                                        <th className="py-3 px-3 text-center">End</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1155,36 +1137,36 @@ export default function Home() {
 
                                         return (
                                             <tr key={`${stream.shop_number}-${stream.live_id}`} className="border-b border-border/10 hover:bg-muted/10 transition-colors group">
-                                                <td className="py-3 px-4 text-center font-semibold">
+                                                <td className="py-3 px-3 text-center font-semibold">
                                                     <span className={rankClass}>{rankSymbol}</span>
                                                 </td>
-                                                <td className="py-3 px-4">
-                                                    <Badge variant="outline" className={`font-semibold border text-xs px-2.5 py-0.5 rounded-full ${themeColor}`}>
+                                                <td className="py-3 px-3">
+                                                    <Badge variant="outline" className={`font-semibold border text-[10px] px-2 py-0.5 rounded-full ${themeColor}`}>
                                                         {shopName}
                                                     </Badge>
                                                 </td>
-                                                <td className="py-3 px-4 text-center text-slate-300 font-medium">
+                                                <td className="py-3 px-3 text-center text-slate-300 text-xs font-medium whitespace-nowrap">
                                                     {dateStr}
                                                 </td>
-                                                <td className="py-3 px-4 text-center text-slate-400 text-xs">
+                                                <td className="py-3 px-3 text-center text-slate-400 text-xs whitespace-nowrap">
                                                     {durationStr}
                                                 </td>
-                                                <td className="py-3 px-4 font-medium text-slate-300 group-hover:text-blue-400 transition-colors max-w-[280px] truncate" title={stream.live_title}>
+                                                <td className="py-3 px-3 font-medium text-slate-300 group-hover:text-blue-400 transition-colors max-w-[240px] truncate" title={stream.live_title}>
                                                     {stream.live_title}
                                                 </td>
-                                                <td className="py-3 px-4 text-center text-slate-300">
+                                                <td className="py-3 px-3 text-center text-slate-300 text-xs">
                                                     {parseInt(stream.viewer_count || 0, 10).toLocaleString()}
                                                 </td>
-                                                <td className="py-3 px-4 text-center font-bold text-slate-200">
+                                                <td className="py-3 px-3 text-center font-bold text-slate-200">
                                                     {ordersCount.toLocaleString()}
                                                 </td>
-                                                <td className="py-3 px-4 text-right font-bold text-emerald-400">
+                                                <td className="py-3 px-3 text-right font-bold text-emerald-400 whitespace-nowrap">
                                                     RM {gmvAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
-                                                <td className="py-3 px-4 text-center text-slate-300 text-xs font-mono">
+                                                <td className="py-3 px-3 text-center text-slate-300 text-xs font-mono">
                                                     {startTimeStr}
                                                 </td>
-                                                <td className="py-3 px-4 text-center text-slate-300 text-xs font-mono">
+                                                <td className="py-3 px-3 text-center text-slate-300 text-xs font-mono">
                                                     {endTimeStr}
                                                 </td>
                                             </tr>
@@ -1204,17 +1186,17 @@ export default function Home() {
             {/* Affiliate Creator Performance Leaderboard Section */}
             <AffiliateLeaderboard creators={creators} isLoading={isAffiliateLoading} />
 
-            {/* Shop Cards */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-semibold tracking-tight">Connected Accounts</h2>
-                        <p className="text-xs text-muted-foreground mt-0.5">Click any shop to view detailed analytics</p>
+            {/* ── Connected Accounts ───────────────────────────────────── */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <h2 className="text-base sm:text-lg font-bold tracking-tight truncate">Connected Accounts</h2>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">Tap any shop to view detailed analytics</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                         {isLoading && (
-                            <span className="text-xs text-muted-foreground animate-pulse">
-                                Fetching latest data...
+                            <span className="text-[10px] text-muted-foreground animate-pulse hidden sm:block">
+                                Fetching data...
                             </span>
                         )}
                         <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
@@ -1223,7 +1205,8 @@ export default function Home() {
                     </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {/* 1-col mobile → 2-col sm → 3-col lg → 4-col xl */}
+                <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {shopData.map((shop) => (
                         <ShopCard
                             key={shop.id}

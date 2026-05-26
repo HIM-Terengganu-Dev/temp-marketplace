@@ -94,8 +94,112 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
   }
+
+  html {
+    scroll-behavior: smooth;
+    /* Prevent horizontal overflow at root */
+    overflow-x: hidden;
+    /* Improve font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+    overflow-x: hidden;
+    /* Safe area padding for notched phones (iOS) */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    min-height: 100dvh; /* Use dynamic viewport height — correct on mobile browsers */
   }
+
+  /* Respect safe areas in fixed bottom elements */
+  .bottom-safe {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+  }
+
+  /* Mobile touch targets: ensure interactive elements are at least 44px */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Exception: allow inline/text links to shrink naturally */
+  a:where(:not([class*="btn"]):not([class*="button"])) {
+    min-height: unset;
+    min-width: unset;
+    display: inline;
+  }
+}
+
+/* ── Custom Scrollbars (thin, themed) ───────────────────────────────────── */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.3 0.05 260 / 0.6) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: oklch(0.3 0.05 260 / 0.6);
+    border-radius: 999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.4 0.08 260 / 0.8);
+  }
+
+  /* Completely hide scrollbar but keep scrollability */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Safe-area aware bottom padding (for bottom nav) */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
+  }
+
+  /* Smooth micro-interaction defaults */
+  .interactive {
+    @apply transition-all duration-200 ease-in-out;
+    cursor: pointer;
+  }
+}
+
+/* ── Animations ─────────────────────────────────────────────────────────── */
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes slide-in-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+.animate-slide-in-up {
+  animation: slide-in-up 0.28s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out forwards;
 }
