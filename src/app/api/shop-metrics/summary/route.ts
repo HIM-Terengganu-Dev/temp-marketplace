@@ -71,7 +71,7 @@ async function fetchAndSaveTikTok(shopNumber: number, date: string) {
                 updated_at = CURRENT_TIMESTAMP
         `, [shopNumber, gmvData.shopName || shopConfig.name, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend]);
 
-        return { gmv, spend: spendBeforeTax, orders: orderCount };
+        return { gmv, spend: spendBeforeTax, orders: orderCount, shopName: gmvData.shopName || shopConfig.name };
     } catch (e: any) {
         console.error(`[summary] TikTok Shop ${shopNumber} failed for ${date}:`, e.message);
         return { gmv: 0, spend: 0, orders: 0 };
@@ -107,7 +107,7 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
                 updated_at = CURRENT_TIMESTAMP
         `, [shopId, data.shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend]);
 
-        return { gmv, spend: spendBeforeTax, orders: orderCount, cpasSpend, shopeeCpcSpend };
+        return { gmv, spend: spendBeforeTax, orders: orderCount, cpasSpend, shopeeCpcSpend, shopName: data.shopName };
     } catch (e: any) {
         console.error(`[summary] Shopee Shop ${shopId} failed for ${date}:`, e.message);
         return { gmv: 0, spend: 0, orders: 0, cpasSpend: 0, shopeeCpcSpend: 0 };
@@ -126,7 +126,7 @@ async function fetchTikTokShopMetricsSWR(
     
     // 1. Fetch existing rows from DB for this shop and range
     const dbResult = await query(`
-        SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, shop_name
+        SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, shop_name, updated_at
         FROM credentials.daily_shop_metrics
         WHERE shop_number = $1 AND date >= $2::date AND date <= $3::date
     `, [shopNumber, startDate, endDate]);
@@ -137,7 +137,8 @@ async function fetchTikTokShopMetricsSWR(
             gmv: parseFloat(row.gmv),
             spend: parseFloat(row.spend_before_tax),
             orders: parseInt(row.order_count, 10),
-            shopName: row.shop_name
+            shopName: row.shop_name,
+            updatedAt: row.updated_at
         };
     });
 
@@ -149,7 +150,7 @@ async function fetchTikTokShopMetricsSWR(
     let loadedFromDbCount = 0;
     let loadedFromApiCount = 0;
 
-    const syncPromises: Promise<{ gmv: number; spend: number; orders: number }>[] = [];
+    const syncPromises: Promise<{ gmv: number; spend: number; orders: number; shopName?: string }>[] = [];
 
     dates.forEach(date => {
         const isToday = date === today;
@@ -158,9 +159,32 @@ async function fetchTikTokShopMetricsSWR(
         const key = `tiktok_${date}_${shopNumber}`;
 
         if (isToday) {
-            // Today is live - fetch synchronously
-            syncPromises.push(fetchAndSaveTikTok(shopNumber, date));
-            loadedFromApiCount++;
+            // Serve cache if fresh (< 5 min), else revalidate in background
+            const FIVE_MIN_MS = 5 * 60 * 1000;
+            const isCacheFresh = cached?.updatedAt && (Date.now() - new Date(cached.updatedAt).getTime()) < FIVE_MIN_MS;
+
+            if (cached && isCacheFresh) {
+                totalGMV += cached.gmv;
+                totalSpend += cached.spend;
+                totalOrders += cached.orders;
+                if (cached.shopName) shopName = cached.shopName;
+                loadedFromDbCount++;
+            } else if (cached) {
+                totalGMV += cached.gmv;
+                totalSpend += cached.spend;
+                totalOrders += cached.orders;
+                if (cached.shopName) shopName = cached.shopName;
+                loadedFromDbCount++;
+                // Queue background revalidation
+                backgroundThunks.push({
+                    key,
+                    date,
+                    fn: () => fetchAndSaveTikTok(shopNumber, date)
+                });
+            } else {
+                syncPromises.push(fetchAndSaveTikTok(shopNumber, date));
+                loadedFromApiCount++;
+            }
         } else if (isRecentPast) {
             if (cached) {
                 totalGMV += cached.gmv;
@@ -199,6 +223,7 @@ async function fetchTikTokShopMetricsSWR(
             totalGMV += r.gmv;
             totalSpend += r.spend;
             totalOrders += r.orders;
+            if (r.shopName) shopName = r.shopName;
         });
     }
 
@@ -242,7 +267,7 @@ async function fetchShopeeShopMetricsSWR(
     
     // Fetch DB rows
     const dbResult = await query(`
-        SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, cpas_spend, shopee_cpc_spend, shop_name
+        SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, cpas_spend, shopee_cpc_spend, shop_name, updated_at
         FROM credentials.daily_shopee_metrics
         WHERE shop_id = $1 AND date >= $2::date AND date <= $3::date
     `, [shopId, startDate, endDate]);
@@ -255,7 +280,8 @@ async function fetchShopeeShopMetricsSWR(
             orders: parseInt(row.order_count, 10),
             cpasSpend: parseFloat(row.cpas_spend || 0),
             shopeeCpcSpend: parseFloat(row.shopee_cpc_spend || 0),
-            shopName: row.shop_name
+            shopName: row.shop_name,
+            updatedAt: row.updated_at
         };
     });
 
@@ -268,7 +294,7 @@ async function fetchShopeeShopMetricsSWR(
     let loadedFromDbCount = 0;
     let loadedFromApiCount = 0;
 
-    const syncPromises: Promise<{ gmv: number; spend: number; orders: number; cpasSpend: number; shopeeCpcSpend: number }>[] = [];
+    const syncPromises: Promise<{ gmv: number; spend: number; orders: number; cpasSpend: number; shopeeCpcSpend: number; shopName?: string }>[] = [];
 
     dates.forEach(date => {
         const isToday = date === today;
@@ -277,8 +303,36 @@ async function fetchShopeeShopMetricsSWR(
         const key = `shopee_${date}_${shopId}`;
 
         if (isToday) {
-            syncPromises.push(fetchAndSaveShopee(shopId, date));
-            loadedFromApiCount++;
+            // Serve cache if fresh (< 5 min), else revalidate in background
+            const FIVE_MIN_MS = 5 * 60 * 1000;
+            const isCacheFresh = cached?.updatedAt && (Date.now() - new Date(cached.updatedAt).getTime()) < FIVE_MIN_MS;
+
+            if (cached && isCacheFresh) {
+                totalGMV += cached.gmv;
+                totalSpend += cached.spend;
+                totalOrders += cached.orders;
+                totalCpasSpend += cached.cpasSpend;
+                totalShopeeCpcSpend += cached.shopeeCpcSpend;
+                if (cached.shopName) shopName = cached.shopName;
+                loadedFromDbCount++;
+            } else if (cached) {
+                totalGMV += cached.gmv;
+                totalSpend += cached.spend;
+                totalOrders += cached.orders;
+                totalCpasSpend += cached.cpasSpend;
+                totalShopeeCpcSpend += cached.shopeeCpcSpend;
+                if (cached.shopName) shopName = cached.shopName;
+                loadedFromDbCount++;
+                // Queue background revalidation
+                backgroundThunks.push({
+                    key,
+                    date,
+                    fn: () => fetchAndSaveShopee(shopId, date)
+                });
+            } else {
+                syncPromises.push(fetchAndSaveShopee(shopId, date));
+                loadedFromApiCount++;
+            }
         } else if (isRecentPast) {
             if (cached) {
                 totalGMV += cached.gmv;
@@ -321,6 +375,7 @@ async function fetchShopeeShopMetricsSWR(
             totalOrders += r.orders;
             totalCpasSpend += r.cpasSpend || 0;
             totalShopeeCpcSpend += r.shopeeCpcSpend || 0;
+            if (r.shopName) shopName = r.shopName;
         });
     }
 

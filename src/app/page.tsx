@@ -208,10 +208,10 @@ export default function Home() {
                 if (companyFilter === "HIMWELLNESS") return num === 1 || num === 2;
                 return num === 3 || num === 4;
             });
-            const filteredShopeePrevResults = shopeePrevResults.filter((r: any) => {
+            const filteredShopeePrevResults = shopeePrevResults.filter((item: any) => {
                 if (companyFilter === "ALL") return true;
-                const shop = shopeeShops.find(s => parseInt(s.shop_id, 10) === r.shopId);
-                const name = (shop?.shop_name || r.shopName || '').toLowerCase();
+                const shop = shopeeShops.find((s: any) => String(s.shop_id) === String(item.shopId));
+                const name = (shop?.shop_name || item.shopName || '').toLowerCase();
                 const isHim = name.includes("him.drsamhan") || name.includes("himclinic");
                 if (companyFilter === "HIMWELLNESS") return isHim;
                 return !isHim;
@@ -269,9 +269,8 @@ export default function Home() {
             // 5. Build Shopee shop cards
             const shpShops: ShopData[] = shopeeShops
                 .map((shop) => {
-                    const shopIdNum = parseInt(shop.shop_id, 10);
-                    const d = shopeeCurResults.find((r: any) => r.shopId === shopIdNum);
-                    const p = shopeePrevResults.find((r: any) => r.shopId === shopIdNum);
+                    const d = shopeeCurResults.find((r: any) => String(r.shopId) === String(shop.shop_id));
+                    const p = shopeePrevResults.find((r: any) => String(r.shopId) === String(shop.shop_id));
                     if (!d) {
                         return {
                             id: `shp_${shop.shop_id}`,
