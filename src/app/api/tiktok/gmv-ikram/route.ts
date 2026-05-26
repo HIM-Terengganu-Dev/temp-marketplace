@@ -162,8 +162,9 @@ export async function GET(request: Request) {
 
         // Track unique buyer user IDs
         const uniqueBuyerIds = new Set<string>();
+        let validOrderCount = 0;
 
-        // Calculate GMV - INCLUDING cancelled and refunded orders (Ikram's version)
+        // Calculate GMV - EXCLUDING cancelled and refunded orders (aligned with standard GMV definition)
         allOrders.forEach(order => {
             // Track unique buyer_user_id (fallback to user_id if buyer_user_id doesn't exist)
             const buyerUserId = order.buyer_user_id || order.user_id;
@@ -171,13 +172,19 @@ export async function GET(request: Request) {
                 uniqueBuyerIds.add(buyerUserId);
             }
 
-            let orderTotal = 0;
-            if (order.line_items) {
-                order.line_items.forEach((item: any) => {
-                    orderTotal += parseFloat(item.sale_price || '0');
-                });
+            const orderStatus = order.status?.toUpperCase();
+            const isCancelledOrRefunded = orderStatus === 'CANCELLED' || orderStatus === 'REFUNDED';
+
+            if (!isCancelledOrRefunded) {
+                validOrderCount++;
+                let orderTotal = 0;
+                if (order.line_items) {
+                    order.line_items.forEach((item: any) => {
+                        orderTotal += parseFloat(item.sale_price || '0') + parseFloat(item.platform_discount || '0');
+                    });
+                }
+                totalGMV += orderTotal;
             }
-            totalGMV += orderTotal;
         });
 
         // Count all orders (including cancelled and refunded)
@@ -186,7 +193,7 @@ export async function GET(request: Request) {
         return NextResponse.json({
             shopName: shopCredentials.shop_name,
             gmv: totalGMV,
-            orderCount: allOrdersCount,
+            orderCount: validOrderCount,
             totalOrderCount: allOrdersCount,
             uniqueCustomers: uniqueBuyerIds.size,
             currency: 'RM', // Hardcoded as per implementation context, but could check order.currency
