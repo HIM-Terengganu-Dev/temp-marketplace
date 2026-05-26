@@ -51,10 +51,14 @@ async function fetchAndSaveTikTok(shopNumber: number, date: string) {
         const roasBeforeTax = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
         const roasAfterTax = spendAfterTax > 0 ? gmv / spendAfterTax : 0;
 
+        const liveGMVMaxCost = roasData.liveGMVMaxCost || 0;
+        const productGMVMaxCost = roasData.productGMVMaxCost || 0;
+        const manualCampaignSpend = roasData.manualCampaignSpend || 0;
+
         await query(`
             INSERT INTO credentials.daily_shop_metrics (
-                shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+                shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_number, date) DO UPDATE SET
                 gmv = EXCLUDED.gmv,
                 spend_before_tax = EXCLUDED.spend_before_tax,
@@ -62,8 +66,11 @@ async function fetchAndSaveTikTok(shopNumber: number, date: string) {
                 roas_before_tax = EXCLUDED.roas_before_tax,
                 roas_after_tax = EXCLUDED.roas_after_tax,
                 order_count = EXCLUDED.order_count,
+                live_gmv_max_cost = EXCLUDED.live_gmv_max_cost,
+                product_gmv_max_cost = EXCLUDED.product_gmv_max_cost,
+                manual_campaign_spend = EXCLUDED.manual_campaign_spend,
                 updated_at = CURRENT_TIMESTAMP
-        `, [shopNumber, gmvData.shopName || shopConfig.name, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount]);
+        `, [shopNumber, gmvData.shopName || shopConfig.name, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend]);
 
         return { gmv, spend: spendBeforeTax, orders: orderCount };
     } catch (e: any) {
@@ -107,6 +114,7 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
+    const company = searchParams.get('company') || 'ALL';
     const endDate = searchParams.get('endDate');
 
     if (!startDate || !endDate) {
@@ -248,10 +256,27 @@ export async function GET(request: Request) {
             let dailyOrders = 0;
 
             const dayMetrics = shopDataMap[date];
-            Object.values(dayMetrics).forEach(m => {
-                dailyGmv += m.gmv;
-                dailySpend += m.spend;
-                dailyOrders += m.orders;
+            Object.entries(dayMetrics).forEach(([key, m]) => {
+                let shopCompany = 'WEROCA';
+                if (key.startsWith('tiktok_')) {
+                    const shopNumber = parseInt(key.split('_')[2], 10);
+                    if (shopNumber === 1 || shopNumber === 2) {
+                        shopCompany = 'HIMWELLNESS';
+                    }
+                } else if (key.startsWith('shopee_')) {
+                    const shopIdStr = key.split('_')[2];
+                    const shp = shopeeShops.find((s: any) => s.shop_id === shopIdStr);
+                    const name = shp?.shop_name?.toLowerCase() || '';
+                    if (name.includes('him.drsamhan') || name.includes('himclinic')) {
+                        shopCompany = 'HIMWELLNESS';
+                    }
+                }
+
+                if (company === 'ALL' || shopCompany === company) {
+                    dailyGmv += m.gmv;
+                    dailySpend += m.spend;
+                    dailyOrders += m.orders;
+                }
             });
 
             const roas = dailySpend > 0 ? dailyGmv / dailySpend : 0;

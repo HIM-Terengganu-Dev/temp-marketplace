@@ -10,6 +10,24 @@ import { Store, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
 
+/** Computes the previous period date range of equal duration */
+function getPreviousPeriod(startStr: string, endStr: string) {
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    const prevStart = new Date(start);
+    prevStart.setDate(start.getDate() - diffDays);
+    const prevEnd = new Date(start);
+    prevEnd.setDate(start.getDate() - 1);
+
+    return {
+        start: prevStart.toISOString().split('T')[0],
+        end: prevEnd.toISOString().split('T')[0]
+    };
+}
+
 export default function TikTokShopsPage() {
     const { data: session } = useSession();
     // Default to Today
@@ -25,31 +43,55 @@ export default function TikTokShopsPage() {
         if (!startDate || !endDate) return;
 
         setIsLoading(true);
+        const prevRange = getPreviousPeriod(startDate, endDate);
+
         try {
             const shopIndices = (session?.user as any)?.allowed_tiktok_shops || [1, 2, 3, 4];
             const results = await Promise.all(shopIndices.map(async (num: number) => {
                 try {
-                    const [gmvRes, roasRes] = await Promise.all([
+                    const [gmvRes, roasRes, prevGmvRes, prevRoasRes] = await Promise.all([
                         fetch(`/api/tiktok/gmv?startDate=${startDate}&endDate=${endDate}&shopNumber=${num}`),
-                        fetch(`/api/tiktok/roas?startDate=${startDate}&endDate=${endDate}&shopNumber=${num}`)
+                        fetch(`/api/tiktok/roas?startDate=${startDate}&endDate=${endDate}&shopNumber=${num}`),
+                        fetch(`/api/tiktok/gmv?startDate=${prevRange.start}&endDate=${prevRange.end}&shopNumber=${num}`),
+                        fetch(`/api/tiktok/roas?startDate=${prevRange.start}&endDate=${prevRange.end}&shopNumber=${num}`)
                     ]);
 
                     if (!gmvRes.ok || !roasRes.ok) return null;
 
                     const gmvData = await gmvRes.json();
                     const roasData = await roasRes.json();
+                    
+                    const prevGmvData = prevGmvRes.ok ? await prevGmvRes.json() : null;
+                    const prevRoasData = prevRoasRes.ok ? await prevRoasRes.json() : null;
+
+                    const gmv = gmvData.gmv || 0;
+                    const prevGmv = prevGmvData ? (prevGmvData.gmv || 0) : 0;
+                    const gmvChange = prevGmv > 0 ? ((gmv - prevGmv) / prevGmv) * 100 : 0;
+
+                    const spend = roasData.totalAdsSpend || 0;
+                    const prevSpend = prevRoasData ? (prevRoasData.totalAdsSpend || 0) : 0;
+                    const spendChange = prevSpend > 0 ? ((spend - prevSpend) / prevSpend) * 100 : 0;
+
+                    const roas = roasData.roas || 0;
+                    const prevRoas = prevRoasData ? (prevRoasData.roas || 0) : 0;
+                    const roasChange = prevRoas > 0 ? ((roas - prevRoas) / prevRoas) * 100 : 0;
 
                     return {
                         id: `tts_${num}`,
                         name: gmvData.shopName || `Shop ${num}`,
                         platform: 'TikTok',
                         type: 'shop',
-                        gmv: gmvData.gmv || 0,
-                        revenue: gmvData.gmv || 0,
+                        gmv,
+                        revenue: gmv,
                         orders: gmvData.orderCount || 0,
-                        spend: roasData.totalAdsSpend || 0,
-                        roas: roasData.roas || 0,
-                        status: 'connected'
+                        spend,
+                        roas,
+                        status: 'connected',
+                        change: {
+                            gmv: gmvChange,
+                            spend: spendChange,
+                            roas: roasChange
+                        }
                     };
                 } catch (e) {
                     console.error(`Error fetching shop ${num}:`, e);

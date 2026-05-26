@@ -52,6 +52,7 @@ interface AccountSpendResult {
     campaignCount: number;
     avgCPM: number;
     avgCPC: number;
+    campaigns?: any[];
 }
 
 /**
@@ -103,6 +104,55 @@ async function getGMVMaxCampaignIds(advertiserId: string, accessToken: string): 
     }
 
     return gmvMaxIds;
+}
+
+/**
+ * Fetch all bidding campaigns for an advertiser to resolve their names
+ */
+async function getBiddingCampaignNames(accessToken: string, advertiserId: string): Promise<Map<string, string>> {
+    const campaignNames = new Map<string, string>();
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+        const params = new URLSearchParams({
+            advertiser_id: advertiserId,
+            page: page.toString(),
+            page_size: '100'
+        });
+
+        const url = `${BASE_URL}/open_api/${API_VERSION}/campaign/get/?${params.toString()}`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Access-Token': accessToken,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            if (data.code !== 0) break;
+
+            const list = data.data?.list || [];
+            list.forEach((c: any) => {
+                campaignNames.set(c.campaign_id, c.campaign_name);
+            });
+
+            const pageInfo = data.data?.page_info;
+            if (page >= (pageInfo?.total_page || 1)) {
+                hasMore = false;
+            } else {
+                page++;
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        } catch {
+            break;
+        }
+    }
+
+    return campaignNames;
 }
 
 /**
@@ -166,6 +216,9 @@ async function fetchIntegratedReport(
         }
     }
 
+    // Fetch bidding campaign names map to resolve IDs to names safely
+    const campaignNamesMap = await getBiddingCampaignNames(accessToken, advertiserId);
+
     // Filter out GMV Max campaigns - keep only manual/bidding campaigns
     const manualCampaignData = allReportData.filter(item => {
         const campaignId = item.dimensions?.campaign_id;
@@ -179,15 +232,29 @@ async function fetchIntegratedReport(
     let totalClicks = 0;
     const uniqueCampaigns = new Set<string>();
 
+    const campaignMap = new Map<string, { campaignId: string; campaignName: string; spend: number }>();
+
     manualCampaignData.forEach(item => {
         const campaignId = item.dimensions.campaign_id;
+        const campaignName = campaignNamesMap.get(campaignId) || `Bidding Campaign ${campaignId}`;
+        const spend = parseFloat(item.metrics.spend || 0);
+
         uniqueCampaigns.add(campaignId);
 
-        totalSpend += parseFloat(item.metrics.spend || 0);
+        totalSpend += spend;
         totalBilledCost += parseFloat(item.metrics.billed_cost || 0);
         totalImpressions += parseInt(item.metrics.impressions || 0, 10);
         totalClicks += parseInt(item.metrics.clicks || 0, 10);
+
+        if (!campaignMap.has(campaignId)) {
+            campaignMap.set(campaignId, { campaignId, campaignName, spend: 0 });
+        }
+        campaignMap.get(campaignId)!.spend += spend;
     });
+
+    const campaignsList = Array.from(campaignMap.values())
+        .filter(c => c.spend > 0)
+        .sort((a, b) => b.spend - a.spend);
 
     return {
         accountName: '',
@@ -198,7 +265,8 @@ async function fetchIntegratedReport(
         totalClicks,
         campaignCount: uniqueCampaigns.size,
         avgCPM: totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : 0,
-        avgCPC: totalClicks > 0 ? totalSpend / totalClicks : 0
+        avgCPC: totalClicks > 0 ? totalSpend / totalClicks : 0,
+        campaigns: campaignsList
     };
 }
 
@@ -252,7 +320,8 @@ export async function GET(request: Request) {
                 avgCPC: 0,
                 currency: 'MYR',
                 dateRange: { start: startDate, end: endDate },
-                accounts: []
+                accounts: [],
+                campaigns: []
             });
         }
 
@@ -270,7 +339,8 @@ export async function GET(request: Request) {
             avgCPC: result.avgCPC,
             currency: 'MYR',
             dateRange: { start: startDate, end: endDate },
-            accounts: [result]
+            accounts: [result],
+            campaigns: result.campaigns || []
         });
     } catch (error: any) {
         console.error(`Error processing ${shopName}:`, error.message);

@@ -15,6 +15,7 @@ export async function GET(request: Request) {
         const startDate = searchParams.get('startDate');
         const endDate = searchParams.get('endDate');
         const shopNumberParam = searchParams.get('shopNumber');
+        const company = searchParams.get('company') || 'ALL';
 
         if (!startDate || !endDate) {
             return NextResponse.json({ error: 'Missing start or end date' }, { status: 400 });
@@ -49,6 +50,12 @@ export async function GET(request: Request) {
             WHERE date >= $1::date AND date <= $2::date
         `;
         const params: any[] = [startDate, endDate];
+
+        if (company === 'HIMWELLNESS') {
+            sql += ` AND shop_number IN (1, 2)`;
+        } else if (company === 'WEROCA') {
+            sql += ` AND shop_number IN (3, 4)`;
+        }
 
         if (shopNumberParam) {
             const shopNumber = parseInt(shopNumberParam, 10);

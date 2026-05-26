@@ -638,20 +638,27 @@ export async function ensureDailyMetricsSynced() {
                                 const roasBeforeTax = spendBeforeTax > 0 ? (gmv / spendBeforeTax) : 0;
                                 const roasAfterTax = spendAfterTax > 0 ? (gmv / spendAfterTax) : 0;
 
-                                await query(`
-                                    INSERT INTO credentials.daily_shop_metrics (
-                                        shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, updated_at
-                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
-                                    ON CONFLICT (shop_number, date) DO UPDATE SET
-                                        shop_name = EXCLUDED.shop_name,
-                                        gmv = EXCLUDED.gmv,
-                                        spend_before_tax = EXCLUDED.spend_before_tax,
-                                        spend_after_tax = EXCLUDED.spend_after_tax,
-                                        roas_before_tax = EXCLUDED.roas_before_tax,
-                                        roas_after_tax = EXCLUDED.roas_after_tax,
-                                        order_count = EXCLUDED.order_count,
-                                        updated_at = CURRENT_TIMESTAMP
-                                `, [shopNumber, gmvData.shopName || shopConfig.name, dateStr, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount]);
+                                const liveGMVMaxCost = roasData.liveGMVMaxCost || 0;
+                                 const productGMVMaxCost = roasData.productGMVMaxCost || 0;
+                                 const manualCampaignSpend = roasData.manualCampaignSpend || 0;
+
+                                 await query(`
+                                     INSERT INTO credentials.daily_shop_metrics (
+                                         shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend, updated_at
+                                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
+                                     ON CONFLICT (shop_number, date) DO UPDATE SET
+                                         shop_name = EXCLUDED.shop_name,
+                                         gmv = EXCLUDED.gmv,
+                                         spend_before_tax = EXCLUDED.spend_before_tax,
+                                         spend_after_tax = EXCLUDED.spend_after_tax,
+                                         roas_before_tax = EXCLUDED.roas_before_tax,
+                                         roas_after_tax = EXCLUDED.roas_after_tax,
+                                         order_count = EXCLUDED.order_count,
+                                         live_gmv_max_cost = EXCLUDED.live_gmv_max_cost,
+                                         product_gmv_max_cost = EXCLUDED.product_gmv_max_cost,
+                                         manual_campaign_spend = EXCLUDED.manual_campaign_spend,
+                                         updated_at = CURRENT_TIMESTAMP
+                                 `, [shopNumber, gmvData.shopName || shopConfig.name, dateStr, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend]);
                                 
                                 console.log(`[Auto-Sync] Synced shop ${shopNumber} successfully for date ${dateStr}`);
                                 

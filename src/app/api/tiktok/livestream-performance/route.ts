@@ -13,6 +13,7 @@ export async function GET(request: Request) {
 
         const { searchParams } = new URL(request.url);
         const startDate = searchParams.get('startDate');
+        const company = searchParams.get('company') || 'ALL';
         const endDate = searchParams.get('endDate');
 
         if (!startDate || !endDate) {
@@ -56,6 +57,7 @@ export async function GET(request: Request) {
             FROM credentials.shop_livestream_performance
             WHERE start_time::date >= $1::date
               AND start_time::date <= $2::date
+              ${company === 'HIMWELLNESS' ? 'AND shop_number IN (1, 2)' : company === 'WEROCA' ? 'AND shop_number IN (3, 4)' : ''}
             ORDER BY gmv DESC, order_count DESC
             LIMIT 50;
         `, [startDate, endDate]);

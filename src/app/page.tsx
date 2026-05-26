@@ -120,6 +120,7 @@ export default function Home() {
     const [startDate, setStartDate] = useState(todayKL());
     const [endDate, setEndDate] = useState(todayKL());
 
+    const [companyFilter, setCompanyFilter] = useState<"ALL" | "HIMWELLNESS" | "WEROCA">("ALL");
     const [shopData, setShopData] = useState<ShopData[]>([]);
     const [livestreams, setLivestreams] = useState<any[]>([]);
     const [creators, setCreators] = useState<any[]>([]);
@@ -200,11 +201,26 @@ export default function Home() {
                 console.error("Error fetching metrics summary:", e);
             }
 
-            // 3. Build previous period aggregate totals across all channels
-            const prevGmv = prevResults.reduce((s, d) => s + (d?.gmv ?? 0), 0) +
-                            shopeePrevResults.reduce((s, d) => s + (d?.gmv ?? 0), 0);
-            const prevSpend = prevResults.reduce((s, d) => s + (d?.totalAdsSpend ?? 0), 0) +
-                              shopeePrevResults.reduce((s, d) => s + (d?.totalAdsSpend ?? 0), 0);
+            // 3. Build previous period aggregate totals across all channels (filtered by company)
+            const filteredPrevResults = prevResults.filter((_, idx) => {
+                const num = shopIndices[idx];
+                if (companyFilter === "ALL") return true;
+                if (companyFilter === "HIMWELLNESS") return num === 1 || num === 2;
+                return num === 3 || num === 4;
+            });
+            const filteredShopeePrevResults = shopeePrevResults.filter((_, idx) => {
+                if (companyFilter === "ALL") return true;
+                const shop = shopeeShops[idx];
+                const name = (shop?.shop_name || '').toLowerCase();
+                const isHim = name.includes("him.drsamhan") || name.includes("himclinic");
+                if (companyFilter === "HIMWELLNESS") return isHim;
+                return !isHim;
+            });
+
+            const prevGmv = filteredPrevResults.reduce((s, d) => s + (d?.gmv ?? 0), 0) +
+                            filteredShopeePrevResults.reduce((s, d) => s + (d?.gmv ?? 0), 0);
+            const prevSpend = filteredPrevResults.reduce((s, d) => s + (d?.totalAdsSpend ?? 0), 0) +
+                              filteredShopeePrevResults.reduce((s, d) => s + (d?.totalAdsSpend ?? 0), 0);
             const prevTotalRoas = prevSpend > 0 ? prevGmv / prevSpend : 0;
             setPrevTotals({ gmv: prevGmv, spend: prevSpend, roas: prevTotalRoas });
 
@@ -214,6 +230,10 @@ export default function Home() {
                     const d = curResults[idx];
                     const p = prevResults[idx];
                     if (!d) return null;
+
+                    // Filter by company
+                    if (companyFilter === "HIMWELLNESS" && num !== 1 && num !== 2) return null;
+                    if (companyFilter === "WEROCA" && num !== 3 && num !== 4) return null;
 
                     const curRoas = d.roasBeforeTax ?? 0;
                     const prevRoas = p && (p.totalAdsSpend ?? 0) > 0
@@ -261,6 +281,11 @@ export default function Home() {
                             status: "under_development" as const,
                         };
                     }
+
+                    const name = (shop.shop_name || d?.shopName || '').toLowerCase();
+                    const isHim = name.includes("him.drsamhan") || name.includes("himclinic");
+                    if (companyFilter === "HIMWELLNESS" && !isHim) return null;
+                    if (companyFilter === "WEROCA" && isHim) return null;
 
                     const curRoas = d.roasBeforeTax ?? 0;
                     const prevRoas = p && (p.totalAdsSpend ?? 0) > 0
@@ -313,10 +338,24 @@ export default function Home() {
                     hourlyBuckets[`${String(i).padStart(2, "0")}:00`] = { gmv: 0, orders: 0, spend: 0 };
                 }
 
+                // Filter shops by company for hourly fetching
+                const hourlyShopIndices = shopIndices.filter(num => {
+                    if (companyFilter === "ALL") return true;
+                    if (companyFilter === "HIMWELLNESS") return num === 1 || num === 2;
+                    return num === 3 || num === 4;
+                });
+                const hourlyShopeeShops = shopeeShops.filter(shop => {
+                    if (companyFilter === "ALL") return true;
+                    const name = shop.shop_name?.toLowerCase() || '';
+                    const isHim = name.includes("him.drsamhan") || name.includes("himclinic");
+                    if (companyFilter === "HIMWELLNESS") return isHim;
+                    return !isHim;
+                });
+
                 // Fetch TikTok hourly and Shopee hourly in parallel
                 await Promise.all([
                     Promise.all(
-                        shopIndices.map(async (num) => {
+                        hourlyShopIndices.map(async (num) => {
                             try {
                                 const res = await fetch(
                                     `/api/tiktok/shop-metrics/hourly?date=${startDate}&shopNumber=${num}`,
@@ -337,7 +376,7 @@ export default function Home() {
                         })
                     ),
                     Promise.all(
-                        shopeeShops.map(async (shop) => {
+                        hourlyShopeeShops.map(async (shop) => {
                             try {
                                 const res = await fetch(
                                     `/api/shopee/shop-metrics/hourly?date=${startDate}&shopId=${shop.shop_id}`,
@@ -372,7 +411,7 @@ export default function Home() {
             } else {
                 // Multi-day → daily chart (using single consolidated endpoint)
                 try {
-                    const res = await fetch(`/api/shop-metrics/daily-trend?startDate=${startDate}&endDate=${endDate}`, { signal });
+                    const res = await fetch(`/api/shop-metrics/daily-trend?startDate=${startDate}&endDate=${endDate}&company=${companyFilter}`, { signal });
                     if (res.ok) {
                         const data = await res.json();
                         setChartData(data);
@@ -387,7 +426,7 @@ export default function Home() {
 
             // ── Fetch livestream leaderboard ──────────────────────────────
             try {
-                const liveRes = await fetch(`/api/tiktok/livestream-performance?startDate=${startDate}&endDate=${endDate}`, { signal });
+                const liveRes = await fetch(`/api/tiktok/livestream-performance?startDate=${startDate}&endDate=${endDate}&company=${companyFilter}`, { signal });
                 if (liveRes.ok) {
                     const liveJson = await liveRes.json();
                     setLivestreams(liveJson.leaderboard || []);
@@ -400,7 +439,7 @@ export default function Home() {
             // ── Fetch creator affiliate leaderboard ────────────────────────
             setIsAffiliateLoading(true);
             try {
-                const affiliateRes = await fetch(`/api/tiktok/affiliates?startDate=${startDate}&endDate=${endDate}`, { signal });
+                const affiliateRes = await fetch(`/api/tiktok/affiliates?startDate=${startDate}&endDate=${endDate}&company=${companyFilter}`, { signal });
                 if (affiliateRes.ok) {
                     const affiliateJson = await affiliateRes.json();
                     setCreators(affiliateJson.creators || []);
@@ -422,7 +461,7 @@ export default function Home() {
                 setIsLoading(false);
             }
         }
-    }, [startDate, endDate, activePreset, session]);
+    }, [startDate, endDate, activePreset, session, companyFilter]);
 
     const handleManualRefresh = useCallback(() => {
         fetchData();
@@ -462,6 +501,22 @@ export default function Home() {
     const totalRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
     const totalRoasAfterTax = totalSpendAfterTax > 0 ? totalRevenue / totalSpendAfterTax : 0;
 
+    // TikTok Shop segment breakdown calculations
+    const ttsShopsOnly = shopData.filter(s => s.platform === "TikTok");
+    const ttsRevenue = ttsShopsOnly.reduce((s, d) => s + (d.revenue ?? 0), 0);
+    const ttsSpend = ttsShopsOnly.reduce((s, d) => s + (d.spend ?? 0), 0);
+    const ttsSpendAfterTax = ttsShopsOnly.reduce((s, d) => s + (d.spendAfterTax ?? 0), 0);
+    const ttsRoas = ttsSpend > 0 ? ttsRevenue / ttsSpend : 0;
+    const ttsRoasAfterTax = ttsSpendAfterTax > 0 ? ttsRevenue / ttsSpendAfterTax : 0;
+
+    // Shopee segment breakdown calculations
+    const shpShopsOnly = shopData.filter(s => s.platform === "Shopee");
+    const shpRevenue = shpShopsOnly.reduce((s, d) => s + (d.revenue ?? 0), 0);
+    const shpSpend = shpShopsOnly.reduce((s, d) => s + (d.spend ?? 0), 0);
+    const shpSpendAfterTax = shpShopsOnly.reduce((s, d) => s + (d.spendAfterTax ?? 0), 0);
+    const shpRoas = shpSpend > 0 ? shpRevenue / shpSpend : 0;
+    const shpRoasAfterTax = shpSpendAfterTax > 0 ? shpRevenue / shpSpendAfterTax : 0;
+
     const gmvPct = pctChange(totalRevenue, prevTotals.gmv);
     const spendPct = pctChange(totalSpend, prevTotals.spend);
     const roasPct = pctChange(totalRoas, prevTotals.roas);
@@ -474,6 +529,42 @@ export default function Home() {
             {/* Toolbar */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3 w-full sm:w-auto">
+                    {/* Company Filter Switcher */}
+                    <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-700/50 rounded-lg p-1 backdrop-blur-sm select-none mr-2">
+                        <button
+                            onClick={() => setCompanyFilter("ALL")}
+                            className={cn(
+                                "text-xs font-semibold px-3 py-1.5 rounded transition-all cursor-pointer",
+                                companyFilter === "ALL"
+                                    ? "bg-primary text-white shadow-md shadow-primary/20"
+                                    : "text-slate-400 hover:text-white"
+                            )}
+                        >
+                            All
+                        </button>
+                        <button
+                            onClick={() => setCompanyFilter("HIMWELLNESS")}
+                            className={cn(
+                                "text-xs font-semibold px-3 py-1.5 rounded transition-all cursor-pointer",
+                                companyFilter === "HIMWELLNESS"
+                                    ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                                    : "text-slate-400 hover:text-white"
+                            )}
+                        >
+                            HIMWELLNESS
+                        </button>
+                        <button
+                            onClick={() => setCompanyFilter("WEROCA")}
+                            className={cn(
+                                "text-xs font-semibold px-3 py-1.5 rounded transition-all cursor-pointer",
+                                companyFilter === "WEROCA"
+                                    ? "bg-purple-600 text-white shadow-md shadow-purple-500/20"
+                                    : "text-slate-400 hover:text-white"
+                            )}
+                        >
+                            WEROCA
+                        </button>
+                    </div>
                     {/* Live/Paused auto-refresh controls (Only visible for Today) */}
                     {activePreset === "today" && (
                         <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-700/50 rounded-full px-3.5 py-1.5 backdrop-blur-sm shadow-sm select-none">
@@ -634,6 +725,89 @@ export default function Home() {
                         <p className="text-[10px] text-muted-foreground">
                             Calculated dynamically including SST (8%) and Withholding Tax (8%) • {cmpLabel}
                         </p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Platform-Specific Performance Breakdown */}
+            <div className="grid gap-4 md:grid-cols-2">
+                {/* 1. TikTok Shop Card */}
+                <Card className="border-slate-800/80 bg-slate-900/20 hover:border-slate-700/60 transition-all duration-300 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/30">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🎵</span>
+                            <div>
+                                <CardTitle className="text-sm font-bold text-slate-100">TikTok Shop</CardTitle>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Performance across TikTok shops</p>
+                            </div>
+                        </div>
+                        <Badge className="bg-primary/20 text-primary border border-primary/30">TikTok</Badge>
+                    </CardHeader>
+                    <CardContent className="pt-4 grid grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Sales</span>
+                            <div className="text-base font-extrabold text-foreground">
+                                RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Cost</span>
+                            <div className="text-base font-extrabold text-foreground">
+                                RM {ttsSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-[9px] text-purple-400 font-medium">
+                                RM {ttsSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">ROAS</span>
+                            <div className="text-base font-extrabold text-green-400">
+                                {ttsRoas.toFixed(2)}x
+                            </div>
+                            <div className="text-[9px] text-emerald-400 font-medium">
+                                {ttsRoasAfterTax.toFixed(2)}x (Net)
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* 2. Shopee Card */}
+                <Card className="border-slate-800/80 bg-slate-900/20 hover:border-slate-700/60 transition-all duration-300 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/30">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🛍️</span>
+                            <div>
+                                <CardTitle className="text-sm font-bold text-slate-100">Shopee Shop</CardTitle>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Performance across Shopee shops</p>
+                            </div>
+                        </div>
+                        <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">Shopee</Badge>
+                    </CardHeader>
+                    <CardContent className="pt-4 grid grid-cols-3 gap-4">
+                        <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Sales</span>
+                            <div className="text-base font-extrabold text-foreground">
+                                RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Cost</span>
+                            <div className="text-base font-extrabold text-foreground">
+                                RM {shpSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-[9px] text-purple-400 font-medium">
+                                RM {shpSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
+                            </div>
+                        </div>
+                        <div className="space-y-1">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">ROAS</span>
+                            <div className="text-base font-extrabold text-green-400">
+                                {shpRoas.toFixed(2)}x
+                            </div>
+                            <div className="text-[9px] text-emerald-400 font-medium">
+                                {shpRoasAfterTax.toFixed(2)}x (Net)
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

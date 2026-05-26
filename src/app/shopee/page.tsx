@@ -36,6 +36,24 @@ function todayKL(): string {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
 }
 
+/** Computes the previous period date range of equal duration */
+function getPreviousPeriod(startStr: string, endStr: string) {
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    const prevStart = new Date(start);
+    prevStart.setDate(start.getDate() - diffDays);
+    const prevEnd = new Date(start);
+    prevEnd.setDate(start.getDate() - 1);
+
+    return {
+        start: prevStart.toISOString().split('T')[0],
+        end: prevEnd.toISOString().split('T')[0]
+    };
+}
+
 function ShopeeShopsContent() {
     const searchParams = useSearchParams();
     const [shops, setShops] = useState<ShopeeShop[]>([]);
@@ -93,30 +111,53 @@ function ShopeeShopsContent() {
         if (shops.length === 0 || !startDate || !endDate) return;
 
         setIsPerfLoading(true);
+        const prevRange = getPreviousPeriod(startDate, endDate);
+
         try {
             const results = await Promise.all(
                 shops.map(async (shop) => {
                     try {
-                        const res = await fetch(
-                            `/api/shopee/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopId=${shop.shop_id}`
-                        );
+                        const [res, prevRes] = await Promise.all([
+                            fetch(`/api/shopee/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopId=${shop.shop_id}`),
+                            fetch(`/api/shopee/shop-metrics?startDate=${prevRange.start}&endDate=${prevRange.end}&shopId=${shop.shop_id}`)
+                        ]);
+
                         if (!res.ok) return null;
                         const data = await res.json();
+                        const prevData = prevRes.ok ? await prevRes.json() : null;
+
+                        const curGmv = data.gmv || 0;
+                        const prevGmv = prevData ? (prevData.gmv || 0) : 0;
+                        const gmvChange = prevGmv > 0 ? ((curGmv - prevGmv) / prevGmv) * 100 : 0;
+
+                        const curSpend = data.totalAdsSpend || 0;
+                        const prevSpend = prevData ? (prevData.totalAdsSpend || 0) : 0;
+                        const spendChange = prevSpend > 0 ? ((curSpend - prevSpend) / prevSpend) * 100 : 0;
+
+                        const curRoas = data.roasBeforeTax || 0;
+                        const prevRoas = prevData ? (prevData.roasBeforeTax || 0) : 0;
+                        const roasChange = prevRoas > 0 ? ((curRoas - prevRoas) / prevRoas) * 100 : 0;
+
                         return {
                             id: `shp_${shop.shop_id}`,
                             name: shop.shop_name,
                             platform: 'Shopee' as const,
                             type: 'shop' as const,
-                            gmv: data.gmv || 0,
-                            revenue: data.gmv || 0,
+                            gmv: curGmv,
+                            revenue: curGmv,
                             orders: data.orderCount || 0,
-                            spend: data.totalAdsSpend || 0,
+                            spend: curSpend,
                             spendAfterTax: data.totalCostWithTaxes || 0,
                             cpasSpend: data.cpasSpend || 0,
                             shopeeCpcSpend: data.shopeeCpcSpend || 0,
-                            roas: data.roasBeforeTax || 0,
+                            roas: curRoas,
                             roasAfterTax: data.roasAfterTax || 0,
-                            status: 'connected' as const
+                            status: 'connected' as const,
+                            change: {
+                                gmv: gmvChange,
+                                spend: spendChange,
+                                roas: roasChange
+                            }
                         };
 
                     } catch (e) {
