@@ -21,7 +21,7 @@ import {
 
 // Definitions of existing shops in the ecosystem
 const TIKTOK_SHOPS = [
-    { id: 1, name: "Himclinic Official" },
+    { id: 1, name: "Him.DrSamhan" },
     { id: 2, name: "HIM CLINIC" },
     { id: 3, name: "Vigomax HQ" },
     { id: 4, name: "VigomaxPlus HQ" },

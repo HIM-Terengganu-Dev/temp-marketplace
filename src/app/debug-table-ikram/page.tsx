@@ -149,7 +149,7 @@ export default function DebugTableIkramPage() {
 
     // Shop names - will be displayed from API response, but using these for dropdown labels
     const SHOP_OPTIONS = [
-        { value: '1', label: 'Himclinic Official' },
+        { value: '1', label: 'Him.DrSamhan' },
         { value: '2', label: 'HIM CLINIC' },
         { value: '3', label: 'Vigomax HQ' },
         { value: '4', label: 'VigomaxPlus HQ' }

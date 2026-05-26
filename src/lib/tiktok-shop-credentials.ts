@@ -45,7 +45,7 @@ export async function getShopCredentials(shopNumber: number): Promise<ShopCreden
 
     // Get shop ID from static config (fallback)
     const shopIds: Record<number, { id: string; name: string }> = {
-        1: { id: '7495609155379170274', name: 'Himclinic Official' },
+        1: { id: '7495609155379170274', name: 'Him.DrSamhan' },
         2: { id: '7495102143139318172', name: 'HIM CLINIC' },
         3: { id: '7494799386964364219', name: 'Vigomax HQ' },
         4: { id: '7495580262600706099', name: 'VigomaxPlus HQ' },
