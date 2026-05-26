@@ -45,8 +45,8 @@ export default function BODDashboard() {
     const gmv = data?.gmv || 0;
     const adsCost = data?.adsSpend || 0;
     
-    // User requested formula: COGS = 28% of GMV, Platform Cost = 25% of GMV
-    const cogs = gmv * 0.28;
+    // Dynamic SKU-level COGS (fallback to 28% of GMV if catalog/registry is empty)
+    const cogs = data?.cogs !== undefined && data.cogs > 0 ? data.cogs : gmv * 0.28;
     const platformCost = gmv * 0.25;
     
     // Gross Profit = Revenue(GMV) - COGS - Platform Cost - Ads Cost
@@ -144,7 +144,9 @@ export default function BODDashboard() {
             <div className="grid gap-4 md:grid-cols-3">
                 <Card className="bg-black/40 border-white/10 backdrop-blur-sm">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-300">COGS (28%)</CardTitle>
+                        <CardTitle className="text-sm font-medium text-slate-300">
+                            {data?.cogs > 0 ? "COGS (Dynamic SKU)" : "COGS (28% Fallback)"}
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-xl font-bold text-orange-400">

@@ -35,6 +35,7 @@ export async function GET(request: Request) {
                     shopNumber: num,
                     shopName: gmvData.shopName,
                     gmv: gmvData.gmv || 0,
+                    cogs: gmvData.cogs || 0,
                     orders: gmvData.orderCount || 0,
                     adsSpend: roasData.totalAdsSpend || 0, // totalAdsSpend is before tax, or you can use totalCostWithTaxes
                     visitors: analyticsData?.visitors || 0,
@@ -53,6 +54,7 @@ export async function GET(request: Request) {
         // Aggregate across all shops
         const aggregated = validResults.reduce((acc, curr) => {
             acc.gmv += curr.gmv;
+            acc.cogs += curr.cogs;
             acc.orders += curr.orders;
             acc.adsSpend += curr.adsSpend;
             acc.visitors += curr.visitors;
@@ -69,6 +71,7 @@ export async function GET(request: Request) {
             return acc;
         }, {
             gmv: 0,
+            cogs: 0,
             orders: 0,
             adsSpend: 0,
             visitors: 0,

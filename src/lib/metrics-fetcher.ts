@@ -56,7 +56,38 @@ function parseDateGMT8(dateStr: string, hour: number, minute: number, second: nu
     return new Date(isoString);
 }
 
+export async function autoDiscoverSKUs(marketplace: string, shopId: string, lineItems: any[]) {
+    if (!lineItems || lineItems.length === 0) return;
+    try {
+        for (const item of lineItems) {
+            const skuId = item.sku_id || item.item_id || 'unknown';
+            const sellerSku = item.seller_sku || '';
+            const productName = item.product_name || '';
+            const price = parseFloat(item.sale_price || '0');
+            const fallbackCogs = price * 0.28;
+
+            await query(`
+                INSERT INTO credentials.sku_cogs (
+                    marketplace, shop_id, sku_id, seller_sku, product_name, price, cogs_cost, is_mapped
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, false)
+                ON CONFLICT (sku_id) DO UPDATE SET
+                    seller_sku = COALESCE(NULLIF(credentials.sku_cogs.seller_sku, ''), EXCLUDED.seller_sku),
+                    product_name = COALESCE(NULLIF(credentials.sku_cogs.product_name, ''), EXCLUDED.product_name),
+                    price = EXCLUDED.price
+            `, [marketplace, shopId, skuId, sellerSku, productName, price, fallbackCogs]);
+        }
+    } catch (e: any) {
+        console.error('[COGS Auto-Discovery] Error registering SKUs:', e.message);
+    }
+}
+
 export async function fetchShopGMV(shopNumber: number, startDateStr: string, endDateStr: string) {
+    const cogsRes = await query('SELECT sku_id, cogs_cost FROM credentials.sku_cogs', []);
+    const cogsMap: Record<string, number> = {};
+    cogsRes.rows.forEach((row: any) => {
+        cogsMap[row.sku_id] = parseFloat(row.cogs_cost || '0');
+    });
+
     const start = parseDateGMT8(startDateStr, 0, 0, 0, 0);
     const end = parseDateGMT8(endDateStr, 23, 59, 59, 999);
 
@@ -81,6 +112,7 @@ export async function fetchShopGMV(shopNumber: number, startDateStr: string, end
     let nextPageToken = '';
     let hasMore = true;
     let totalGMV = 0;
+    let totalCogs = 0;
 
     while (hasMore) {
         const queryParams: any = {
@@ -151,6 +183,11 @@ export async function fetchShopGMV(shopNumber: number, startDateStr: string, end
     allOrders.forEach(order => {
         let orderTotal = 0;
         if (order.line_items) {
+            // Trigger auto-discovery for SKUs
+            autoDiscoverSKUs('tiktok', String(shopNumber), order.line_items).catch(err => 
+                console.error('[Auto-Discover SKU Error]:', err.message)
+            );
+
             order.line_items.forEach((item: any) => {
                 orderTotal += parseFloat(item.sale_price || '0') + parseFloat(item.platform_discount || '0');
             });
@@ -181,6 +218,16 @@ export async function fetchShopGMV(shopNumber: number, startDateStr: string, end
         }
 
         totalGMV += orderTotal;
+
+        // Sum up SKU sourcing costs for valid orders
+        if (order.line_items) {
+            order.line_items.forEach((item: any) => {
+                const skuId = item.sku_id || item.item_id || 'unknown';
+                const price = parseFloat(item.sale_price || '0');
+                const unitCogs = cogsMap[skuId] !== undefined ? cogsMap[skuId] : (price * 0.28);
+                totalCogs += unitCogs;
+            });
+        }
     });
 
     const validOrders = allOrders.filter(order => {
@@ -191,6 +238,7 @@ export async function fetchShopGMV(shopNumber: number, startDateStr: string, end
     return {
         shopName: shopCredentials.shop_name,
         gmv: totalGMV,
+        cogs: totalCogs,
         orderCount: validOrders.length,
         totalOrderCount: allOrders.length,
         uniqueCustomers: uniqueBuyerIds.size,

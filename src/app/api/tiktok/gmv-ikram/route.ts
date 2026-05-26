@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import axios from 'axios';
 import tiktokShop from 'tiktok-shop';
 import { getShopCredentials } from '@/lib/tiktok-shop-credentials';
+import { autoDiscoverSKUs } from '@/lib/metrics-fetcher';
 
 const BASE_URL = 'https://open-api.tiktokglobalshop.com';
 const ENDPOINT = '/order/202309/orders/search';
@@ -179,6 +180,11 @@ export async function GET(request: Request) {
                 validOrderCount++;
                 let orderTotal = 0;
                 if (order.line_items) {
+                    // Trigger auto-discovery for SKUs
+                    autoDiscoverSKUs('tiktok', String(shopNumber), order.line_items).catch(err => 
+                        console.error('[Auto-Discover SKU Error (ikram)]:', err.message)
+                    );
+
                     order.line_items.forEach((item: any) => {
                         orderTotal += parseFloat(item.sale_price || '0') + parseFloat(item.platform_discount || '0');
                     });
