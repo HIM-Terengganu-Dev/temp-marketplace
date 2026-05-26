@@ -49,16 +49,17 @@ interface User {
     created_at: string;
 }
 
-// Features that can be toggled
+// Features that can be toggled — must align with Sidebar.tsx feature gate keys
 const FEATURES = [
     { id: "overview", name: "Overview (Dashboard)" },
     { id: "tiktok", name: "TikTok Shops Page" },
     { id: "shopee", name: "Shopee Shop Page" },
     { id: "ads", name: "Ad Accounts Page" },
     { id: "analytics", name: "Analytics Page" },
+    { id: "executive", name: "BOD Dashboard (Executive)" },
     { id: "debug", name: "Debug Tables (TikTok)" },
     { id: "refresh_token", name: "Refresh Token Manager" },
-    { id: "settings", name: "Settings (RBAC Controls)" }
+    { id: "settings", name: "Settings (RBAC Controls)" },
 ];
 
 export default function SettingsPage() {
