@@ -11,7 +11,7 @@ import { ShopDetailModal } from "@/components/dashboard/ShopDetailModal";
 import { AffiliateLeaderboard } from "@/components/dashboard/AffiliateLeaderboard";
 import { ShopData } from "@/lib/mockData";
 import { useSession } from "next-auth/react";
-import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag, DollarSign, Percent } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -127,6 +127,9 @@ export default function Home() {
     const [isLoading, setIsLoading] = useState(false);
     const [isAffiliateLoading, setIsAffiliateLoading] = useState(false);
     const [dataSource, setDataSource] = useState<string>("");
+
+    // COGS data from dynamic SKU catalog (or 28% fallback)
+    const [cogsData, setCogsData] = useState<{ totalCogs: number; source: 'dynamic' | 'fallback'; mappedSkuCount: number }>({ totalCogs: 0, source: 'fallback', mappedSkuCount: 0 });
 
     // Comparison (previous period) totals
     const [prevTotals, setPrevTotals] = useState({ gmv: 0, spend: 0, roas: 0 });
@@ -327,6 +330,27 @@ export default function Home() {
             const sources = [...new Set(shops.map((s) => s.dataSource || "live_api"))];
             setDataSource(sources.join("+"));
 
+            // ── Fetch COGS total for selected date range ────────────────────
+            const totalGMVForCogs = shops.reduce((s, d) => s + (d.revenue ?? 0), 0);
+            try {
+                const cogsRes = await fetch(
+                    `/api/cogs/total?startDate=${startDate}&endDate=${endDate}&gmv=${totalGMVForCogs}`,
+                    { signal }
+                );
+                if (cogsRes.ok) {
+                    const cogsJson = await cogsRes.json();
+                    setCogsData({
+                        totalCogs: cogsJson.totalCogs || 0,
+                        source: cogsJson.source || 'fallback',
+                        mappedSkuCount: cogsJson.mappedSkuCount || 0,
+                    });
+                }
+            } catch (e: any) {
+                if (e.name === 'AbortError') throw e;
+                // Fallback silently
+                setCogsData({ totalCogs: totalGMVForCogs * 0.28, source: 'fallback', mappedSkuCount: 0 });
+            }
+
             // ── Build aggregate chart data ──────────────────────────────────
             const daySpan = differenceInDays(parseISO(endDate), parseISO(startDate)) + 1;
             const isOneDay = daySpan === 1;
@@ -516,6 +540,19 @@ export default function Home() {
     const shpSpendAfterTax = shpShopsOnly.reduce((s, d) => s + (d.spendAfterTax ?? 0), 0);
     const shpRoas = shpSpend > 0 ? shpRevenue / shpSpend : 0;
     const shpRoasAfterTax = shpSpendAfterTax > 0 ? shpRevenue / shpSpendAfterTax : 0;
+
+    // ── Profit metrics ──────────────────────────────────────────────────────
+    const totalCogs = cogsData.totalCogs;
+    const platformCost = totalRevenue * 0.25;   // 25% platform fee on total GMV
+    const nettProfit = totalRevenue - totalCogs - platformCost - totalSpendAfterTax;
+    const nettMarginPct = totalRevenue > 0 ? (nettProfit / totalRevenue) * 100 : 0;
+    const cogsPct = totalRevenue > 0 ? (totalCogs / totalRevenue) * 100 : 0;
+    const platformCostPct = 25;  // always 25% by definition
+    const adSpendPct = totalRevenue > 0 ? (totalSpendAfterTax / totalRevenue) * 100 : 0;
+
+    // ── Platform contribution % ─────────────────────────────────────────────
+    const ttsContrib = totalRevenue > 0 ? (ttsRevenue / totalRevenue) * 100 : 0;
+    const shpContrib = totalRevenue > 0 ? (shpRevenue / totalRevenue) * 100 : 0;
 
     const gmvPct = pctChange(totalRevenue, prevTotals.gmv);
     const spendPct = pctChange(totalSpend, prevTotals.spend);
@@ -728,6 +765,205 @@ export default function Home() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* ── Profit & Cost Breakdown ────────────────────────────────── */}
+            {totalRevenue > 0 && (
+                <Card className="border-slate-800/60 bg-gradient-to-br from-slate-900/60 to-slate-950/80 backdrop-blur-sm overflow-hidden">
+                    <CardHeader className="pb-3 border-b border-slate-800/50">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                    <DollarSign className="h-4 w-4 text-emerald-400" />
+                                    Profit & Cost Breakdown
+                                </CardTitle>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">GMV waterfall — COGS · Platform Fee · Ad Spend → Nett Profit</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className={cn(
+                                    "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                                    cogsData.source === 'dynamic'
+                                        ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                                        : "border-amber-500/30 text-amber-400 bg-amber-500/10"
+                                )}>
+                                    {cogsData.source === 'dynamic' ? `✓ Dynamic COGS (${cogsData.mappedSkuCount} SKUs)` : '⚠ COGS Estimate (28%)'}
+                                </span>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-5">
+                        {/* Waterfall row */}
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            {/* GMV */}
+                            <div className="col-span-1 space-y-1.5 p-3 rounded-lg bg-blue-500/8 border border-blue-500/20">
+                                <p className="text-[9px] uppercase font-bold text-blue-400 tracking-wider">Total GMV</p>
+                                <div className="text-base font-extrabold text-blue-300">
+                                    RM {totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <p className="text-[9px] text-muted-foreground">100% Revenue</p>
+                            </div>
+
+                            {/* COGS */}
+                            <div className="col-span-1 space-y-1.5 p-3 rounded-lg bg-orange-500/8 border border-orange-500/20">
+                                <p className="text-[9px] uppercase font-bold text-orange-400 tracking-wider">COGS</p>
+                                <div className="text-base font-extrabold text-orange-300">
+                                    − RM {totalCogs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <p className="text-[9px] text-muted-foreground">{cogsPct.toFixed(1)}% of GMV</p>
+                            </div>
+
+                            {/* Platform Cost */}
+                            <div className="col-span-1 space-y-1.5 p-3 rounded-lg bg-yellow-500/8 border border-yellow-500/20">
+                                <p className="text-[9px] uppercase font-bold text-yellow-400 tracking-wider">Platform Fee</p>
+                                <div className="text-base font-extrabold text-yellow-300">
+                                    − RM {platformCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <p className="text-[9px] text-muted-foreground">25% of GMV (fixed)</p>
+                            </div>
+
+                            {/* Ad Spend */}
+                            <div className="col-span-1 space-y-1.5 p-3 rounded-lg bg-purple-500/8 border border-purple-500/20">
+                                <p className="text-[9px] uppercase font-bold text-purple-400 tracking-wider">Ad Spend (Net)</p>
+                                <div className="text-base font-extrabold text-purple-300">
+                                    − RM {totalSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <p className="text-[9px] text-muted-foreground">{adSpendPct.toFixed(1)}% of GMV (incl. SST+WHT)</p>
+                            </div>
+
+                            {/* Nett Profit */}
+                            <div className={cn(
+                                "col-span-2 sm:col-span-1 space-y-1.5 p-3 rounded-lg border",
+                                nettProfit >= 0
+                                    ? "bg-emerald-500/10 border-emerald-500/30"
+                                    : "bg-red-500/10 border-red-500/30"
+                            )}>
+                                <p className={cn(
+                                    "text-[9px] uppercase font-bold tracking-wider",
+                                    nettProfit >= 0 ? "text-emerald-400" : "text-red-400"
+                                )}>Nett Profit</p>
+                                <div className={cn(
+                                    "text-base font-extrabold",
+                                    nettProfit >= 0 ? "text-emerald-300" : "text-red-400"
+                                )}>
+                                    RM {nettProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <p className={cn(
+                                    "text-[9px] font-semibold",
+                                    nettProfit >= 0 ? "text-emerald-400" : "text-red-400"
+                                )}>
+                                    {nettMarginPct.toFixed(1)}% margin
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Visual % bar */}
+                        <div className="mt-4 space-y-1.5">
+                            <div className="flex h-3 rounded-full overflow-hidden gap-px">
+                                <div className="bg-orange-500/70" style={{ width: `${Math.min(cogsPct, 100)}%` }} title={`COGS ${cogsPct.toFixed(1)}%`} />
+                                <div className="bg-yellow-400/70" style={{ width: `${Math.min(platformCostPct, 100)}%` }} title="Platform Fee 25%" />
+                                <div className="bg-purple-500/70" style={{ width: `${Math.min(adSpendPct, 100)}%` }} title={`Ad Spend ${adSpendPct.toFixed(1)}%`} />
+                                <div className={cn(
+                                    "flex-1 min-w-0",
+                                    nettProfit >= 0 ? "bg-emerald-500/70" : "bg-red-500/70"
+                                )} title={`Nett Profit ${nettMarginPct.toFixed(1)}%`} />
+                            </div>
+                            <div className="flex items-center gap-4 flex-wrap text-[9px] text-muted-foreground">
+                                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-orange-500/70" />COGS {cogsPct.toFixed(1)}%</span>
+                                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-yellow-400/70" />Platform Fee 25%</span>
+                                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-purple-500/70" />Ad Spend (Net) {adSpendPct.toFixed(1)}%</span>
+                                <span className="flex items-center gap-1"><span className={cn("h-2 w-2 rounded-sm", nettProfit >= 0 ? "bg-emerald-500/70" : "bg-red-500/70")} />Nett Profit {nettMarginPct.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* ── % Contribution by Platform & Store ────────────────────── */}
+            {totalRevenue > 0 && (
+                <div className="grid gap-4 md:grid-cols-2">
+                    {/* Platform Contribution */}
+                    <Card className="border-slate-800/60 bg-slate-900/30 backdrop-blur-sm">
+                        <CardHeader className="pb-3 border-b border-slate-800/40">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                <Percent className="h-4 w-4 text-primary" />
+                                Platform Contribution
+                            </CardTitle>
+                            <p className="text-[10px] text-muted-foreground">% of total GMV by marketplace</p>
+                        </CardHeader>
+                        <CardContent className="pt-4 space-y-3">
+                            {/* TikTok */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="flex items-center gap-1.5 font-semibold text-slate-200">
+                                        <span className="text-sm">🎵</span> TikTok Shop
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-slate-400 font-mono text-[10px]">RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        <span className="font-bold text-primary">{ttsContrib.toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-primary to-purple-400 transition-all duration-700" style={{ width: `${ttsContrib}%` }} />
+                                </div>
+                            </div>
+                            {/* Shopee */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="flex items-center gap-1.5 font-semibold text-slate-200">
+                                        <span className="text-sm">🛍️</span> Shopee
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-slate-400 font-mono text-[10px]">RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        <span className="font-bold text-orange-400">{shpContrib.toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-700" style={{ width: `${shpContrib}%` }} />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Per-Store Contribution */}
+                    <Card className="border-slate-800/60 bg-slate-900/30 backdrop-blur-sm">
+                        <CardHeader className="pb-3 border-b border-slate-800/40">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                <Percent className="h-4 w-4 text-amber-400" />
+                                Store Contribution
+                            </CardTitle>
+                            <p className="text-[10px] text-muted-foreground">% of total GMV by individual store</p>
+                        </CardHeader>
+                        <CardContent className="pt-4 space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                            {[...shopData]
+                                .filter(s => (s.revenue ?? 0) > 0)
+                                .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
+                                .map((shop, idx) => {
+                                    const contrib = totalRevenue > 0 ? ((shop.revenue ?? 0) / totalRevenue) * 100 : 0;
+                                    const isTikTok = shop.platform === 'TikTok';
+                                    return (
+                                        <div key={shop.id} className="space-y-1">
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="flex items-center gap-1.5 font-medium text-slate-300 truncate max-w-[55%]">
+                                                    <span className="text-[10px]">{isTikTok ? '🎵' : '🛍️'}</span>
+                                                    <span className="truncate">{shop.name}</span>
+                                                </span>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <span className="text-slate-500 font-mono text-[9px]">RM {(shop.revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                                    <span className={cn("font-bold text-xs", isTikTok ? "text-primary" : "text-orange-400")}>{contrib.toFixed(1)}%</span>
+                                                </div>
+                                            </div>
+                                            <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                                <div
+                                                    className={cn("h-full rounded-full transition-all duration-700", isTikTok ? "bg-gradient-to-r from-primary/80 to-purple-400/80" : "bg-gradient-to-r from-orange-500/80 to-amber-400/80")}
+                                                    style={{ width: `${contrib}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             {/* Platform-Specific Performance Breakdown */}
             <div className="grid gap-4 md:grid-cols-2">
