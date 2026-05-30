@@ -54,7 +54,7 @@ const FEATURES = [
     { id: "overview", name: "Overview (Dashboard)" },
     { id: "tiktok", name: "TikTok Shops Page" },
     { id: "shopee", name: "Shopee Shop Page" },
-    { id: "ads", name: "Ad Accounts Page" },
+    { id: "ads", name: "Ads Dashboards (TikTok & Shopee)" },
     { id: "analytics", name: "Analytics Page" },
     { id: "debug", name: "Debug Tables (TikTok)" },
     { id: "refresh_token", name: "Refresh Token Manager" },

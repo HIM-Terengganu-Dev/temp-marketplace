@@ -54,128 +54,6 @@ function getPreviousPeriod(startStr: string, endStr: string) {
     };
 }
 
-/** Computes ad category metrics split by ad type for Shopee dashboards matching Seller Center screenshots */
-function getAdCategoryMetrics(shopData: any, category: string) {
-    const isDrSamhan = shopData.id === "shp_1298030530";
-    const totalCpc = shopData.shopeeCpcSpend || 0;
-    
-    // Proportional factors derived directly from user's live screenshots
-    let factor = {
-        impressions: 1,
-        clicks: 1,
-        orders: 1,
-        sales: 1,
-        expense: 1
-    };
-
-    if (category === "Product Ads") {
-        factor = {
-            impressions: 0.867,
-            clicks: 0.972,
-            orders: 0.792,
-            sales: 0.789,
-            expense: 0.9907
-        };
-    } else if (category === "Shop Ads") {
-        factor = {
-            impressions: 0.133,
-            clicks: 0.028,
-            orders: 0.208,
-            sales: 0.211,
-            expense: 0.0093
-        };
-    } else if (category === "Live Ads" || category === "New Product Ads") {
-        factor = {
-            impressions: 0.000,
-            clicks: 0.000,
-            orders: 0.000,
-            sales: 0.000,
-            expense: 0.000
-        };
-    } else { // All CPC Ads
-        factor = {
-            impressions: 1.0,
-            clicks: 1.0,
-            orders: 1.0,
-            sales: 1.0,
-            expense: 1.0
-        };
-    }
-
-    // Baseline stats computed from shop's actual orders/spend
-    let baseExpense = totalCpc * factor.expense;
-    let baseOrders = Math.round((shopData.orders || 0) * 1.06 * factor.orders); 
-    let baseSales = (shopData.gmv || 0) * 1.01 * factor.sales;
-    let baseImpressions = Math.round((totalCpc * 10) * factor.impressions);
-    let baseClicks = Math.round((totalCpc * 0.48) * factor.clicks);
-
-    // Hardcode Yesterday's May 29 data exactly to show perfect real data for DrSamhan
-    const isYesterdayData = totalCpc > 590 && totalCpc < 605 && isDrSamhan;
-    if (isYesterdayData) {
-        if (category === "Product Ads") {
-            return {
-                impressions: "5.5k",
-                clicks: "279",
-                ctr: "5.09%",
-                orders: "42",
-                itemsSold: "44",
-                sales: "RM4.5k",
-                expense: "RM592.82",
-                roas: "7.63"
-            };
-        } else if (category === "Shop Ads") {
-            return {
-                impressions: "843",
-                clicks: "8",
-                ctr: "0.95%",
-                orders: "11",
-                itemsSold: "11",
-                sales: "RM1.2k",
-                expense: "RM5.55",
-                roas: "212.32"
-            };
-        } else if (category === "All CPC Ads") {
-            return {
-                impressions: "6.3k",
-                clicks: "287",
-                ctr: "4.55%",
-                orders: "53",
-                itemsSold: "55",
-                sales: "RM5.7k",
-                expense: "RM598.37",
-                roas: "9.53"
-            };
-        } else {
-            return {
-                impressions: "0",
-                clicks: "0",
-                ctr: "0.00%",
-                orders: "0",
-                itemsSold: "0",
-                sales: "RM0.00",
-                expense: "RM0.00",
-                roas: "0.00"
-            };
-        }
-    }
-
-    // Dynamic fallback for other dates or stores
-    const ctr = baseClicks > 0 && baseImpressions > 0 ? ((baseClicks / baseImpressions) * 100).toFixed(2) + "%" : "0.00%";
-    const roas = baseExpense > 0 ? (baseSales / baseExpense).toFixed(2) : "0.00";
-    const itemsSold = Math.round(baseOrders * 1.05);
-
-    return {
-        impressions: baseImpressions > 1000 ? (baseImpressions / 1000).toFixed(1) + "k" : baseImpressions.toString(),
-        clicks: baseClicks.toString(),
-        ctr,
-        orders: baseOrders.toString(),
-        itemsSold: itemsSold.toString(),
-        sales: baseSales > 1000 ? "RM" + (baseSales / 1000).toFixed(1) + "k" : "RM" + baseSales.toFixed(2),
-        expense: "RM" + baseExpense.toFixed(2),
-        roas
-    };
-}
-
 function ShopeeShopsContent() {
     const searchParams = useSearchParams();
     const [shops, setShops] = useState<ShopeeShop[]>([]);
@@ -190,10 +68,6 @@ function ShopeeShopsContent() {
     // Performance metrics state
     const [shopPerformance, setShopPerformance] = useState<any[]>([]);
     const [isPerfLoading, setIsPerfLoading] = useState(false);
-
-    // Selected shop & active tabs for category ad splits
-    const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
-    const [activeAdTab, setActiveAdTab] = useState<string>("Product Ads");
 
     // Parse success/error parameters from Shopee redirect callback URL
     useEffect(() => {
@@ -292,13 +166,7 @@ function ShopeeShopsContent() {
                     }
                 })
             );
-            const activePerf = results.filter(r => r !== null);
-            setShopPerformance(activePerf);
-            if (activePerf.length > 0 && !selectedShopId) {
-                // Auto-select him.drsamhan if it exists, otherwise the first shop
-                const samhan = activePerf.find(p => p.id === "shp_1298030530");
-                setSelectedShopId(samhan ? samhan.id : activePerf[0].id);
-            }
+            setShopPerformance(results.filter(r => r !== null));
         } catch (error) {
             console.error("Error fetching shop performance data:", error);
         } finally {
@@ -649,115 +517,10 @@ function ShopeeShopsContent() {
                         <p className="text-sm text-muted-foreground">Loading performance metrics...</p>
                     </div>
                 ) : shopPerformance.length > 0 ? (
-                    <div className="space-y-6">
-                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2">
-                            {shopPerformance.map((shop) => (
-                                <div 
-                                    key={shop.id}
-                                    className={cn(
-                                        "rounded-xl transition-all duration-300",
-                                        selectedShopId === shop.id 
-                                            ? "ring-2 ring-orange-500 bg-orange-500/5 shadow-lg shadow-orange-500/10 scale-[1.01]" 
-                                            : "hover:scale-[1.005]"
-                                    )}
-                                >
-                                    <ShopCard data={shop} onClick={() => setSelectedShopId(shop.id)} />
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Category split metrics component rendered here */}
-                        {selectedShopId && (() => {
-                            const shop = shopPerformance.find(p => p.id === selectedShopId);
-                            if (!shop) return null;
-
-                            const tabs = ["All CPC Ads", "Product Ads", "New Product Ads", "Shop Ads", "Live Ads"];
-                            const metrics = getAdCategoryMetrics(shop, activeAdTab);
-
-                            return (
-                                <Card className="border-border/40 bg-card/30 backdrop-blur-sm pt-4 animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
-                                    <CardHeader className="pb-2 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                        <div>
-                                            <CardTitle className="text-base font-bold flex items-center gap-2">
-                                                <TrendingUp className="h-5 w-5 text-orange-500 animate-pulse" />
-                                                Ad Performance Categories: {shop.name}
-                                            </CardTitle>
-                                            <CardDescription className="text-xs">
-                                                Breakdown of CPC campaigns by ad type for the selected period
-                                            </CardDescription>
-                                        </div>
-                                        <div className="flex overflow-x-auto pb-1 gap-1 border-b border-border/20 md:border-b-0 max-w-full">
-                                            {tabs.map((tab) => (
-                                                <button
-                                                    key={tab}
-                                                    onClick={() => setActiveAdTab(tab)}
-                                                    className={cn(
-                                                        "px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-200",
-                                                        activeAdTab === tab
-                                                            ? "bg-orange-500 text-white shadow-md shadow-orange-500/15"
-                                                            : "text-muted-foreground hover:text-foreground hover:bg-muted/10"
-                                                    )}
-                                                >
-                                                    {tab}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="pt-2">
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                            {/* Card 1: Impressions */}
-                                            <div className="p-4 rounded-xl border border-border/30 bg-muted/5 flex flex-col gap-1 relative overflow-hidden group hover:border-orange-500/20 transition-all duration-250">
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Impressions</span>
-                                                <div className="font-extrabold text-xl text-foreground tabular-nums tracking-tight mt-0.5">{metrics.impressions}</div>
-                                                <div className="absolute right-2 bottom-1 text-muted-foreground/5 font-extrabold text-2xl select-none group-hover:scale-110 transition-transform duration-200">IMPS</div>
-                                            </div>
-                                            {/* Card 2: Clicks */}
-                                            <div className="p-4 rounded-xl border border-border/30 bg-muted/5 flex flex-col gap-1 relative overflow-hidden group hover:border-orange-500/20 transition-all duration-250">
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Clicks</span>
-                                                <div className="font-extrabold text-xl text-foreground tabular-nums tracking-tight mt-0.5">{metrics.clicks}</div>
-                                                <div className="absolute right-2 bottom-1 text-muted-foreground/5 font-extrabold text-2xl select-none group-hover:scale-110 transition-transform duration-200">CLK</div>
-                                            </div>
-                                            {/* Card 3: CTR */}
-                                            <div className="p-4 rounded-xl border border-border/30 bg-muted/5 flex flex-col gap-1 relative overflow-hidden group hover:border-orange-500/20 transition-all duration-250">
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">CTR</span>
-                                                <div className="font-extrabold text-xl text-foreground tabular-nums tracking-tight mt-0.5">{metrics.ctr}</div>
-                                                <div className="absolute right-2 bottom-1 text-muted-foreground/5 font-extrabold text-2xl select-none group-hover:scale-110 transition-transform duration-200">CTR</div>
-                                            </div>
-                                            {/* Card 4: Orders */}
-                                            <div className="p-4 rounded-xl border border-border/30 bg-muted/5 flex flex-col gap-1 relative overflow-hidden group hover:border-orange-500/20 transition-all duration-250">
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Orders</span>
-                                                <div className="font-extrabold text-xl text-foreground tabular-nums tracking-tight mt-0.5">{metrics.orders}</div>
-                                                <div className="absolute right-2 bottom-1 text-muted-foreground/5 font-extrabold text-2xl select-none group-hover:scale-110 transition-transform duration-200">ORD</div>
-                                            </div>
-                                            {/* Card 5: Items Sold */}
-                                            <div className="p-4 rounded-xl border border-border/30 bg-muted/5 flex flex-col gap-1 relative overflow-hidden group hover:border-orange-500/20 transition-all duration-250">
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Items Sold</span>
-                                                <div className="font-extrabold text-xl text-foreground tabular-nums tracking-tight mt-0.5">{metrics.itemsSold}</div>
-                                                <div className="absolute right-2 bottom-1 text-muted-foreground/5 font-extrabold text-2xl select-none group-hover:scale-110 transition-transform duration-200">QTY</div>
-                                            </div>
-                                            {/* Card 6: Sales */}
-                                            <div className="p-4 rounded-xl border border-border/30 bg-muted/5 flex flex-col gap-1 relative overflow-hidden group hover:border-orange-500/20 transition-all duration-250">
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Sales</span>
-                                                <div className="font-extrabold text-xl text-emerald-400 tabular-nums tracking-tight mt-0.5">{metrics.sales}</div>
-                                                <div className="absolute right-2 bottom-1 text-muted-foreground/5 font-extrabold text-2xl select-none group-hover:scale-110 transition-transform duration-200">REV</div>
-                                            </div>
-                                            {/* Card 7: Expense */}
-                                            <div className="p-4 rounded-xl border border-border/30 bg-muted/5 flex flex-col gap-1 relative overflow-hidden group hover:border-orange-500/20 transition-all duration-250">
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Expense</span>
-                                                <div className="font-extrabold text-xl text-orange-400 tabular-nums tracking-tight mt-0.5">{metrics.expense}</div>
-                                                <div className="absolute right-2 bottom-1 text-muted-foreground/5 font-extrabold text-2xl select-none group-hover:scale-110 transition-transform duration-200">COST</div>
-                                            </div>
-                                            {/* Card 8: ROAS */}
-                                            <div className="p-4 rounded-xl border border-border/30 bg-muted/5 flex flex-col gap-1 relative overflow-hidden group hover:border-orange-500/20 transition-all duration-250">
-                                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">ROAS</span>
-                                                <div className="font-extrabold text-xl text-blue-400 tabular-nums tracking-tight mt-0.5">{metrics.roas}</div>
-                                                <div className="absolute right-2 bottom-1 text-muted-foreground/5 font-extrabold text-2xl select-none group-hover:scale-110 transition-transform duration-200">ROAS</div>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            );
-                        })()}
+                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2">
+                        {shopPerformance.map((shop) => (
+                            <ShopCard key={shop.id} data={shop} />
+                        ))}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center py-16 bg-card/10 border-2 border-dashed border-border/40 rounded-xl text-center space-y-3 min-h-[200px]">
