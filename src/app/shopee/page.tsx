@@ -208,11 +208,11 @@ function ShopeeShopsContent() {
     };
 
     return (
-        <div className="space-y-6 p-6">
+        <div className="space-y-4 md:space-y-6">
             {/* Header section */}
             <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
-                    <div className="p-2 bg-orange-500/10 rounded-lg">
+                    <div className="p-2 bg-orange-500/10 rounded-lg shrink-0">
                         <ShoppingBag className="h-6 w-6 text-orange-500" />
                     </div>
                     <div>
@@ -220,23 +220,25 @@ function ShopeeShopsContent() {
                         <p className="text-sm text-muted-foreground">Expose sales, orders, and listing metrics from your Shopee Seller Center</p>
                     </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto self-stretch xl:self-auto justify-end">
+                <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto self-stretch xl:self-auto justify-end">
                     <Button 
                         variant="outline"
                         size="sm"
                         onClick={() => { fetchShops(); fetchPerformance(); }}
                         disabled={isLoading || isPerfLoading}
-                        className="h-9 gap-2 text-xs border-orange-500/20 hover:border-orange-500/40 text-slate-300 hover:text-white"
+                        className="h-9 gap-2 text-xs font-semibold border-orange-500/20 hover:border-orange-500/40 text-slate-300 hover:text-white"
                     >
-                        <RefreshCw className={cn("h-4 w-4", (isLoading || isPerfLoading) && "animate-spin")} />
+                        <RefreshCw className={cn("h-3.5 w-3.5", (isLoading || isPerfLoading) && "animate-spin")} />
                         Refresh
                     </Button>
-                    <SimpleDatePicker
-                        startDate={startDate}
-                        setStartDate={setStartDate}
-                        endDate={endDate}
-                        setEndDate={setEndDate}
-                    />
+                    <div className="w-full sm:w-auto flex-1 sm:flex-none">
+                        <SimpleDatePicker
+                            startDate={startDate}
+                            setStartDate={setStartDate}
+                            endDate={endDate}
+                            setEndDate={setEndDate}
+                        />
+                    </div>
                     <Button 
                         onClick={handleConnectShopee} 
                         disabled={isConnecting}

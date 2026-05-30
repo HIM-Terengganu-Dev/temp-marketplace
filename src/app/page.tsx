@@ -8,7 +8,6 @@ import { ShopCard } from "@/components/dashboard/ShopCard";
 import { SimpleDatePicker, DatePreset } from "@/components/dashboard/SimpleDatePicker";
 import { PerformanceLineChart, PerformanceDataPoint } from "@/components/dashboard/Charts";
 import { ShopDetailModal } from "@/components/dashboard/ShopDetailModal";
-import { AffiliateLeaderboard } from "@/components/dashboard/AffiliateLeaderboard";
 import { ShopData } from "@/lib/mockData";
 import { useSession } from "next-auth/react";
 import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag, DollarSign, Percent } from "lucide-react";
@@ -123,9 +122,7 @@ export default function Home() {
     const [companyFilter, setCompanyFilter] = useState<"ALL" | "HIMWELLNESS" | "WEROCA">("ALL");
     const [shopData, setShopData] = useState<ShopData[]>([]);
     const [livestreams, setLivestreams] = useState<any[]>([]);
-    const [creators, setCreators] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [isAffiliateLoading, setIsAffiliateLoading] = useState(false);
     const [dataSource, setDataSource] = useState<string>("");
 
     // COGS data from dynamic SKU catalog (or 28% fallback)
@@ -460,20 +457,7 @@ export default function Home() {
                 console.error("Failed to load livestream performance", e);
             }
 
-            // ── Fetch creator affiliate leaderboard ────────────────────────
-            setIsAffiliateLoading(true);
-            try {
-                const affiliateRes = await fetch(`/api/tiktok/affiliates?startDate=${startDate}&endDate=${endDate}&company=${companyFilter}`, { signal });
-                if (affiliateRes.ok) {
-                    const affiliateJson = await affiliateRes.json();
-                    setCreators(affiliateJson.creators || []);
-                }
-            } catch (e: any) {
-                if (e.name === 'AbortError') throw e;
-                console.error("Failed to load affiliate performance", e);
-            } finally {
-                setIsAffiliateLoading(false);
-            }
+
         } catch (error: any) {
             if (error.name === 'AbortError') {
                 // Silent catch abort
@@ -961,25 +945,25 @@ export default function Home() {
                         </div>
                         <Badge className="bg-primary/20 text-primary border border-primary/30">TikTok</Badge>
                     </CardHeader>
-                    <CardContent className="pt-4 grid grid-cols-3 gap-4">
-                        <div className="space-y-1">
+                    <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
                             <span className="text-[10px] uppercase font-bold text-slate-400">Total Sales</span>
-                            <div className="text-base font-extrabold text-foreground">
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
                                 RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
                             <span className="text-[10px] uppercase font-bold text-slate-400">Total Cost</span>
-                            <div className="text-base font-extrabold text-foreground">
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
                                 RM {ttsSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                             <div className="text-[9px] text-purple-400 font-medium">
                                 RM {ttsSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
                             </div>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
                             <span className="text-[10px] uppercase font-bold text-slate-400">ROAS</span>
-                            <div className="text-base font-extrabold text-green-400">
+                            <div className="text-base sm:text-lg font-extrabold text-green-400">
                                 {ttsRoas.toFixed(2)}x
                             </div>
                             <div className="text-[9px] text-emerald-400 font-medium">
@@ -1001,25 +985,25 @@ export default function Home() {
                         </div>
                         <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">Shopee</Badge>
                     </CardHeader>
-                    <CardContent className="pt-4 grid grid-cols-3 gap-4">
-                        <div className="space-y-1">
+                    <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
                             <span className="text-[10px] uppercase font-bold text-slate-400">Total Sales</span>
-                            <div className="text-base font-extrabold text-foreground">
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
                                 RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
                             <span className="text-[10px] uppercase font-bold text-slate-400">Total Cost</span>
-                            <div className="text-base font-extrabold text-foreground">
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
                                 RM {shpSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                             <div className="text-[9px] text-purple-400 font-medium">
                                 RM {shpSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
                             </div>
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
                             <span className="text-[10px] uppercase font-bold text-slate-400">ROAS</span>
-                            <div className="text-base font-extrabold text-green-400">
+                            <div className="text-base sm:text-lg font-extrabold text-green-400">
                                 {shpRoas.toFixed(2)}x
                             </div>
                             <div className="text-[9px] text-emerald-400 font-medium">
@@ -1183,8 +1167,7 @@ export default function Home() {
                 </CardContent>
             </Card>
 
-            {/* Affiliate Creator Performance Leaderboard Section */}
-            <AffiliateLeaderboard creators={creators} isLoading={isAffiliateLoading} />
+
 
             {/* ── Connected Accounts ───────────────────────────────────── */}
             <div className="space-y-3">

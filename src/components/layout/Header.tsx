@@ -18,7 +18,6 @@ function getPageTitle(pathname: string): string {
         "/shopee":             "Shopee",
         "/ads":                "Ad Accounts",
         "/analytics":          "Analytics",
-        "/bod-dashboard":      "BOD Dashboard",
         "/debug-table":        "Debug Table",
         "/debug-table-ikram":  "Debug (Ikram)",
         "/refresh-token":      "Refresh Token",
@@ -45,10 +44,10 @@ export function Header({ onMenuClick }: HeaderProps) {
                 {onMenuClick && (
                     <button
                         onClick={onMenuClick}
-                        className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200 flex-shrink-0"
+                        className="md:hidden flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200 flex-shrink-0"
                         aria-label="Open navigation menu"
                     >
-                        <Menu className="h-5 w-5" />
+                        <Menu className="h-5 w-5 md:h-4.5 md:w-4.5" />
                     </button>
                 )}
 
@@ -68,11 +67,11 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                 {/* Notification bell */}
                 <button
-                    className="relative flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+                    className="relative flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
                     aria-label="Notifications"
                 >
-                    <Bell className="h-4.5 w-4.5" />
-                    <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-background animate-pulse" />
+                    <Bell className="h-5 w-5 md:h-4.5 md:w-4.5" />
+                    <span className="absolute top-2 right-2 md:top-1.5 md:right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-background animate-pulse" />
                 </button>
 
                 <Separator orientation="vertical" className="h-6 bg-border/50 hidden sm:block" />
@@ -100,11 +99,11 @@ export function Header({ onMenuClick }: HeaderProps) {
                         {/* Sign out */}
                         <button
                             onClick={() => signOut()}
-                            className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                            className="flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
                             title="Sign Out"
                             aria-label="Sign Out"
                         >
-                            <LogOut className="h-4 w-4" />
+                            <LogOut className="h-5 w-5 md:h-4 md:w-4" />
                         </button>
                     </div>
                 )}

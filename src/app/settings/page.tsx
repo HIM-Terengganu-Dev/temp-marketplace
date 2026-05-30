@@ -56,7 +56,6 @@ const FEATURES = [
     { id: "shopee", name: "Shopee Shop Page" },
     { id: "ads", name: "Ad Accounts Page" },
     { id: "analytics", name: "Analytics Page" },
-    { id: "executive", name: "BOD Dashboard (Executive)" },
     { id: "debug", name: "Debug Tables (TikTok)" },
     { id: "refresh_token", name: "Refresh Token Manager" },
     { id: "settings", name: "Settings (RBAC Controls)" },
@@ -363,7 +362,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Glassmorphic Tab Switcher */}
-            <div className="flex border-b border-border/40 gap-6">
+            <div className="flex border-b border-border/40 gap-4 md:gap-6 overflow-x-auto scrollbar-none whitespace-nowrap">
                 <button
                     onClick={() => setActiveTab("rbac")}
                     className={`pb-3 font-semibold text-sm transition-all border-b-2 px-1 flex items-center gap-2 ${
@@ -669,7 +668,7 @@ export default function SettingsPage() {
                                 <h4 className="font-bold text-sm">Action Required: Unmapped SKUs Detected!</h4>
                                 <p className="text-xs text-amber-400/80 mt-1">
                                     {unmappedCount} new product SKU(s) have been discovered from incoming customer orders. 
-                                    Please assign their unit sourcing costs below to ensure your BOD profit margin calculations remain 100% accurate.
+                                    Please assign their unit sourcing costs below to ensure your profit margin calculations remain 100% accurate.
                                 </p>
                             </div>
                         </div>
@@ -708,8 +707,8 @@ export default function SettingsPage() {
                                     No products found in the catalog matching your query.
                                 </div>
                             ) : (
-                                <div className="rounded-md border border-border/40 overflow-hidden">
-                                    <table className="w-full text-left border-collapse text-sm">
+                                <div className="rounded-md border border-border/40 overflow-x-auto scrollbar-thin -webkit-overflow-scrolling-touch">
+                                    <table className="w-full min-w-[800px] text-left border-collapse text-sm">
                                         <thead>
                                             <tr className="border-b border-border/40 bg-muted/30 text-xs font-semibold text-muted-foreground uppercase">
                                                 <th className="p-3">Product Info</th>

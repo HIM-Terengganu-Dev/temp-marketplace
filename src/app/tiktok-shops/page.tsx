@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { SimpleDatePicker } from "@/components/dashboard/SimpleDatePicker";
 import { ShopCard } from "@/components/dashboard/ShopCard";
-import { AffiliateLeaderboard } from "@/components/dashboard/AffiliateLeaderboard";
 import { Badge } from "@/components/ui/badge";
 import { Store, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,9 +34,7 @@ export default function TikTokShopsPage() {
     const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
     const [shopData, setShopData] = useState<any[]>([]);
-    const [creators, setCreators] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [isAffiliateLoading, setIsAffiliateLoading] = useState(false);
 
     const fetchData = async () => {
         if (!startDate || !endDate) return;
@@ -107,37 +104,18 @@ export default function TikTokShopsPage() {
         }
     };
 
-    const fetchAffiliateData = async () => {
-        if (!startDate || !endDate) return;
-
-        setIsAffiliateLoading(true);
-        try {
-            const res = await fetch(`/api/tiktok/affiliates?startDate=${startDate}&endDate=${endDate}`);
-            if (res.ok) {
-                const data = await res.json();
-                setCreators(data.creators || []);
-            }
-        } catch (e) {
-            console.error("Error fetching affiliate data:", e);
-        } finally {
-            setIsAffiliateLoading(false);
-        }
-    };
-
     const handleRefreshAll = () => {
         fetchData();
-        fetchAffiliateData();
     };
 
     useEffect(() => {
         fetchData();
-        fetchAffiliateData();
     }, [startDate, endDate, session]);
 
     return (
-        <div className="space-y-6 p-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
+        <div className="space-y-4 md:space-y-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-lg">
                         <Store className="h-6 w-6 text-primary" />
                     </div>
@@ -146,23 +124,25 @@ export default function TikTokShopsPage() {
                         <p className="text-sm text-muted-foreground">Manage and track your connected TikTok Seller accounts</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                     <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={handleRefreshAll} 
-                        disabled={isLoading || isAffiliateLoading}
-                        className="h-9 gap-2"
+                        disabled={isLoading}
+                        className="h-9 gap-2 text-xs font-semibold"
                     >
-                        <RefreshCw className={cn("h-4 w-4", (isLoading || isAffiliateLoading) && "animate-spin")} />
+                        <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
                         Refresh
                     </Button>
-                    <SimpleDatePicker
-                        startDate={startDate}
-                        setStartDate={setStartDate}
-                        endDate={endDate}
-                        setEndDate={setEndDate}
-                    />
+                    <div className="w-full sm:w-auto flex-1 sm:flex-none">
+                        <SimpleDatePicker
+                            startDate={startDate}
+                            setStartDate={setStartDate}
+                            endDate={endDate}
+                            setEndDate={setEndDate}
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -178,10 +158,7 @@ export default function TikTokShopsPage() {
                 </div>
             )}
 
-            {/* Affiliate Creator Performance Leaderboard Section */}
-            <div className="pt-6 border-t border-border/20">
-                <AffiliateLeaderboard creators={creators} isLoading={isAffiliateLoading} />
-            </div>
+
         </div>
     );
 }

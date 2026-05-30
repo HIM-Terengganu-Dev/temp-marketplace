@@ -25,7 +25,6 @@ const navigation = [
     { name: "Shopee Shop",        href: "/shopee",              icon: ShoppingBag,     feature: "shopee"        },
     { name: "Ad Accounts",        href: "/ads",                 icon: Megaphone,       feature: "ads"           },
     { name: "Analytics",          href: "/analytics",           icon: BarChart3,       feature: "analytics"     },
-    { name: "BOD Dashboard",      href: "/bod-dashboard",       icon: Globe,           feature: "executive"     },
     { name: "Debug Table",        href: "/debug-table",         icon: Bug,             feature: "debug"         },
     { name: "Debug (Ikram)",      href: "/debug-table-ikram",   icon: Bug,             feature: "debug"         },
     { name: "Refresh Token",      href: "/refresh-token",       icon: RefreshCw,       feature: "refresh_token" },

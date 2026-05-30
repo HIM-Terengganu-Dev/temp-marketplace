@@ -121,19 +121,8 @@
     padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
   }
 
-  /* Mobile touch targets: ensure interactive elements are at least 44px */
-  button, a, [role="button"] {
-    min-height: 44px;
-    min-width: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
   /* Exception: allow inline/text links to shrink naturally */
   a:where(:not([class*="btn"]):not([class*="button"])) {
-    min-height: unset;
-    min-width: unset;
     display: inline;
   }
 }
