@@ -59,7 +59,7 @@ export async function exchangeShopeeCodeForTokens(
     const response = await axios.post(url, {
         code,
         partner_id: PARTNER_ID,
-        shop_id: shopId
+        shop_id: parseInt(shopId as any, 10)
     }, {
         headers: { 'Content-Type': 'application/json' }
     });
@@ -89,7 +89,7 @@ export async function refreshShopeeAccessToken(
     const response = await axios.post(url, {
         refresh_token: refreshToken,
         partner_id: PARTNER_ID,
-        shop_id: shopId
+        shop_id: parseInt(shopId as any, 10)
     }, {
         headers: { 'Content-Type': 'application/json' }
     });
