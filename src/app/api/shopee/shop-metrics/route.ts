@@ -297,6 +297,28 @@ export async function GET(request: Request) {
             })();
         }
 
+        // If loaded from database cache for a single day, combinedHourlyBreakdowns will be empty.
+        // Retrieve the live hourly breakdown from the Shopee Ads API so the chart displays.
+        if (combinedHourlyBreakdowns.length === 0 && dates.length === 1) {
+            const singleDate = dates[0];
+            try {
+                const { getValidShopeeToken, fetchShopeeAdsSpendForDate } = require('@/lib/shopee-client');
+                const accessToken = await getValidShopeeToken(shopId);
+                const hourlyRes = await fetchShopeeAdsSpendForDate(shopId, accessToken, singleDate);
+                combinedHourlyBreakdowns = [{
+                    date: singleDate,
+                    hourlySpend: hourlyRes.hourlySpend
+                }];
+            } catch (err: any) {
+                console.warn('[shopee-shop-metrics-swr] Failed to fetch live hourly spend for single day:', err.message);
+                // Fallback to proportional flat breakdown using cached shopeeCpcSpend
+                combinedHourlyBreakdowns = [{
+                    date: singleDate,
+                    hourlySpend: Array.from({ length: 24 }, () => totalShopeeCpcSpend / 24)
+                }];
+            }
+        }
+
         // Exact proportional fallback ratios for cache loads
         const finalAdImpressions = totalAdImpressions || Math.round(totalShopeeCpcSpend * 10.562);
         const finalAdClicks = totalAdClicks || Math.round(totalShopeeCpcSpend * 0.4796);

@@ -48,7 +48,7 @@ export async function POST(request: Request) {
             hashedPassword,
             role,
             allowed_tiktok_shops || [1, 2, 3, 4],
-            allowed_shopee_shops || [1, 2, 3, 4],
+            allowed_shopee_shops || [1298030530, 1077500606, 1256177782, 1285322524, 1290223366, 1245549673, 793855746, 562396517],
             allowed_features || ["overview", "tiktok", "shopee", "ads", "analytics"]
         ]);
 

@@ -28,14 +28,14 @@ const TIKTOK_SHOPS = [
 ];
 
 const SHOPEE_SHOPS = [
-    { id: 1, name: "him.drsamhan" },
-    { id: 2, name: "him.drsamhan1" },
-    { id: 3, name: "him.drsamhan2" },
-    { id: 4, name: "him.drsamhan3" },
-    { id: 5, name: "him.drsamhan4" },
-    { id: 6, name: "Vigomax+Hq" },
-    { id: 7, name: "vigomaxplus08" },
-    { id: 8, name: "drsamhansharing" },
+    { id: 1298030530, name: "him.drsamhan" },
+    { id: 1077500606, name: "him.drsamhan1" },
+    { id: 1256177782, name: "him.drsamhan2" },
+    { id: 1285322524, name: "him.drsamhan3" },
+    { id: 1290223366, name: "him.drsamhan4" },
+    { id: 1245549673, name: "Vigomax+Hq" },
+    { id: 793855746, name: "vigomaxplus08" },
+    { id: 562396517, name: "drsamhansharing" },
 ];
 
 interface User {

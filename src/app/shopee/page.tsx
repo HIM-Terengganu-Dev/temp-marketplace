@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { 
     ShoppingBag, 
     Plus, 
@@ -55,6 +56,7 @@ function getPreviousPeriod(startStr: string, endStr: string) {
 }
 
 function ShopeeShopsContent() {
+    const { data: session } = useSession();
     const searchParams = useSearchParams();
     const [shops, setShops] = useState<ShopeeShop[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -98,7 +100,9 @@ function ShopeeShopsContent() {
             const res = await fetch('/api/shopee/shops');
             if (res.ok) {
                 const data = await res.json();
-                setShops(data);
+                const allowedShopeeShops = (session?.user as any)?.allowed_shopee_shops || [];
+                const filtered = data.filter((s: any) => allowedShopeeShops.includes(parseInt(s.shop_id, 10)));
+                setShops(filtered);
             }
         } catch (e) {
             console.error("Failed to load Shopee shops", e);

@@ -148,7 +148,9 @@ export default function ShopeeAdsPage() {
             const res = await fetch('/api/shopee/shops');
             if (res.ok) {
                 const data = await res.json();
-                setShops(data);
+                const allowedShopeeShops = (session?.user as any)?.allowed_shopee_shops || [];
+                const filtered = data.filter((s: any) => allowedShopeeShops.includes(parseInt(s.shop_id, 10)));
+                setShops(filtered);
             }
         } catch (e) {
             console.error("Failed to load Shopee shops", e);

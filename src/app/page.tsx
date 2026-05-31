@@ -167,7 +167,9 @@ export default function Home() {
             try {
                 const shopeeShopsRes = await fetch('/api/shopee/shops', { signal });
                 if (shopeeShopsRes.ok) {
-                    shopeeShops = await shopeeShopsRes.json();
+                    const allShopeeShops = await shopeeShopsRes.json();
+                    const allowedShopeeShops = (session?.user as any)?.allowed_shopee_shops || [];
+                    shopeeShops = allShopeeShops.filter((s: any) => allowedShopeeShops.includes(parseInt(s.shop_id, 10)));
                 }
             } catch (e: any) {
                 if (e.name === 'AbortError') throw e;
