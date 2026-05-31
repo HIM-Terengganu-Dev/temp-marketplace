@@ -210,6 +210,15 @@ async function fetchTikTokShopMetricsSWR(
                 totalOrders += cached.orders;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
+                // SELF-HEALING: If historical cached data has exactly 0 gmv and 0 orders, it might be an incomplete transient cache.
+                // Queue a background revalidation to heal it.
+                if (cached.gmv === 0 && cached.orders === 0) {
+                    backgroundThunks.push({
+                        key,
+                        date,
+                        fn: () => fetchAndSaveTikTok(shopNumber, date)
+                    });
+                }
             } else {
                 syncPromises.push(fetchAndSaveTikTok(shopNumber, date));
                 loadedFromApiCount++;
@@ -360,6 +369,15 @@ async function fetchShopeeShopMetricsSWR(
                 totalShopeeCpcSpend += cached.shopeeCpcSpend;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
+                // SELF-HEALING: If historical cached data has exactly 0 gmv and 0 orders, it might be an incomplete transient cache.
+                // Queue a background revalidation to heal it.
+                if (cached.gmv === 0 && cached.orders === 0) {
+                    backgroundThunks.push({
+                        key,
+                        date,
+                        fn: () => fetchAndSaveShopee(shopId, date)
+                    });
+                }
             } else {
                 syncPromises.push(fetchAndSaveShopee(shopId, date));
                 loadedFromApiCount++;

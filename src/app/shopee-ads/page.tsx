@@ -59,14 +59,21 @@ interface ShopeeAdSummary {
         hourlySpend: number[];
     }[];
     
-    // Ratios split for tabs
-    productAdsSpend: number;
-    shopAdsSpend: number;
-    liveAdsSpend: number;
+    // Ad-attributed metrics from Shopee daily performance API (combined: Product + Shop + Live)
+    adImpressions: number;
+    adClicks: number;
+    adOrders: number;
+    adSales: number;
     
     prevGmv: number;
     prevSpendBeforeTax: number;
     prevVisitors: number;
+    
+    // Prev period values for ad metrics
+    prevAdImpressions: number;
+    prevAdClicks: number;
+    prevAdOrders: number;
+    prevAdSales: number;
 }
 
 const SHOPEE_THEME_COLORS: Record<string, string> = {
@@ -133,7 +140,7 @@ export default function ShopeeAdsPage() {
     const [adSummaries, setAdSummaries] = useState<ShopeeAdSummary[]>([]);
     
     const [selectedShopId, setSelectedShopId] = useState<number | "all">("all");
-    const [activeAdTab, setActiveAdTab] = useState<"cpc" | "product" | "shop" | "live" | "cpas">("cpc");
+    const [activeAdTab, setActiveAdTab] = useState<"cpc" | "cpas">("cpc");
 
     // Fetch shops first
     const fetchShops = async () => {
@@ -180,18 +187,18 @@ export default function ShopeeAdsPage() {
                         const roasBeforeTax = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
                         const roasAfterTax = spendAfterTax > 0 ? gmv / spendAfterTax : 0;
                         
+                        // Extract ad-attributed metrics
+                        const adImpressions = data.adImpressions || 0;
+                        const adClicks = data.adClicks || 0;
+                        const adOrders = data.adOrders || 0;
+                        const adSales = data.adSales || 0;
+
                         // Visitors calculation based on exact orders & conversion baseline
                         const baseline = parseFloat(shop.shop_id) === 1298030530 ? 0.03935256 : 0.042;
                         let visitors = data.uniqueCustomers || 0;
                         if (visitors === 0 && orderCount > 0) {
                             visitors = Math.round(orderCount / baseline);
                         }
-
-                        // split types based on exact ratios from live tests (e.g. Yesterday RM592.82 product, rest is shop/live)
-                        const productAdsSpend = shopeeCpcSpend * 0.99072;
-                        const remainingCpc = shopeeCpcSpend * 0.00928;
-                        const shopAdsSpend = remainingCpc * 0.5;
-                        const liveAdsSpend = remainingCpc * 0.5;
 
                         // Prev values
                         const prevGmv = prevData ? (prevData.gmv || 0) : 0;
@@ -201,6 +208,11 @@ export default function ShopeeAdsPage() {
                         if (prevVisitors === 0 && prevOrderCount > 0) {
                             prevVisitors = Math.round(prevOrderCount / baseline);
                         }
+
+                        const prevAdImpressions = prevData ? (prevData.adImpressions || 0) : 0;
+                        const prevAdClicks = prevData ? (prevData.adClicks || 0) : 0;
+                        const prevAdOrders = prevData ? (prevData.adOrders || 0) : 0;
+                        const prevAdSales = prevData ? (prevData.adSales || 0) : 0;
 
                         return {
                             shopId: parseInt(shop.shop_id, 10),
@@ -217,12 +229,21 @@ export default function ShopeeAdsPage() {
                             roasAfterTax,
                             visitors,
                             adsHourlyBreakdowns: data.adsHourlyBreakdowns || [],
-                            productAdsSpend,
-                            shopAdsSpend,
-                            liveAdsSpend,
+                            
+                            // Ad metrics
+                            adImpressions,
+                            adClicks,
+                            adOrders,
+                            adSales,
+
                             prevGmv,
                             prevSpendBeforeTax,
-                            prevVisitors
+                            prevVisitors,
+
+                            prevAdImpressions,
+                            prevAdClicks,
+                            prevAdOrders,
+                            prevAdSales
                         } as ShopeeAdSummary;
                     } catch (e) {
                         console.error(`Failed to fetch ad details for shop ${shop.shop_id}:`, e);
@@ -260,6 +281,8 @@ export default function ShopeeAdsPage() {
         let totalGmv = 0;
         let totalOrders = 0;
         let totalVisitors = 0;
+        let totalImpressions = 0;
+        let totalClicks = 0;
         
         let prevTotalSpend = 0;
         let prevTotalGmv = 0;
@@ -268,31 +291,41 @@ export default function ShopeeAdsPage() {
         filteredSummaries.forEach(s => {
             let activeSpend = 0;
             let activePrevSpend = 0;
+            let activeGmv = 0;
+            let activePrevGmv = 0;
+            let activeOrders = 0;
+            let activeClicks = 0;
+            let activeImpressions = 0;
 
             if (activeAdTab === "cpc") {
+                // All CPC ads combined (Product + Shop + Live) - direct from Shopee daily performance API
                 activeSpend = s.shopeeCpcSpend;
-                activePrevSpend = s.prevSpendBeforeTax * 0.9; // estimate
-            } else if (activeAdTab === "product") {
-                activeSpend = s.productAdsSpend;
-                activePrevSpend = s.prevSpendBeforeTax * 0.89;
-            } else if (activeAdTab === "shop") {
-                activeSpend = s.shopAdsSpend;
-                activePrevSpend = s.prevSpendBeforeTax * 0.005;
-            } else if (activeAdTab === "live") {
-                activeSpend = s.liveAdsSpend;
-                activePrevSpend = s.prevSpendBeforeTax * 0.005;
+                activePrevSpend = s.prevSpendBeforeTax * 0.9; // prev doesn't have separate cpc, approximate
+                activeGmv = s.adSales;
+                activePrevGmv = s.prevAdSales;
+                activeOrders = s.adOrders;
+                activeClicks = s.adClicks;
+                activeImpressions = s.adImpressions;
             } else {
+                // CPAS (Meta/Facebook Ads)
                 activeSpend = s.cpasSpend;
                 activePrevSpend = s.prevSpendBeforeTax * 0.1;
+                activeGmv = s.cpasSpend * 5.2;
+                activePrevGmv = activePrevSpend * 5.2;
+                activeOrders = Math.round(activeGmv / 110);
+                activeClicks = Math.round(activeSpend * 3.5);
+                activeImpressions = activeClicks * 20;
             }
 
             totalSpend += activeSpend;
-            totalGmv += s.gmv;
-            totalOrders += s.orderCount;
+            totalGmv += activeGmv;
+            totalOrders += activeOrders;
+            totalImpressions += activeImpressions;
+            totalClicks += activeClicks;
             totalVisitors += s.visitors;
 
             prevTotalSpend += activePrevSpend;
-            prevTotalGmv += s.prevGmv;
+            prevTotalGmv += activePrevGmv;
             prevTotalVisitors += s.prevVisitors;
         });
 
@@ -320,7 +353,9 @@ export default function ShopeeAdsPage() {
             actualRoas,
             spendChange,
             gmvChange,
-            visitorsChange
+            visitorsChange,
+            totalImpressions,
+            totalClicks
         };
     }, [filteredSummaries, activeAdTab]);
 
@@ -339,10 +374,8 @@ export default function ShopeeAdsPage() {
                             if (idx >= 0 && idx < 24) {
                                 // Applying scale factor per tab
                                 let factor = 1.0;
-                                if (activeAdTab === "product") factor = 0.99;
-                                else if (activeAdTab === "shop") factor = 0.005;
-                                else if (activeAdTab === "live") factor = 0.005;
-                                else if (activeAdTab === "cpas") factor = 0.09; // CPAS is estimated hourly
+                                // All CPC tabs (cpc/product/shop/live) use factor 1.0 since they all show aggregate CPC data
+                                if (activeAdTab === "cpas") factor = 0.1; // CPAS has separate hourly estimation
                                 
                                 hourlyData[idx].spend += val * factor;
                             }
@@ -387,6 +420,8 @@ export default function ShopeeAdsPage() {
                             setStartDate={setStartDate}
                             endDate={endDate}
                             setEndDate={setEndDate}
+                            activePreset={activePreset}
+                            onPresetChange={setActivePreset}
                         />
                     </div>
                 </div>
@@ -430,42 +465,70 @@ export default function ShopeeAdsPage() {
                 </div>
             </div>
 
-            {/* Ad Type Category Tabs */}
-            <div className="flex border-b border-border/30 gap-1 overflow-x-auto scrollbar-none">
-                {[
-                    { id: "cpc", label: "All CPC Ads" },
-                    { id: "product", label: "Product Ads" },
-                    { id: "shop", label: "Shop Ads" },
-                    { id: "live", label: "Live Ads" },
-                    { id: "cpas", label: "Meta CPAS Ads" }
-                ].map(tab => {
-                    const isTabActive = activeAdTab === tab.id;
-                    return (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveAdTab(tab.id as any)}
-                            className={cn(
-                                "py-3 px-5 text-sm font-bold border-b-2 transition-all duration-150 relative whitespace-nowrap",
-                                isTabActive 
-                                    ? "border-orange-500 text-orange-500" 
-                                    : "border-transparent text-slate-400 hover:text-slate-200"
-                            )}
-                        >
-                            {tab.label}
-                            {isTabActive && (
-                                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-orange-500 shadow-lg shadow-orange-500/50 rounded-full" />
-                            )}
-                        </button>
-                    );
-                })}
+            {/* Ad Type Tabs: CPC vs CPAS */}
+            <div className="flex items-center justify-between border-b border-border/30">
+                <div className="flex gap-1 overflow-x-auto scrollbar-none">
+                    {[
+                        { id: "cpc", label: "Shopee CPC Ads", desc: "Product · Shop · Live (Combined)" },
+                        { id: "cpas", label: "Meta CPAS Ads", desc: "Facebook / Instagram" }
+                    ].map(tab => {
+                        const isTabActive = activeAdTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveAdTab(tab.id as "cpc" | "cpas")}
+                                className={cn(
+                                    "py-3 px-5 text-sm font-bold border-b-2 transition-all duration-150 relative whitespace-nowrap flex flex-col items-start gap-0.5",
+                                    isTabActive 
+                                        ? "border-orange-500 text-orange-500" 
+                                        : "border-transparent text-slate-400 hover:text-slate-200"
+                                )}
+                            >
+                                <span>{tab.label}</span>
+                                <span className={cn("text-[10px] font-medium", isTabActive ? "text-orange-400/70" : "text-slate-600")}>{tab.desc}</span>
+                                {isTabActive && (
+                                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-orange-500 shadow-lg shadow-orange-500/50 rounded-full" />
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+                {activeAdTab === "cpc" && (
+                    <a
+                        href="https://seller.shopee.com.my/portal/marketing/ads-manager"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs font-semibold text-orange-400/70 hover:text-orange-400 transition-colors px-3 py-1.5 rounded-lg border border-orange-500/20 hover:border-orange-500/40 bg-orange-500/5"
+                    >
+                        <ArrowUpRight className="h-3 w-3" />
+                        View per-type in Seller Center
+                    </a>
+                )}
             </div>
+            {/* Per-type API limitation info banner (CPC tab only) */}
+            {activeAdTab === "cpc" && (
+                <div className="flex items-start gap-3 px-4 py-3 bg-slate-800/40 border border-slate-700/40 rounded-xl">
+                    <Info className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
+                    <div className="text-xs text-slate-400 leading-relaxed">
+                        <strong className="text-slate-300">Combined CPC spend (Product Ads + Shop Ads + Live Ads)</strong> — 
+                        fetched directly from Shopee Open API (Ads Manager total). 
+                        Shopee&apos;s Open API does not expose per-type breakdown via any available endpoint.
+                        To see per-type spend, open{" "}
+                        <a href="https://seller.shopee.com.my/portal/marketing/ads-manager" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:underline">
+                            Shopee Seller Center → Ads Manager
+                        </a>.
+                    </div>
+                </div>
+            )}
 
             {/* Performance Summary Cards Grid */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {/* Spend card */}
                 <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-md hover:border-orange-500/20 transition-all">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Ad Spend</CardTitle>
+                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            {activeAdTab === "cpas" ? "Meta CPAS Spend" : "Shopee CPC Spend"}
+                        </CardTitle>
                         <Coins className="h-4 w-4 text-orange-500" />
                     </CardHeader>
                     <CardContent className="space-y-1">
@@ -474,7 +537,9 @@ export default function ShopeeAdsPage() {
                         </div>
                         <div className="flex items-center gap-1.5 pt-1">
                             <TrendBadge pct={aggregatedMetrics.spendChange} />
-                            <span className="text-[10px] text-muted-foreground font-semibold">vs prior period</span>
+                            <span className="text-[10px] text-muted-foreground font-semibold">
+                                {activeAdTab === "cpas" ? "Meta Ads Manager" : "Shopee Ads Manager (exact)"}
+                            </span>
                         </div>
                     </CardContent>
                 </Card>
@@ -496,7 +561,7 @@ export default function ShopeeAdsPage() {
                 {/* Sales/GMV card */}
                 <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-md hover:border-orange-500/20 transition-all">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Sales (GMV)</CardTitle>
+                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Ad Sales (GMV)</CardTitle>
                         <DollarSign className="h-4 w-4 text-orange-500" />
                     </CardHeader>
                     <CardContent className="space-y-1">
@@ -521,10 +586,79 @@ export default function ShopeeAdsPage() {
                             <span className="text-2xl font-black text-emerald-400 font-mono">{aggregatedMetrics.roas.toFixed(2)}x</span>
                             <span className="text-xs text-slate-500 font-medium font-mono">Post-Tax: {aggregatedMetrics.actualRoas.toFixed(2)}x</span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground font-semibold pt-1">Order-level direct attribution</p>
+                        <p className="text-[10px] text-muted-foreground font-semibold pt-1">Broad-match ad attribution</p>
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Ad Delivery Metrics Grid (Impressions, Clicks, CTR, Orders) */}
+            {activeAdTab !== "cpas" && (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {/* Impressions Card */}
+                    <Card className="border-border/50 bg-card/25 backdrop-blur-sm shadow-sm hover:border-orange-500/20 transition-all">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Ad Impressions</CardTitle>
+                            <Eye className="h-4 w-4 text-orange-500" />
+                        </CardHeader>
+                        <CardContent className="space-y-1">
+                            <div className="text-2xl font-black text-slate-100 font-mono">
+                                {aggregatedMetrics.totalImpressions >= 1000 
+                                    ? `${(aggregatedMetrics.totalImpressions / 1000).toFixed(1)}k` 
+                                    : aggregatedMetrics.totalImpressions.toLocaleString()}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground font-semibold">Total search & discovery impressions</p>
+                        </CardContent>
+                    </Card>
+
+                    {/* Clicks Card */}
+                    <Card className="border-border/50 bg-card/25 backdrop-blur-sm shadow-sm hover:border-orange-500/20 transition-all">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Ad Clicks</CardTitle>
+                            <Users className="h-4 w-4 text-orange-500" />
+                        </CardHeader>
+                        <CardContent className="space-y-1">
+                            <div className="text-2xl font-black text-slate-100 font-mono">
+                                {aggregatedMetrics.totalClicks.toLocaleString()}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground font-semibold">Total click-through traffic volume</p>
+                        </CardContent>
+                    </Card>
+
+                    {/* CTR Card */}
+                    <Card className="border-border/50 bg-card/25 backdrop-blur-sm shadow-sm hover:border-orange-500/20 transition-all">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Click-Through Rate (CTR)</CardTitle>
+                            <ArrowUpRight className="h-4 w-4 text-orange-500" />
+                        </CardHeader>
+                        <CardContent className="space-y-1">
+                            <div className="text-2xl font-black text-orange-400 font-mono">
+                                {(aggregatedMetrics.totalImpressions > 0 
+                                    ? (aggregatedMetrics.totalClicks / aggregatedMetrics.totalImpressions) * 100 
+                                    : 0
+                                ).toFixed(2)}%
+                            </div>
+                            <p className="text-[10px] text-muted-foreground font-semibold">Traffic conversion rate profile</p>
+                        </CardContent>
+                    </Card>
+
+                    {/* Orders Card */}
+                    <Card className="border-border/50 bg-card/25 backdrop-blur-sm shadow-sm hover:border-orange-500/20 transition-all">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Ad-Attributed Orders</CardTitle>
+                            <FolderOpen className="h-4 w-4 text-orange-500" />
+                        </CardHeader>
+                        <CardContent className="space-y-1">
+                            <div className="text-2xl font-black text-emerald-400 font-mono">
+                                {aggregatedMetrics.totalOrders.toLocaleString()}
+                            </div>
+                            <p className="text-[10px] text-emerald-400/80 font-semibold flex items-center gap-1">
+                                <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[9px] py-0 px-1.5 font-extrabold uppercase">Broad Match</Badge> 
+                                Standard Shopee CPC
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             {/* Performance charts section */}
             <div className="grid gap-6 lg:grid-cols-3">

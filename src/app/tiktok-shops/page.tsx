@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { SimpleDatePicker } from "@/components/dashboard/SimpleDatePicker";
+import { SimpleDatePicker, DatePreset } from "@/components/dashboard/SimpleDatePicker";
 import { ShopCard } from "@/components/dashboard/ShopCard";
 import { Badge } from "@/components/ui/badge";
 import { Store, RefreshCw } from "lucide-react";
@@ -32,6 +32,7 @@ export default function TikTokShopsPage() {
     // Default to Today
     const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
     const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+    const [activePreset, setActivePreset] = useState<DatePreset>("today");
 
     const [shopData, setShopData] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -46,41 +47,36 @@ export default function TikTokShopsPage() {
             const shopIndices = (session?.user as any)?.allowed_tiktok_shops || [1, 2, 3, 4];
             const results = await Promise.all(shopIndices.map(async (num: number) => {
                 try {
-                    const [gmvRes, roasRes, prevGmvRes, prevRoasRes] = await Promise.all([
-                        fetch(`/api/tiktok/gmv?startDate=${startDate}&endDate=${endDate}&shopNumber=${num}`),
-                        fetch(`/api/tiktok/roas?startDate=${startDate}&endDate=${endDate}&shopNumber=${num}`),
-                        fetch(`/api/tiktok/gmv?startDate=${prevRange.start}&endDate=${prevRange.end}&shopNumber=${num}`),
-                        fetch(`/api/tiktok/roas?startDate=${prevRange.start}&endDate=${prevRange.end}&shopNumber=${num}`)
+                    const [res, prevRes] = await Promise.all([
+                        fetch(`/api/tiktok/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopNumber=${num}`),
+                        fetch(`/api/tiktok/shop-metrics?startDate=${prevRange.start}&endDate=${prevRange.end}&shopNumber=${num}`)
                     ]);
 
-                    if (!gmvRes.ok || !roasRes.ok) return null;
+                    if (!res.ok) return null;
 
-                    const gmvData = await gmvRes.json();
-                    const roasData = await roasRes.json();
-                    
-                    const prevGmvData = prevGmvRes.ok ? await prevGmvRes.json() : null;
-                    const prevRoasData = prevRoasRes.ok ? await prevRoasRes.json() : null;
+                    const data = await res.json();
+                    const prevData = prevRes.ok ? await prevRes.json() : null;
 
-                    const gmv = gmvData.gmv || 0;
-                    const prevGmv = prevGmvData ? (prevGmvData.gmv || 0) : 0;
+                    const gmv = data.gmv || 0;
+                    const prevGmv = prevData ? (prevData.gmv || 0) : 0;
                     const gmvChange = prevGmv > 0 ? ((gmv - prevGmv) / prevGmv) * 100 : 0;
 
-                    const spend = roasData.totalAdsSpend || 0;
-                    const prevSpend = prevRoasData ? (prevRoasData.totalAdsSpend || 0) : 0;
+                    const spend = data.totalAdsSpend || 0;
+                    const prevSpend = prevData ? (prevData.totalAdsSpend || 0) : 0;
                     const spendChange = prevSpend > 0 ? ((spend - prevSpend) / prevSpend) * 100 : 0;
 
-                    const roas = roasData.roas || 0;
-                    const prevRoas = prevRoasData ? (prevRoasData.roas || 0) : 0;
+                    const roas = data.roasBeforeTax || 0;
+                    const prevRoas = prevData ? (prevData.roasBeforeTax || 0) : 0;
                     const roasChange = prevRoas > 0 ? ((roas - prevRoas) / prevRoas) * 100 : 0;
 
                     return {
                         id: `tts_${num}`,
-                        name: gmvData.shopName || `Shop ${num}`,
+                        name: data.shopName || `Shop ${num}`,
                         platform: 'TikTok',
                         type: 'shop',
                         gmv,
                         revenue: gmv,
-                        orders: gmvData.orderCount || 0,
+                        orders: data.orderCount || 0,
                         spend,
                         roas,
                         status: 'connected',
@@ -141,6 +137,8 @@ export default function TikTokShopsPage() {
                             setStartDate={setStartDate}
                             endDate={endDate}
                             setEndDate={setEndDate}
+                            activePreset={activePreset}
+                            onPresetChange={setActivePreset}
                         />
                     </div>
                 </div>

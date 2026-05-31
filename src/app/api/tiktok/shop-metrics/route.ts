@@ -156,6 +156,15 @@ export async function GET(request: Request) {
                     totalOrders += cached.orders;
                     if (cached.shopName) shopName = cached.shopName;
                     loadedFromDbCount++;
+                    // SELF-HEALING: If historical cached data has exactly 0 gmv and 0 orders, it might be an incomplete transient cache.
+                    // Queue a background revalidation to heal it.
+                    if (cached.gmv === 0 && cached.orders === 0) {
+                        backgroundRevalidateThunks.push({
+                            key,
+                            date,
+                            fn: () => fetchAndSaveTikTok(shopNumber, date)
+                        });
+                    }
                 } else {
                     syncFetchPromises.push({ date, promise: fetchAndSaveTikTok(shopNumber, date) });
                     loadedFromApiCount++;

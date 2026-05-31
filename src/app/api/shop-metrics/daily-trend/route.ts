@@ -208,6 +208,10 @@ export async function GET(request: Request) {
                     // Historical settled dates
                     if (cached) {
                         shopDataMap[date][key] = cached;
+                        // SELF-HEALING: Queue a silent background sync if 0 gmv and 0 orders
+                        if (cached.gmv === 0 && cached.orders === 0) {
+                            backgroundRevalidateThunks.push({ key, date, fn: () => fetchAndSaveTikTok(shopNumber, date) });
+                        }
                     } else {
                         // Cache miss: fetch and store synchronously
                         syncFetchPromises.push({ key, date, promise: fetchAndSaveTikTok(shopNumber, date) });
@@ -233,6 +237,10 @@ export async function GET(request: Request) {
                 } else {
                     if (cached) {
                         shopDataMap[date][key] = cached;
+                        // SELF-HEALING: Queue a silent background sync if 0 gmv and 0 orders
+                        if (cached.gmv === 0 && cached.orders === 0) {
+                            backgroundRevalidateThunks.push({ key, date, fn: () => fetchAndSaveShopee(shopId, date) });
+                        }
                     } else {
                         syncFetchPromises.push({ key, date, promise: fetchAndSaveShopee(shopId, date) });
                     }

@@ -118,7 +118,9 @@ export function Sidebar({
                 <nav className="space-y-0.5 px-2">
                     {filteredNavigation.map((item) => {
                         const isActive =
-                            item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                            item.href === "/" 
+                                ? pathname === "/" 
+                                : pathname === item.href || pathname.startsWith(item.href + "/");
 
                         return (
                             <Link

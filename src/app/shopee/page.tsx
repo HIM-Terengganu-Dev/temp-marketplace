@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShopCard } from "@/components/dashboard/ShopCard";
-import { SimpleDatePicker } from "@/components/dashboard/SimpleDatePicker";
+import { SimpleDatePicker, DatePreset } from "@/components/dashboard/SimpleDatePicker";
 import { cn } from "@/lib/utils";
 
 interface ShopeeShop {
@@ -64,6 +64,7 @@ function ShopeeShopsContent() {
     // Date selection states
     const [startDate, setStartDate] = useState(todayKL());
     const [endDate, setEndDate] = useState(todayKL());
+    const [activePreset, setActivePreset] = useState<DatePreset>("today");
 
     // Performance metrics state
     const [shopPerformance, setShopPerformance] = useState<any[]>([]);
@@ -237,6 +238,8 @@ function ShopeeShopsContent() {
                             setStartDate={setStartDate}
                             endDate={endDate}
                             setEndDate={setEndDate}
+                            activePreset={activePreset}
+                            onPresetChange={setActivePreset}
                         />
                     </div>
                     <Button 

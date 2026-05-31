@@ -553,6 +553,44 @@ export async function fetchMetaCPASSpendForDate(
  * High-level orchestrator fetching both Order details and CPC Ad spends timezone-safely,
  * adding tax and WHT computations.
  */
+export async function fetchShopeeAllCpcDailyPerformanceForDate(
+    shopId: number,
+    accessToken: string,
+    dateStr: string
+): Promise<{
+    impression: number;
+    clicks: number;
+    broadOrder: number;
+    broadGmv: number;
+    expense: number;
+}> {
+    const [year, month, day] = dateStr.split('-');
+    const performanceDate = `${day}-${month}-${year}`; // DD-MM-YYYY
+    const timestamp = Math.floor(Date.now() / 1000);
+    const path = '/api/v2/ads/get_all_cpc_ads_daily_performance';
+    const sign = generateShopeeSignature(path, timestamp, accessToken, shopId);
+    const url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${shopId}&start_date=${performanceDate}&end_date=${performanceDate}`;
+    
+    try {
+        const response = await axios.get(url);
+        const data = response.data;
+        if (data.response && Array.isArray(data.response) && data.response.length > 0) {
+            const perf = data.response[0];
+            return {
+                impression: perf.impression || 0,
+                clicks: perf.clicks || 0,
+                broadOrder: perf.broad_order || 0,
+                broadGmv: parseFloat(perf.broad_gmv || 0),
+                expense: parseFloat(perf.expense || 0)
+            };
+        }
+        return { impression: 0, clicks: 0, broadOrder: 0, broadGmv: 0, expense: 0 };
+    } catch (e: any) {
+        console.warn(`Failed to fetch Shopee CPC daily performance for shop ${shopId}:`, e.message);
+        return { impression: 0, clicks: 0, broadOrder: 0, broadGmv: 0, expense: 0 };
+    }
+}
+
 export async function fetchShopeeShopPerformance(
     shopId: number,
     startDateStr: string,
@@ -574,8 +612,8 @@ export async function fetchShopeeShopPerformance(
         dates.push(date);
     }
 
-    // Fetch both Shopee native CPC spends and Meta CPAS spends in parallel
-    const [adsResults, cpasResults] = await Promise.all([
+    // Fetch both Shopee native CPC spends, Meta CPAS spends, and daily CPC performance in parallel
+    const [adsResults, cpasResults, dailyPerfResults] = await Promise.all([
         Promise.all(
             dates.map(date => fetchShopeeAdsSpendForDate(shopId, accessToken, date).catch(() => ({
                 totalSpend: 0,
@@ -584,10 +622,24 @@ export async function fetchShopeeShopPerformance(
         ),
         Promise.all(
             dates.map(date => fetchMetaCPASSpendForDate(shopId, date).catch(() => 0))
+        ),
+        Promise.all(
+            dates.map(date => fetchShopeeAllCpcDailyPerformanceForDate(shopId, accessToken, date).catch(() => ({
+                impression: 0,
+                clicks: 0,
+                broadOrder: 0,
+                broadGmv: 0,
+                expense: 0
+            })))
         )
     ]);
 
-    const shopeeCpcSpend = adsResults.reduce((sum, res) => sum + res.totalSpend, 0);
+    // Use daily performance API expense as authoritative CPC spend (matches Shopee Seller Center "Cost" column).
+    // The hourly API sum is kept only for the hourly chart breakdown.
+    const hourlyBasedCpcSpend = adsResults.reduce((sum, res) => sum + res.totalSpend, 0);
+    const dailyExpenseTotal = dailyPerfResults.reduce((sum, res) => sum + res.expense, 0);
+    // Prefer daily performance expense (more accurate); fall back to hourly sum if daily returns 0
+    const shopeeCpcSpend = dailyExpenseTotal > 0 ? dailyExpenseTotal : hourlyBasedCpcSpend;
     const cpasSpend = cpasResults.reduce((sum, res) => sum + res, 0);
     const spendBeforeTax = shopeeCpcSpend + cpasSpend;
 
@@ -598,6 +650,11 @@ export async function fetchShopeeShopPerformance(
 
     const roasBeforeTax = spendBeforeTax > 0 ? orderData.gmv / spendBeforeTax : 0;
     const roasAfterTax = spendAfterTax > 0 ? orderData.gmv / spendAfterTax : 0;
+
+    const adImpressions = dailyPerfResults.reduce((sum, res) => sum + res.impression, 0);
+    const adClicks = dailyPerfResults.reduce((sum, res) => sum + res.clicks, 0);
+    const adOrders = dailyPerfResults.reduce((sum, res) => sum + res.broadOrder, 0);
+    const adSales = dailyPerfResults.reduce((sum, res) => sum + res.broadGmv, 0);
 
     return {
         shopId,
@@ -618,9 +675,12 @@ export async function fetchShopeeShopPerformance(
         adsHourlyBreakdowns: adsResults.map((r, i) => ({
             date: dates[i],
             hourlySpend: r.hourlySpend
-        }))
+        })),
+        adImpressions,
+        adClicks,
+        adOrders,
+        adSales
     };
-
 }
 
 
