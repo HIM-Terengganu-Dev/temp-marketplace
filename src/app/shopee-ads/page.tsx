@@ -365,35 +365,6 @@ export default function ShopeeAdsPage() {
         };
     }, [filteredSummaries, activeAdTab]);
 
-    // Hourly Performance Chart Data
-    const hourlyChartData = useMemo(() => {
-        const hourlyData = Array.from({ length: 24 }, (_, hour) => ({
-            hour: `${hour.toString().padStart(2, '0')}:00`,
-            spend: 0
-        }));
-
-        filteredSummaries.forEach(s => {
-            if (s.adsHourlyBreakdowns) {
-                s.adsHourlyBreakdowns.forEach(d => {
-                    if (d.hourlySpend) {
-                        d.hourlySpend.forEach((val, idx) => {
-                            if (idx >= 0 && idx < 24) {
-                                // Applying scale factor per tab
-                                let factor = 1.0;
-                                // All CPC tabs (cpc/product/shop/live) use factor 1.0 since they all show aggregate CPC data
-                                if (activeAdTab === "cpas") factor = 0.1; // CPAS has separate hourly estimation
-                                
-                                hourlyData[idx].spend += val * factor;
-                            }
-                        });
-                    }
-                });
-            }
-        });
-
-        return hourlyData;
-    }, [filteredSummaries, activeAdTab]);
-
     return (
         <div className="space-y-6">
             {/* Header section */}
@@ -667,86 +638,109 @@ export default function ShopeeAdsPage() {
             )}
 
             {/* Performance charts section */}
-            <div className="grid gap-6 lg:grid-cols-3">
-                {/* Hourly Area Chart */}
-                <Card className="border-border/50 bg-card/40 backdrop-blur-sm lg:col-span-2 shadow-md flex flex-col justify-between overflow-hidden">
-                    <CardHeader className="border-b border-border/30 pb-4">
-                        <CardTitle className="text-base font-bold flex items-center justify-between flex-wrap gap-2">
-                            <span>Hourly Ad Spend Profile</span>
-                            <Badge className="bg-orange-500/10 text-orange-400 border-orange-500/20 uppercase tracking-wide text-[9px] font-bold">Timezone: Asia/Kuala_Lumpur</Badge>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                        <div className="h-[260px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={hourlyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="colorSpend" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#f97316" stopOpacity={0.4}/>
-                                            <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.15} />
-                                    <XAxis dataKey="hour" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `RM${v}`} />
-                                    <Tooltip 
-                                        contentStyle={{ backgroundColor: "#0f172a", borderColor: "rgba(255,255,255,0.08)", borderRadius: "8px" }}
-                                        labelStyle={{ color: "#94a3b8", fontWeight: "bold", fontSize: 11 }}
-                                        itemStyle={{ color: "#f97316", fontWeight: "bold", fontSize: 12 }}
-                                        formatter={(value: any) => [`RM ${parseFloat(value).toFixed(2)}`, 'Spend']}
+            {/* Tax Breakdown Summary Section */}
+            <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-md overflow-hidden">
+                <CardHeader className="border-b border-border/30 pb-4">
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                        Tax Surcharge Details
+                    </CardTitle>
+                    <p className="text-xs text-slate-400">Detailed tax charges computed dynamically based on the verified 8% SST + 8% WHT formula applied directly to ad spend.</p>
+                </CardHeader>
+                <CardContent className="pt-6">
+                    <div className="grid md:grid-cols-2 gap-8 items-center">
+                        {/* Visual Breakdown Column */}
+                        <div className="space-y-4 bg-slate-950/20 p-5 rounded-xl border border-slate-800/40">
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between text-xs font-semibold">
+                                    <span className="text-slate-300">Total Post-Tax Cost Breakdown</span>
+                                    <span className="text-purple-400 font-mono">116% of Gross</span>
+                                </div>
+                                {/* Compound Progress Bar */}
+                                <div className="h-4 rounded-full bg-slate-800 overflow-hidden flex">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500" 
+                                        style={{ width: '86.2%' }} 
+                                        title="Gross Spend: 86.2%"
                                     />
-                                    <Area type="monotone" dataKey="spend" stroke="#f97316" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSpend)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 border-l border-slate-950 transition-all duration-500" 
+                                        style={{ width: '6.9%' }} 
+                                        title="SST Tax: 6.9%"
+                                    />
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-pink-500 to-rose-500 border-l border-slate-950 transition-all duration-500" 
+                                        style={{ width: '6.9%' }} 
+                                        title="WHT Tax: 6.9%"
+                                    />
+                                </div>
+                            </div>
+                            
+                            {/* Legend Details */}
+                            <div className="grid grid-cols-3 gap-2.5 pt-2 text-[10px]">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5 font-bold text-slate-300">
+                                        <span className="h-2 w-2 rounded bg-orange-500 shrink-0" />
+                                        Gross Spend
+                                    </div>
+                                    <p className="text-slate-500 pl-3.5 font-medium">86.2% share</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5 font-bold text-purple-400">
+                                        <span className="h-2 w-2 rounded bg-purple-500 shrink-0" />
+                                        SST (8%)
+                                    </div>
+                                    <p className="text-slate-500 pl-3.5 font-medium">6.9% share</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-1.5 font-bold text-pink-400">
+                                        <span className="h-2 w-2 rounded bg-pink-500 shrink-0" />
+                                        WHT (8%)
+                                    </div>
+                                    <p className="text-slate-500 pl-3.5 font-medium">6.9% share</p>
+                                </div>
+                            </div>
+                            
+                            <p className="text-[10px] text-slate-400 leading-relaxed bg-purple-500/5 p-3 rounded border border-purple-500/10 mt-1 font-medium">
+                                <strong>Note:</strong> Keeping sourcing costs and digital taxes completely aligned ensures highly accurate profit margin reporting.
+                            </p>
                         </div>
-                    </CardContent>
-                </Card>
 
-                {/* Tax Breakdown Summary */}
-                <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-md flex flex-col justify-between">
-                    <CardHeader className="border-b border-border/30 pb-4">
-                        <CardTitle className="text-base font-bold flex items-center gap-2">
-                            Tax Surcharge Details
-                        </CardTitle>
-                        <p className="text-xs text-slate-400">Detailed tax charges computed dynamically based on the verified 8% SST + 8% WHT formula applied directly to ad spend.</p>
-                    </CardHeader>
-                    <CardContent className="pt-6 space-y-4">
-                        <div className="flex justify-between items-center pb-2.5 border-b border-border/30">
-                            <span className="text-xs text-slate-400 font-medium">Gross Ad Spend</span>
-                            <span className="text-sm font-mono font-bold text-slate-200">
-                                RM {aggregatedMetrics.totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center pb-2.5 border-b border-border/30">
-                            <div className="flex flex-col">
-                                <span className="text-xs text-slate-300 font-semibold">Service Tax (SST 8%)</span>
-                                <span className="text-[10px] text-slate-500">Standard digital service tax</span>
+                        {/* Numeric Lines Column */}
+                        <div className="space-y-4 pr-2">
+                            <div className="flex justify-between items-center pb-2.5 border-b border-border/30">
+                                <span className="text-xs text-slate-400 font-medium">Gross Ad Spend</span>
+                                <span className="text-sm font-mono font-bold text-slate-200">
+                                    RM {aggregatedMetrics.totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </span>
                             </div>
-                            <span className="text-sm font-mono font-bold text-orange-400">
-                                + RM {aggregatedMetrics.sst.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center pb-2.5 border-b border-border/30">
-                            <div className="flex flex-col">
-                                <span className="text-xs text-slate-300 font-semibold">Withholding Tax (WHT 8%)</span>
-                                <span className="text-[10px] text-slate-500">Cross-border advertisement tax</span>
+                            <div className="flex justify-between items-center pb-2.5 border-b border-border/30">
+                                <div className="flex flex-col">
+                                    <span className="text-xs text-slate-300 font-semibold">Service Tax (SST 8%)</span>
+                                    <span className="text-[10px] text-slate-500">Standard digital service tax</span>
+                                </div>
+                                <span className="text-sm font-mono font-bold text-orange-400">
+                                    + RM {aggregatedMetrics.sst.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </span>
                             </div>
-                            <span className="text-sm font-mono font-bold text-orange-400">
-                                + RM {aggregatedMetrics.wht.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            </span>
+                            <div className="flex justify-between items-center pb-2.5 border-b border-border/30">
+                                <div className="flex flex-col">
+                                    <span className="text-xs text-slate-300 font-semibold">Withholding Tax (WHT 8%)</span>
+                                    <span className="text-[10px] text-slate-500">Cross-border advertisement tax</span>
+                                </div>
+                                <span className="text-sm font-mono font-bold text-orange-400">
+                                    + RM {aggregatedMetrics.wht.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div className="pt-1.5 flex justify-between items-center">
+                                <span className="text-xs text-slate-300 font-bold">Total Post-Tax Cost</span>
+                                <span className="text-base font-mono font-extrabold text-purple-400">
+                                    RM {aggregatedMetrics.totalSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
                         </div>
-                        <div className="pt-1.5 flex justify-between items-center">
-                            <span className="text-xs text-slate-300 font-bold">Total Post-Tax Cost</span>
-                            <span className="text-base font-mono font-extrabold text-purple-400">
-                                RM {aggregatedMetrics.totalSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            </span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 leading-relaxed bg-purple-500/5 p-2.5 rounded border border-purple-500/10 mt-2 font-medium">
-                            <strong>Note:</strong> Keeping sourcing costs and digital taxes completely aligned ensures highly accurate profit margin reporting.
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Shop Comparison Matrix Table */}
             <Card className="border-border/50 bg-card/40 backdrop-blur-sm overflow-hidden shadow-md">
