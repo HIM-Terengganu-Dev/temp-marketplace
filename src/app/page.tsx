@@ -169,7 +169,11 @@ export default function Home() {
                 if (shopeeShopsRes.ok) {
                     const allShopeeShops = await shopeeShopsRes.json();
                     const allowedShopeeShops = (session?.user as any)?.allowed_shopee_shops || [];
-                    shopeeShops = allShopeeShops.filter((s: any) => allowedShopeeShops.includes(parseInt(s.shop_id, 10)));
+                    const hasRealIds = allowedShopeeShops.some((id: number) => id > 1000);
+                    shopeeShops = allShopeeShops.filter((s: any) => {
+                        if (!hasRealIds) return true;
+                        return allowedShopeeShops.includes(parseInt(s.shop_id, 10));
+                    });
                 }
             } catch (e: any) {
                 if (e.name === 'AbortError') throw e;

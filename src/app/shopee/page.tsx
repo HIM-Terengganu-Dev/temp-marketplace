@@ -101,7 +101,11 @@ function ShopeeShopsContent() {
             if (res.ok) {
                 const data = await res.json();
                 const allowedShopeeShops = (session?.user as any)?.allowed_shopee_shops || [];
-                const filtered = data.filter((s: any) => allowedShopeeShops.includes(parseInt(s.shop_id, 10)));
+                const hasRealIds = allowedShopeeShops.some((id: number) => id > 1000);
+                const filtered = data.filter((s: any) => {
+                    if (!hasRealIds) return true;
+                    return allowedShopeeShops.includes(parseInt(s.shop_id, 10));
+                });
                 setShops(filtered);
             }
         } catch (e) {

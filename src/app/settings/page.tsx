@@ -194,7 +194,7 @@ export default function SettingsPage() {
         setFormPassword("");
         setFormRole("user");
         setFormTiktokShops([1, 2]); // Default standard shops
-        setFormShopeeShops([1, 2]);
+        setFormShopeeShops([1298030530, 1077500606]); // Default standard Shopee shops
         setFormFeatures(["overview", "tiktok", "shopee", "ads", "analytics"]);
         setError("");
         setSuccess("");
