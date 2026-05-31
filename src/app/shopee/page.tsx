@@ -181,7 +181,7 @@ function ShopeeShopsContent() {
 
     useEffect(() => {
         fetchShops();
-    }, []);
+    }, [session]);
 
     useEffect(() => {
         fetchPerformance();

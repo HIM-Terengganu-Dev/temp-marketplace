@@ -264,7 +264,7 @@ export default function ShopeeAdsPage() {
     // Initial load
     useEffect(() => {
         fetchShops();
-    }, []);
+    }, [session]);
 
     useEffect(() => {
         fetchAdData();
