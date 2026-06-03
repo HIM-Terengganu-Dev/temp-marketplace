@@ -142,6 +142,37 @@ export default function Home() {
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [secondsLeft, setSecondsLeft] = useState(30);
 
+    // Floating notifications state
+    const [notifications, setNotifications] = useState<{
+        id: string;
+        shopName: string;
+        platform: string;
+        ordersCount: number;
+        gmvAmount: number;
+        timestamp: Date;
+    }[]>([]);
+
+    const triggerNotification = useCallback((shopName: string, platform: string, ordersCount: number, gmvAmount: number) => {
+        const id = Math.random().toString(36).substring(2, 9);
+        setNotifications((prev) => [
+            ...prev,
+            { id, shopName, platform, ordersCount, gmvAmount, timestamp: new Date() }
+        ]);
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            setNotifications((prev) => prev.filter(n => n.id !== id));
+        }, 5000);
+    }, []);
+
+    // Refs to track data and range shifts for async callback comparisons
+    const shopDataRef = useRef<ShopData[]>([]);
+    const prevRangeRef = useRef({ startDate, endDate, activePreset });
+
+    useEffect(() => {
+        shopDataRef.current = shopData;
+    }, [shopData]);
+
     // Track the active fetch request to prevent race conditions
     const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -329,6 +360,28 @@ export default function Home() {
                 .filter((s): s is ShopData => s !== null);
 
             const shops = [...ttsShops, ...shpShops];
+
+            // Compare and trigger notifications for new orders/sales
+            const isRangeSame = prevRangeRef.current.startDate === startDate &&
+                                prevRangeRef.current.endDate === endDate &&
+                                prevRangeRef.current.activePreset === activePreset;
+            
+            if (isRangeSame && shopDataRef.current.length > 0) {
+                shops.forEach(newShop => {
+                    const prevShop = shopDataRef.current.find(s => s.id === newShop.id);
+                    if (prevShop && prevShop.status === "connected" && newShop.status === "connected") {
+                        const orderDiff = (newShop.orders ?? 0) - (prevShop.orders ?? 0);
+                        const gmvDiff = (newShop.revenue ?? 0) - (prevShop.revenue ?? 0);
+                        if (orderDiff > 0) {
+                            triggerNotification(newShop.name, newShop.platform, orderDiff, gmvDiff);
+                        }
+                    }
+                });
+            }
+
+            // Update range ref for next cycle
+            prevRangeRef.current = { startDate, endDate, activePreset };
+
             setShopData(shops);
 
             const sources = [...new Set(shops.map((s) => s.dataSource || "live_api"))];
@@ -1209,6 +1262,44 @@ export default function Home() {
                     onClose={() => setSelectedShop(null)}
                 />
             )}
+
+            {/* Floating Sales Notifications */}
+            <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+                {notifications.map((n) => (
+                    <div
+                        key={n.id}
+                        className={cn(
+                            "pointer-events-auto flex items-start gap-3 p-4 rounded-xl border bg-slate-950/95 backdrop-blur shadow-2xl transition-all duration-300",
+                            n.platform === "TikTok" ? "border-purple-500/30 shadow-purple-500/5 shadow-[0_0_10px_rgba(168,85,247,0.15)]" : "border-orange-500/30 shadow-orange-500/5 shadow-[0_0_10px_rgba(249,115,22,0.15)]",
+                            "animate-in slide-in-from-bottom duration-300"
+                        )}
+                    >
+                        <div className={cn(
+                            "p-2 rounded-lg flex-shrink-0",
+                            n.platform === "TikTok" ? "bg-purple-500/10 text-purple-400" : "bg-orange-500/10 text-orange-400"
+                        )}>
+                            <ShoppingBag className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-100">
+                                New Sale! 🎉
+                            </p>
+                            <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
+                                <span className="font-semibold text-slate-100">{n.shopName}</span> ({n.platform}) just received <span className="font-bold text-emerald-400">{n.ordersCount} new order{n.ordersCount > 1 ? 's' : ''}</span> totaling <span className="font-bold text-emerald-400">RM {n.gmvAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </p>
+                            <span className="text-[9px] text-slate-500 mt-1 block">
+                                Just now
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => setNotifications((prev) => prev.filter((item) => item.id !== n.id))}
+                            className="text-slate-400 hover:text-slate-200 transition-colors p-0.5 self-start cursor-pointer text-lg leading-none"
+                        >
+                            &times;
+                        </button>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
