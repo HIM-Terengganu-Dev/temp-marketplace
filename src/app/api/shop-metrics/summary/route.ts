@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { fetchShopGMV, fetchShopROAS, SHOPS } from '@/lib/metrics-fetcher';
-import { fetchShopeeShopPerformance, getConnectedShopeeShops } from '@/lib/shopee-client';
+import { fetchShopeeShopPerformance, getConnectedShopeeShops, getValidShopeeToken, fetchShopeeGMVAndOrders } from '@/lib/shopee-client';
 import { query } from '@/lib/db';
 
 function getKLToday(): string {
@@ -38,21 +38,49 @@ async function fetchAndSaveTikTok(shopNumber: number, date: string) {
         const shopConfig = SHOPS[shopNumber.toString()];
         if (!shopConfig) return { gmv: 0, spend: 0, orders: 0 };
 
-        const [gmvData, roasData] = await Promise.all([
-            fetchShopGMV(shopNumber, date, date),
-            fetchShopROAS(shopNumber, date, date)
-        ]);
+        const isToday = date === getKLToday();
+        let spendBeforeTax = 0;
+        let spendAfterTax = 0;
+        let liveGMVMaxCost = 0;
+        let productGMVMaxCost = 0;
+        let manualCampaignSpend = 0;
+        let hasCachedSpend = false;
 
+        // Optimize: Reuse cached daily spend for past days to avoid hitting TikTok Ads API rate limits
+        if (!isToday) {
+            const cachedRow = await query(`
+                SELECT spend_before_tax, spend_after_tax, live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend
+                FROM credentials.daily_shop_metrics
+                WHERE shop_number = $1 AND date = $2::date
+            `, [shopNumber, date]);
+
+            if (cachedRow.rows[0]) {
+                const r = cachedRow.rows[0];
+                spendBeforeTax = parseFloat(r.spend_before_tax || '0');
+                spendAfterTax = parseFloat(r.spend_after_tax || '0');
+                liveGMVMaxCost = parseFloat(r.live_gmv_max_cost || '0');
+                productGMVMaxCost = parseFloat(r.product_gmv_max_cost || '0');
+                manualCampaignSpend = parseFloat(r.manual_campaign_spend || '0');
+                hasCachedSpend = true;
+            }
+        }
+
+        // Fetch spend dynamically if not cached in DB or if it's today's date
+        if (!hasCachedSpend) {
+            const roasData = await fetchShopROAS(shopNumber, date, date);
+            spendBeforeTax = roasData.totalAdsSpend || 0;
+            spendAfterTax = roasData.totalCostWithTaxes || 0;
+            liveGMVMaxCost = roasData.liveGMVMaxCost || 0;
+            productGMVMaxCost = roasData.productGMVMaxCost || 0;
+            manualCampaignSpend = roasData.manualCampaignSpend || 0;
+        }
+
+        // Always query Shop API for GMV & orders to reflect refunds/cancellations dynamically
+        const gmvData = await fetchShopGMV(shopNumber, date, date);
         const gmv = gmvData.gmv || 0;
         const orderCount = gmvData.orderCount || 0;
-        const spendBeforeTax = roasData.totalAdsSpend || 0;
-        const spendAfterTax = roasData.totalCostWithTaxes || 0;
         const roasBeforeTax = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
         const roasAfterTax = spendAfterTax > 0 ? gmv / spendAfterTax : 0;
-
-        const liveGMVMaxCost = roasData.liveGMVMaxCost || 0;
-        const productGMVMaxCost = roasData.productGMVMaxCost || 0;
-        const manualCampaignSpend = roasData.manualCampaignSpend || 0;
 
         await query(`
             INSERT INTO credentials.daily_shop_metrics (
@@ -80,16 +108,56 @@ async function fetchAndSaveTikTok(shopNumber: number, date: string) {
 
 async function fetchAndSaveShopee(shopId: number, date: string) {
     try {
-        const data = await fetchShopeeShopPerformance(shopId, date, date);
+        const isToday = date === getKLToday();
+        let spendBeforeTax = 0;
+        let spendAfterTax = 0;
+        let cpasSpend = 0;
+        let shopeeCpcSpend = 0;
+        let hasCachedSpend = false;
 
-        const gmv = data.gmv || 0;
-        const orderCount = data.orderCount || 0;
-        const spendBeforeTax = data.spendBeforeTax || 0;
-        const spendAfterTax = data.spendAfterTax || 0;
-        const roasBeforeTax = data.roasBeforeTax || 0;
-        const roasAfterTax = data.roasAfterTax || 0;
-        const cpasSpend = data.cpasSpend || 0;
-        const shopeeCpcSpend = data.shopeeCpcSpend || 0;
+        // Optimize: Reuse cached daily spend for past days to avoid hitting Shopee Ads API rate limits
+        if (!isToday) {
+            const cachedRow = await query(`
+                SELECT spend_before_tax, spend_after_tax, cpas_spend, shopee_cpc_spend
+                FROM credentials.daily_shopee_metrics
+                WHERE shop_id = $1 AND date = $2::date
+            `, [shopId, date]);
+
+            if (cachedRow.rows[0]) {
+                const r = cachedRow.rows[0];
+                spendBeforeTax = parseFloat(r.spend_before_tax || '0');
+                spendAfterTax = parseFloat(r.spend_after_tax || '0');
+                cpasSpend = parseFloat(r.cpas_spend || '0');
+                shopeeCpcSpend = parseFloat(r.shopee_cpc_spend || '0');
+                hasCachedSpend = true;
+            }
+        }
+
+        let gmv = 0;
+        let orderCount = 0;
+        let shopName = `Shopee Shop ${shopId}`;
+
+        if (hasCachedSpend) {
+            // Spend is cached; only query Shopee Order API to get latest GMV / cancellations
+            const accessToken = await getValidShopeeToken(shopId);
+            const orderData = await fetchShopeeGMVAndOrders(shopId, accessToken, date, date);
+            gmv = orderData.gmv || 0;
+            orderCount = orderData.orderCount || 0;
+            shopName = orderData.shopName;
+        } else {
+            // Fetch everything dynamically
+            const data = await fetchShopeeShopPerformance(shopId, date, date);
+            gmv = data.gmv || 0;
+            orderCount = data.orderCount || 0;
+            spendBeforeTax = data.spendBeforeTax || 0;
+            spendAfterTax = data.spendAfterTax || 0;
+            cpasSpend = data.cpasSpend || 0;
+            shopeeCpcSpend = data.shopeeCpcSpend || 0;
+            shopName = data.shopName;
+        }
+
+        const roasBeforeTax = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
+        const roasAfterTax = spendAfterTax > 0 ? gmv / spendAfterTax : 0;
 
         await query(`
             INSERT INTO credentials.daily_shopee_metrics (
@@ -105,9 +173,9 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
                 cpas_spend = EXCLUDED.cpas_spend,
                 shopee_cpc_spend = EXCLUDED.shopee_cpc_spend,
                 updated_at = CURRENT_TIMESTAMP
-        `, [shopId, data.shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend]);
+        `, [shopId, shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend]);
 
-        return { gmv, spend: spendBeforeTax, orders: orderCount, cpasSpend, shopeeCpcSpend, shopName: data.shopName };
+        return { gmv, spend: spendBeforeTax, orders: orderCount, cpasSpend, shopeeCpcSpend, shopName };
     } catch (e: any) {
         console.error(`[summary] Shopee Shop ${shopId} failed for ${date}:`, e.message);
         return { gmv: 0, spend: 0, orders: 0, cpasSpend: 0, shopeeCpcSpend: 0 };
@@ -154,7 +222,7 @@ async function fetchTikTokShopMetricsSWR(
 
     dates.forEach(date => {
         const isToday = date === today;
-        const isRecentPast = !isToday && dateDiffDays(date, today) <= 1; // only yesterday - avoids overwriting historical corrections
+        const isRecentPast = !isToday && dateDiffDays(date, today) <= 7; // past 7 days to dynamically catch order refunds/cancellations
         const cached = dbMap[date];
         const key = `tiktok_${date}_${shopNumber}`;
 
@@ -307,7 +375,7 @@ async function fetchShopeeShopMetricsSWR(
 
     dates.forEach(date => {
         const isToday = date === today;
-        const isRecentPast = !isToday && dateDiffDays(date, today) <= 1; // only yesterday - avoids overwriting historical corrections
+        const isRecentPast = !isToday && dateDiffDays(date, today) <= 7; // past 7 days to dynamically catch order refunds/cancellations
         const cached = dbMap[date];
         const key = `shopee_${date}_${shopId}`;
 

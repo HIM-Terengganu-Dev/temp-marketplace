@@ -363,7 +363,9 @@ async function getGMVMaxCampaignIds(accessToken: string, advertiserId: string, p
             });
 
             const data = await response.json();
-            if (data.code !== 0) break;
+            if (data.code !== 0) {
+                throw new Error(`TikTok API Error fetching GMV Max campaigns: ${data.message} (code: ${data.code})`);
+            }
 
             const list = data.data?.list || [];
             list.forEach((c: any) => campaignIds.add(c.campaign_id));
@@ -374,8 +376,9 @@ async function getGMVMaxCampaignIds(accessToken: string, advertiserId: string, p
             } else {
                 page++;
             }
-        } catch {
-            break;
+        } catch (error: any) {
+            console.error(`Error in getGMVMaxCampaignIds:`, error.message || error);
+            throw error;
         }
     }
 
@@ -420,14 +423,12 @@ async function fetchGMVMaxCost(accessToken: string, advertiserId: string, shopId
                     delayMs *= 2;
                     continue;
                 } else {
-                    console.error(`[GMV Max] Rate limit persisted after ${MAX_RETRIES} retries for ${promotionType}. Returning 0.`);
-                    return 0;
+                    throw new Error(`TikTok GMV Max report API rate limit persisted after ${MAX_RETRIES} retries.`);
                 }
             }
 
             if (data.code !== 0) {
-                console.error('GMV Max report error:', data);
-                return 0;
+                throw new Error(`TikTok GMV Max report error: ${data.message} (code: ${data.code})`);
             }
 
             const list = data.data?.list || [];
@@ -439,13 +440,13 @@ async function fetchGMVMaxCost(accessToken: string, advertiserId: string, shopId
             });
 
             return totalCost;
-        } catch (error) {
-            console.error('Error fetching GMV Max cost:', error);
-            return 0;
+        } catch (error: any) {
+            console.error('Error fetching GMV Max cost:', error.message || error);
+            throw error;
         }
     }
 
-    return 0;
+    throw new Error(`TikTok GMV Max report fetch failed after retries loop`);
 }
 
 async function getGMVMaxCampaignIdsForAccount(advertiserId: string, accessToken: string): Promise<Set<string>> {
@@ -475,7 +476,9 @@ async function getGMVMaxCampaignIdsForAccount(advertiserId: string, accessToken:
                 });
 
                 const data = await response.json();
-                if (data.code !== 0) break;
+                if (data.code !== 0) {
+                    throw new Error(`TikTok API Error fetching GMV Max campaign IDs for account: ${data.message} (code: ${data.code})`);
+                }
 
                 const list = data.data?.list || [];
                 list.forEach((c: any) => gmvMaxIds.add(c.campaign_id));
@@ -486,8 +489,9 @@ async function getGMVMaxCampaignIdsForAccount(advertiserId: string, accessToken:
                 } else {
                     page++;
                 }
-            } catch {
-                break;
+            } catch (error: any) {
+                console.error(`Error in getGMVMaxCampaignIdsForAccount:`, error.message || error);
+                throw error;
             }
         }
     }
@@ -535,7 +539,9 @@ async function fetchManualCampaignSpend(advertiserId: string, accessToken: strin
 
             const data = await response.json();
 
-            if (data.code !== 0) break;
+            if (data.code !== 0) {
+                throw new Error(`TikTok report API Error: ${data.message} (code: ${data.code})`);
+            }
 
             const list = data.data?.list || [];
 
@@ -553,8 +559,9 @@ async function fetchManualCampaignSpend(advertiserId: string, accessToken: strin
                 page++;
             }
         }
-    } catch (error) {
-        console.error(`Error fetching manual spend:`, error);
+    } catch (error: any) {
+        console.error(`Error fetching manual spend:`, error.message || error);
+        throw error;
     }
 
     return totalSpend;
