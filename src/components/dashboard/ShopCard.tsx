@@ -3,10 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus, Loader2, AlertCircle, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SyncIndicator } from "./SyncIndicator";
 
 interface ShopCardProps {
     data: ShopData;
     onClick?: () => void;
+    isLoading?: boolean;
 }
 
 function TrendArrow({ pct }: { pct?: number }) {
@@ -57,7 +59,7 @@ const PLATFORM_CONFIG: Record<string, {
     },
 };
 
-export function ShopCard({ data, onClick }: ShopCardProps) {
+export function ShopCard({ data, onClick, isLoading = false }: ShopCardProps) {
     const isConnected = data.status === "connected";
     const isClickable = isConnected && !!onClick;
     const platform = data.platform || "TikTok";
@@ -93,20 +95,25 @@ export function ShopCard({ data, onClick }: ShopCardProps) {
                         <span className="truncate">{platform} · {data.type === "shop" ? "Shop" : "Ad Account"}</span>
                     </p>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                    <Badge
-                        variant="outline"
-                        className={cn(
-                            "text-[9px] px-1.5 py-0.5 h-5 font-semibold",
-                            isConnected
-                                ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/8"
-                                : "text-muted-foreground border-border/50"
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1">
+                        <Badge
+                            variant="outline"
+                            className={cn(
+                                "text-[9px] px-1.5 py-0.5 h-5 font-semibold",
+                                isConnected
+                                    ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/8"
+                                    : "text-muted-foreground border-border/50"
+                            )}
+                        >
+                            {isConnected ? "Active" : "Pending"}
+                        </Badge>
+                        {isClickable && (
+                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200" />
                         )}
-                    >
-                        {isConnected ? "Active" : "Pending"}
-                    </Badge>
-                    {isClickable && (
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200" />
+                    </div>
+                    {isConnected && (
+                        <SyncIndicator isLoading={isLoading} dataSource={data.dataSource} />
                     )}
                 </div>
             </CardHeader>

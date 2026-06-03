@@ -13,6 +13,7 @@ import { useSession } from "next-auth/react";
 import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag, DollarSign, Percent } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SyncIndicator } from "@/components/dashboard/SyncIndicator";
 
 /* ── helpers ────────────────────────────────────────────────────────────── */
 
@@ -649,19 +650,22 @@ export default function Home() {
                 </div>
             </div>
 
-            {/* ── Summary Cards — 2-col on mobile, 4-col on lg ────────── */}
+            {/* ── Row 1: Summary Cards — Total GMV (Highlighted), Ad Spend, ROAS ────────── */}
             <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
-                {/* 1. GMV */}
-                <Card className="col-span-2 sm:col-span-1 border-border/40 bg-card/70 backdrop-blur-sm">
+                {/* 1. GMV Hero Card */}
+                <Card className="col-span-2 lg:col-span-2 bg-gradient-to-br from-primary/15 to-purple-900/10 border-primary/25 backdrop-blur-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total GMV</CardTitle>
+                        <div className="flex flex-col gap-1">
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-primary">Total GMV</CardTitle>
+                            <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
+                        </div>
                         {!isLoading && <TrendBadge pct={gmvPct} />}
                     </CardHeader>
-                    <CardContent className="px-4 pb-4">
-                        <div className="text-xl sm:text-2xl font-extrabold tabular-nums leading-none">
+                    <CardContent className="px-4 pb-4 space-y-3">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight tabular-nums leading-none pt-2">
                             RM {totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1.5">
+                        <p className="text-[10px] text-muted-foreground mt-2">
                             {totalOrders.toLocaleString()} orders · {cmpLabel}
                         </p>
                     </CardContent>
@@ -670,7 +674,10 @@ export default function Home() {
                 {/* 2. Ad Spend */}
                 <Card className="col-span-2 sm:col-span-1 border-border/40 bg-card/70 backdrop-blur-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ad Spend</CardTitle>
+                        <div className="flex flex-col gap-1">
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ad Spend</CardTitle>
+                            <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
+                        </div>
                         {!isLoading && <TrendBadge pct={spendPct} />}
                     </CardHeader>
                     <CardContent className="px-4 pb-4 space-y-2">
@@ -690,53 +697,209 @@ export default function Home() {
                     </CardContent>
                 </Card>
 
-                {/* 3. ROAS Hero Card — spans full width on mobile, 2 cols on md+ */}
-                <Card className="col-span-2 lg:col-span-2 bg-gradient-to-br from-primary/15 to-purple-900/10 border-primary/25 backdrop-blur-sm">
+                {/* 3. ROAS */}
+                <Card className="col-span-2 sm:col-span-1 border-border/40 bg-card/70 backdrop-blur-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-primary">
-                            ROAS
-                        </CardTitle>
-                        <div className="flex items-center gap-2">
-                            {!isLoading && <TrendBadge pct={roasPct} />}
-                            <Badge
-                                variant="outline"
-                                className={cn(
-                                    "text-[9px] h-5 px-1.5",
-                                    isLoading
-                                        ? "border-yellow-500/50 text-yellow-400"
-                                        : dataSource.includes("database")
-                                        ? "border-blue-500/50 text-blue-400"
-                                        : "border-primary/50 text-primary"
-                                )}
-                            >
-                                {isLoading ? "…"
-                                    : dataSource.includes("database") && !dataSource.includes("api") ? "DB"
-                                    : dataSource.includes("database") ? "Mixed"
-                                    : "Live"}
-                            </Badge>
+                        <div className="flex flex-col gap-1">
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ROAS</CardTitle>
+                            <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
                         </div>
+                        {!isLoading && <TrendBadge pct={roasPct} />}
                     </CardHeader>
-                    <CardContent className="px-4 pb-4 space-y-3">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Before Tax</p>
-                                <div className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight tabular-nums">
-                                    {totalRoas.toFixed(2)}x
-                                </div>
-                            </div>
-                            <div>
-                                <p className="text-[9px] text-purple-400 font-bold uppercase tracking-wider">After Tax</p>
-                                <div className="text-2xl sm:text-3xl font-extrabold text-purple-400 tracking-tight tabular-nums">
-                                    {totalRoasAfterTax.toFixed(2)}x
-                                </div>
+                    <CardContent className="px-4 pb-4 space-y-2">
+                        <div>
+                            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Before Tax</p>
+                            <div className="text-xl font-extrabold tabular-nums">
+                                {totalRoas.toFixed(2)}x
                             </div>
                         </div>
-                        <p className="text-[10px] text-muted-foreground">
-                            Calculated dynamically including SST (8%) and Withholding Tax (8%) • {cmpLabel}
-                        </p>
+                        <div className="pt-1.5 border-t border-border/30">
+                            <p className="text-[9px] text-purple-400 font-bold uppercase tracking-wider">After Tax</p>
+                            <div className="text-xl font-extrabold text-purple-400 tabular-nums">
+                                {totalRoasAfterTax.toFixed(2)}x
+                            </div>
+                        </div>
+                        <p className="text-[9px] text-muted-foreground">{cmpLabel}</p>
                     </CardContent>
                 </Card>
             </div>
+
+            {/* ── Row 2: Platform-Specific Performance Breakdown ────────── */}
+            <div className="grid gap-4 md:grid-cols-2">
+                {/* 1. TikTok Shop Card */}
+                <Card className="border-slate-800/80 bg-slate-900/20 hover:border-slate-700/60 transition-all duration-300 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/30">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🎵</span>
+                            <div>
+                                <CardTitle className="text-sm font-bold text-slate-100">TikTok Shop</CardTitle>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Performance across TikTok shops</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
+                            <Badge className="bg-primary/20 text-primary border border-primary/30">TikTok</Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Sales</span>
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
+                                RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Cost</span>
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
+                                RM {ttsSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-[9px] text-purple-400 font-medium">
+                                RM {ttsSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
+                            </div>
+                        </div>
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">ROAS</span>
+                            <div className="text-base sm:text-lg font-extrabold text-green-400">
+                                {ttsRoas.toFixed(2)}x
+                            </div>
+                            <div className="text-[9px] text-emerald-400 font-medium">
+                                {ttsRoasAfterTax.toFixed(2)}x (Net)
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* 2. Shopee Card */}
+                <Card className="border-slate-800/80 bg-slate-900/20 hover:border-slate-700/60 transition-all duration-300 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/30">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🛍️</span>
+                            <div>
+                                <CardTitle className="text-sm font-bold text-slate-100">Shopee Shop</CardTitle>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Performance across Shopee shops</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
+                            <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">Shopee</Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Sales</span>
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
+                                RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Cost</span>
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
+                                RM {shpSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-[9px] text-purple-400 font-medium">
+                                RM {shpSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
+                            </div>
+                        </div>
+                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">ROAS</span>
+                            <div className="text-base sm:text-lg font-extrabold text-green-400">
+                                {shpRoas.toFixed(2)}x
+                            </div>
+                            <div className="text-[9px] text-emerald-400 font-medium">
+                                {shpRoasAfterTax.toFixed(2)}x (Net)
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* ── Row 3: % Contribution by Platform & Store ────────────────────── */}
+            {totalRevenue > 0 && (
+                <div className="grid gap-4 md:grid-cols-2">
+                    {/* Platform Contribution */}
+                    <Card className="border-slate-800/60 bg-slate-900/30 backdrop-blur-sm">
+                        <CardHeader className="pb-3 border-b border-slate-800/40">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                <Percent className="h-4 w-4 text-primary" />
+                                Platform Contribution
+                            </CardTitle>
+                            <p className="text-[10px] text-muted-foreground">% of total GMV by marketplace</p>
+                        </CardHeader>
+                        <CardContent className="pt-4 space-y-3">
+                            {/* TikTok */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="flex items-center gap-1.5 font-semibold text-slate-200">
+                                        <span className="text-sm">🎵</span> TikTok Shop
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-slate-400 font-mono text-[10px]">RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        <span className="font-bold text-primary">{ttsContrib.toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-primary to-purple-400 transition-all duration-700" style={{ width: `${ttsContrib}%` }} />
+                                </div>
+                            </div>
+                            {/* Shopee */}
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="flex items-center gap-1.5 font-semibold text-slate-200">
+                                        <span className="text-sm">🛍️</span> Shopee
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-slate-400 font-mono text-[10px]">RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        <span className="font-bold text-orange-400">{shpContrib.toFixed(1)}%</span>
+                                    </div>
+                                </div>
+                                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-700" style={{ width: `${shpContrib}%` }} />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Per-Store Contribution */}
+                    <Card className="border-slate-800/60 bg-slate-900/30 backdrop-blur-sm">
+                        <CardHeader className="pb-3 border-b border-slate-800/40">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                <Percent className="h-4 w-4 text-amber-400" />
+                                Store Contribution
+                            </CardTitle>
+                            <p className="text-[10px] text-muted-foreground">% of total GMV by individual store</p>
+                        </CardHeader>
+                        <CardContent className="pt-4 space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                            {[...shopData]
+                                .filter(s => (s.revenue ?? 0) > 0)
+                                .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
+                                .map((shop, idx) => {
+                                    const contrib = totalRevenue > 0 ? ((shop.revenue ?? 0) / totalRevenue) * 100 : 0;
+                                    const isTikTok = shop.platform === 'TikTok';
+                                    return (
+                                        <div key={shop.id} className="space-y-1">
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="flex items-center gap-1.5 font-medium text-slate-300 truncate max-w-[55%]">
+                                                    <span className="text-[10px]">{isTikTok ? '🎵' : '🛍️'}</span>
+                                                    <span className="truncate">{shop.name}</span>
+                                                </span>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <span className="text-slate-500 font-mono text-[9px]">RM {(shop.revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                                    <span className={cn("font-bold text-xs", isTikTok ? "text-primary" : "text-orange-400")}>{contrib.toFixed(1)}%</span>
+                                                </div>
+                                            </div>
+                                            <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                                <div
+                                                    className={cn("h-full rounded-full transition-all duration-700", isTikTok ? "bg-gradient-to-r from-primary/80 to-purple-400/80" : "bg-gradient-to-r from-orange-500/80 to-amber-400/80")}
+                                                    style={{ width: `${contrib}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             {/* ── Profit & Cost Breakdown ────────────────────────────────── */}
             {totalRevenue > 0 && (
@@ -848,177 +1011,6 @@ export default function Home() {
                     </CardContent>
                 </Card>
             )}
-
-            {/* ── % Contribution by Platform & Store ────────────────────── */}
-            {totalRevenue > 0 && (
-                <div className="grid gap-4 md:grid-cols-2">
-                    {/* Platform Contribution */}
-                    <Card className="border-slate-800/60 bg-slate-900/30 backdrop-blur-sm">
-                        <CardHeader className="pb-3 border-b border-slate-800/40">
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <Percent className="h-4 w-4 text-primary" />
-                                Platform Contribution
-                            </CardTitle>
-                            <p className="text-[10px] text-muted-foreground">% of total GMV by marketplace</p>
-                        </CardHeader>
-                        <CardContent className="pt-4 space-y-3">
-                            {/* TikTok */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="flex items-center gap-1.5 font-semibold text-slate-200">
-                                        <span className="text-sm">🎵</span> TikTok Shop
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-slate-400 font-mono text-[10px]">RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                        <span className="font-bold text-primary">{ttsContrib.toFixed(1)}%</span>
-                                    </div>
-                                </div>
-                                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
-                                    <div className="h-full rounded-full bg-gradient-to-r from-primary to-purple-400 transition-all duration-700" style={{ width: `${ttsContrib}%` }} />
-                                </div>
-                            </div>
-                            {/* Shopee */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="flex items-center gap-1.5 font-semibold text-slate-200">
-                                        <span className="text-sm">🛍️</span> Shopee
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-slate-400 font-mono text-[10px]">RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                        <span className="font-bold text-orange-400">{shpContrib.toFixed(1)}%</span>
-                                    </div>
-                                </div>
-                                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
-                                    <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-700" style={{ width: `${shpContrib}%` }} />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Per-Store Contribution */}
-                    <Card className="border-slate-800/60 bg-slate-900/30 backdrop-blur-sm">
-                        <CardHeader className="pb-3 border-b border-slate-800/40">
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <Percent className="h-4 w-4 text-amber-400" />
-                                Store Contribution
-                            </CardTitle>
-                            <p className="text-[10px] text-muted-foreground">% of total GMV by individual store</p>
-                        </CardHeader>
-                        <CardContent className="pt-4 space-y-3 max-h-[220px] overflow-y-auto pr-1">
-                            {[...shopData]
-                                .filter(s => (s.revenue ?? 0) > 0)
-                                .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
-                                .map((shop, idx) => {
-                                    const contrib = totalRevenue > 0 ? ((shop.revenue ?? 0) / totalRevenue) * 100 : 0;
-                                    const isTikTok = shop.platform === 'TikTok';
-                                    return (
-                                        <div key={shop.id} className="space-y-1">
-                                            <div className="flex items-center justify-between text-xs">
-                                                <span className="flex items-center gap-1.5 font-medium text-slate-300 truncate max-w-[55%]">
-                                                    <span className="text-[10px]">{isTikTok ? '🎵' : '🛍️'}</span>
-                                                    <span className="truncate">{shop.name}</span>
-                                                </span>
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    <span className="text-slate-500 font-mono text-[9px]">RM {(shop.revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                                    <span className={cn("font-bold text-xs", isTikTok ? "text-primary" : "text-orange-400")}>{contrib.toFixed(1)}%</span>
-                                                </div>
-                                            </div>
-                                            <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                                                <div
-                                                    className={cn("h-full rounded-full transition-all duration-700", isTikTok ? "bg-gradient-to-r from-primary/80 to-purple-400/80" : "bg-gradient-to-r from-orange-500/80 to-amber-400/80")}
-                                                    style={{ width: `${contrib}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
-
-            {/* Platform-Specific Performance Breakdown */}
-            <div className="grid gap-4 md:grid-cols-2">
-                {/* 1. TikTok Shop Card */}
-                <Card className="border-slate-800/80 bg-slate-900/20 hover:border-slate-700/60 transition-all duration-300 backdrop-blur-sm">
-                    <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/30">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl">🎵</span>
-                            <div>
-                                <CardTitle className="text-sm font-bold text-slate-100">TikTok Shop</CardTitle>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">Performance across TikTok shops</p>
-                            </div>
-                        </div>
-                        <Badge className="bg-primary/20 text-primary border border-primary/30">TikTok</Badge>
-                    </CardHeader>
-                    <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Sales</span>
-                            <div className="text-base sm:text-lg font-extrabold text-foreground">
-                                RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </div>
-                        </div>
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Cost</span>
-                            <div className="text-base sm:text-lg font-extrabold text-foreground">
-                                RM {ttsSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </div>
-                            <div className="text-[9px] text-purple-400 font-medium">
-                                RM {ttsSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
-                            </div>
-                        </div>
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">ROAS</span>
-                            <div className="text-base sm:text-lg font-extrabold text-green-400">
-                                {ttsRoas.toFixed(2)}x
-                            </div>
-                            <div className="text-[9px] text-emerald-400 font-medium">
-                                {ttsRoasAfterTax.toFixed(2)}x (Net)
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* 2. Shopee Card */}
-                <Card className="border-slate-800/80 bg-slate-900/20 hover:border-slate-700/60 transition-all duration-300 backdrop-blur-sm">
-                    <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/30">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl">🛍️</span>
-                            <div>
-                                <CardTitle className="text-sm font-bold text-slate-100">Shopee Shop</CardTitle>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">Performance across Shopee shops</p>
-                            </div>
-                        </div>
-                        <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">Shopee</Badge>
-                    </CardHeader>
-                    <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Sales</span>
-                            <div className="text-base sm:text-lg font-extrabold text-foreground">
-                                RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </div>
-                        </div>
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Cost</span>
-                            <div className="text-base sm:text-lg font-extrabold text-foreground">
-                                RM {shpSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </div>
-                            <div className="text-[9px] text-purple-400 font-medium">
-                                RM {shpSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
-                            </div>
-                        </div>
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">ROAS</span>
-                            <div className="text-base sm:text-lg font-extrabold text-green-400">
-                                {shpRoas.toFixed(2)}x
-                            </div>
-                            <div className="text-[9px] text-emerald-400 font-medium">
-                                {shpRoasAfterTax.toFixed(2)}x (Net)
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
 
             {/* Performance Chart */}
             <Card className="border-border/50 bg-card/40 backdrop-blur-sm">
@@ -1201,6 +1193,7 @@ export default function Home() {
                             key={shop.id}
                             data={shop}
                             onClick={() => setSelectedShop(shop)}
+                            isLoading={isLoading}
                         />
                     ))}
                 </div>
