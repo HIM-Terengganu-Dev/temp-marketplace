@@ -12,7 +12,8 @@
     "db:setup-livestream": "tsx scripts/setup-livestream-db.ts",
     "db:populate": "tsx scripts/populate-tokens.ts",
     "db:sync-daily": "tsx scripts/sync-daily-metrics.ts",
-    "db:backfill-history": "tsx scripts/backfill-history.ts"
+    "db:backfill-history": "tsx scripts/backfill-history.ts",
+    "db:nightly-sync": "tsx scripts/nightly-sync.ts"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",

@@ -1,5 +1,5 @@
 import React from "react";
-import { RefreshCw, CheckCircle2, Database } from "lucide-react";
+import { RefreshCw, CheckCircle2, Database, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SyncIndicatorProps {
@@ -29,9 +29,27 @@ export function SyncIndicator({
         );
     }
 
-    const isDb = dataSource.toLowerCase().includes("database") || dataSource.toLowerCase().includes("cache") || dataSource.toLowerCase().includes("recovery");
-    const isMixed = dataSource.toLowerCase().includes("+") || dataSource.toLowerCase().includes("mixed");
-    const isApi = dataSource.toLowerCase().includes("api") || dataSource.toLowerCase().includes("live");
+    const ds = dataSource.toLowerCase();
+    const isStale  = ds.includes("stale");
+    const isDb     = !isStale && (ds.includes("database") || ds.includes("cache") || ds.includes("recovery"));
+    const isMixed  = !isStale && (ds.includes("+") || ds.includes("mixed"));
+    const isApi    = !isStale && (ds.includes("api") || ds.includes("live"));
+
+    // Stale: mid-day DB snapshot, live re-fetch is happening synchronously
+    if (isStale) {
+        return (
+            <span
+                className={cn(
+                    "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium border border-amber-500/40 text-amber-400 bg-amber-500/10 select-none animate-pulse",
+                    className
+                )}
+                title="Data was cached mid-day. Refreshing from live API…"
+            >
+                <AlertTriangle className="h-2.5 w-2.5 text-amber-400" />
+                {showText && "Stale · Refreshing"}
+            </span>
+        );
+    }
 
     let text = "Synced";
     let styleClass = "border-emerald-500/30 text-emerald-400 bg-emerald-500/10";
@@ -63,3 +81,4 @@ export function SyncIndicator({
         </span>
     );
 }
+

@@ -17,6 +17,21 @@ function dateDiffDays(dateStr: string, todayStr: string): number {
     return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * Returns true if the DB row for `date` was written AFTER that day fully
+ * closed in KL time (i.e. after midnight KL = 16:00 UTC of that day).
+ * A row synced before midnight is considered "mid-day stale" and must be
+ * re-fetched live to guarantee correct totals.
+ */
+function isDayClosed(dateStr: string, updatedAt: Date | string | undefined): boolean {
+    if (!updatedAt) return false;
+    const syncedAt = new Date(updatedAt);
+    // Midnight KL (GMT+8) of the NEXT day = 16:00 UTC of `dateStr`
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const midnightKL = new Date(Date.UTC(y, m - 1, d, 16, 0, 0)); // 16:00 UTC = 00:00 KL next day
+    return syncedAt >= midnightKL;
+}
+
 function generateDateRange(startStr: string, endStr: string): string[] {
     const dates: string[] = [];
     const [sy, sm, sd] = startStr.split('-').map(Number);
@@ -217,6 +232,7 @@ async function fetchTikTokShopMetricsSWR(
     let shopName = shopConfig?.name || `Shop ${shopNumber}`;
     let loadedFromDbCount = 0;
     let loadedFromApiCount = 0;
+    let loadedStaleCount = 0; // rows served from DB but written before day closed
 
     const syncPromises: Promise<{ gmv: number; spend: number; orders: number; shopName?: string }>[] = [];
 
@@ -255,17 +271,28 @@ async function fetchTikTokShopMetricsSWR(
             }
         } else if (isRecentPast) {
             if (cached) {
-                totalGMV += cached.gmv;
-                totalSpend += cached.spend;
-                totalOrders += cached.orders;
-                if (cached.shopName) shopName = cached.shopName;
-                loadedFromDbCount++;
-                // Queue background revalidation thunk
-                backgroundThunks.push({
-                    key,
-                    date,
-                    fn: () => fetchAndSaveTikTok(shopNumber, date)
-                });
+                const dayClosed = isDayClosed(date, cached.updatedAt);
+                if (dayClosed) {
+                    // Day has fully closed and DB was synced after midnight — data is final, trust it
+                    totalGMV += cached.gmv;
+                    totalSpend += cached.spend;
+                    totalOrders += cached.orders;
+                    if (cached.shopName) shopName = cached.shopName;
+                    loadedFromDbCount++;
+                    // Still queue a light background refresh for refund/cancellation adjustments
+                    backgroundThunks.push({
+                        key,
+                        date,
+                        fn: () => fetchAndSaveTikTok(shopNumber, date)
+                    });
+                } else {
+                    // DB row was written mid-day (before midnight KL) — data is incomplete.
+                    // Re-fetch live synchronously so first load shows correct totals.
+                    console.log(`[summary-swr] TikTok Shop ${shopNumber} date ${date}: DB cached mid-day (before close), re-fetching live...`);
+                    syncPromises.push(fetchAndSaveTikTok(shopNumber, date));
+                    loadedStaleCount++;
+                    loadedFromApiCount++;
+                }
             } else {
                 syncPromises.push(fetchAndSaveTikTok(shopNumber, date));
                 loadedFromApiCount++;
@@ -315,6 +342,11 @@ async function fetchTikTokShopMetricsSWR(
         dataSource = 'database+api';
     } else if (loadedFromDbCount > 0) {
         dataSource = 'database';
+    }
+    // Override with stale marker if any row was served from an incomplete mid-day snapshot
+    if (loadedStaleCount > 0 && loadedFromApiCount === loadedStaleCount) {
+        // All data came from live re-fetch of stale rows — mark as fresh
+        dataSource = 'live_api';
     }
 
     return {
@@ -370,6 +402,7 @@ async function fetchShopeeShopMetricsSWR(
     let shopName = `Shopee Shop ${shopId}`;
     let loadedFromDbCount = 0;
     let loadedFromApiCount = 0;
+    let loadedStaleCount = 0; // rows served from DB but written before day closed
 
     const syncPromises: Promise<{ gmv: number; spend: number; orders: number; cpasSpend: number; shopeeCpcSpend: number; shopName?: string }>[] = [];
 
@@ -412,18 +445,30 @@ async function fetchShopeeShopMetricsSWR(
             }
         } else if (isRecentPast) {
             if (cached) {
-                totalGMV += cached.gmv;
-                totalSpend += cached.spend;
-                totalOrders += cached.orders;
-                totalCpasSpend += cached.cpasSpend;
-                totalShopeeCpcSpend += cached.shopeeCpcSpend;
-                if (cached.shopName) shopName = cached.shopName;
-                loadedFromDbCount++;
-                backgroundThunks.push({
-                    key,
-                    date,
-                    fn: () => fetchAndSaveShopee(shopId, date)
-                });
+                const dayClosed = isDayClosed(date, cached.updatedAt);
+                if (dayClosed) {
+                    // Day has fully closed and DB was synced after midnight — data is final, trust it
+                    totalGMV += cached.gmv;
+                    totalSpend += cached.spend;
+                    totalOrders += cached.orders;
+                    totalCpasSpend += cached.cpasSpend;
+                    totalShopeeCpcSpend += cached.shopeeCpcSpend;
+                    if (cached.shopName) shopName = cached.shopName;
+                    loadedFromDbCount++;
+                    // Still queue a light background refresh for refund/cancellation adjustments
+                    backgroundThunks.push({
+                        key,
+                        date,
+                        fn: () => fetchAndSaveShopee(shopId, date)
+                    });
+                } else {
+                    // DB row was written mid-day (before midnight KL) — data is incomplete.
+                    // Re-fetch live synchronously so first load shows correct totals.
+                    console.log(`[summary-swr] Shopee Shop ${shopId} date ${date}: DB cached mid-day (before close), re-fetching live...`);
+                    syncPromises.push(fetchAndSaveShopee(shopId, date));
+                    loadedStaleCount++;
+                    loadedFromApiCount++;
+                }
             } else {
                 syncPromises.push(fetchAndSaveShopee(shopId, date));
                 loadedFromApiCount++;
@@ -476,6 +521,10 @@ async function fetchShopeeShopMetricsSWR(
         dataSource = 'database+api';
     } else if (loadedFromDbCount > 0) {
         dataSource = 'database';
+    }
+    // If all api loads were re-fetches of stale rows, data is now fresh
+    if (loadedStaleCount > 0 && loadedFromApiCount === loadedStaleCount) {
+        dataSource = 'live_api';
     }
 
     return {
