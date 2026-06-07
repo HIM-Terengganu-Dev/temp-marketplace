@@ -10,7 +10,7 @@
  * The popup will automatically appear for all users on their next visit.
  */
 
-export const APP_VERSION = "1.4.0";
+export const APP_VERSION = "1.5.0";
 
 export type ChangeType = "new" | "fix" | "improve" | "remove";
 
@@ -29,6 +29,31 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+    {
+        version: "1.5.0",
+        date: "7 Jun 2026",
+        emoji: "✨",
+        title: "You Can Now See Every Update We Make",
+        summary: "From now on, every time we improve this dashboard, a popup will tell you exactly what changed — in simple language, not technical talk.",
+        changes: [
+            {
+                type: "new",
+                text: "This 'What's New' popup! It will appear automatically every time there's an update, so you always know what's been improved",
+            },
+            {
+                type: "new",
+                text: "A '✨ What's New' button is now in the toolbar — click it anytime to see the full list of all past updates",
+            },
+            {
+                type: "new",
+                text: "A small red dot appears on the button when there's something new you haven't seen yet",
+            },
+            {
+                type: "improve",
+                text: "All previous updates are listed here too, so new team members can catch up on everything the dashboard can do",
+            },
+        ],
+    },
     {
         version: "1.4.0",
         date: "7 Jun 2026",
