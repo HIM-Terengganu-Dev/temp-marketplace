@@ -154,7 +154,7 @@ export async function GET(request: Request) {
     for (const shop of shopeeShops) {
         const shopId = parseInt(shop.shop_id, 10);
         const r = await syncShopeeShop(shopId, shop.shop_name, date);
-        results.shopee.push({ shopId, shopName: shop.shop_name, ...r });
+        results.shopee.push({ shopId, ...r });
         await new Promise(resolve => setTimeout(resolve, 300));
     }
 
