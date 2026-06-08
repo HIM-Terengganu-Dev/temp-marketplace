@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SyncIndicator } from "@/components/dashboard/SyncIndicator";
 import { WhatsNewModal } from "@/components/dashboard/WhatsNewModal";
+import { LiveCountdownTimer } from "@/components/dashboard/LiveCountdownTimer";
 import { APP_VERSION } from "@/lib/changelog";
 import { Sparkles } from "lucide-react";
 
@@ -143,7 +144,7 @@ export default function Home() {
 
     // Live Auto-Refresh controls
     const [autoRefresh, setAutoRefresh] = useState(true);
-    const [secondsLeft, setSecondsLeft] = useState(30);
+    const [lastUpdated, setLastUpdated] = useState(Date.now());
 
     // What's New modal — auto-show when user hasn't seen current version
     const [whatsNewOpen, setWhatsNewOpen] = useState(false);
@@ -549,6 +550,7 @@ export default function Home() {
         } finally {
             if (abortControllerRef.current === controller) {
                 setIsLoading(false);
+                setLastUpdated(Date.now());
             }
         }
     }, [startDate, endDate, activePreset, session, companyFilter]);
@@ -556,7 +558,7 @@ export default function Home() {
     const handleManualRefresh = useCallback(() => {
         fetchData();
         if (activePreset === "today") {
-            setSecondsLeft(30);
+            setLastUpdated(Date.now());
         }
     }, [fetchData, activePreset]);
 
@@ -564,24 +566,8 @@ export default function Home() {
         fetchData();
     }, [fetchData]);
 
-    useEffect(() => {
-        if (activePreset !== "today" || !autoRefresh) {
-            setSecondsLeft(30);
-            return;
-        }
-
-        const interval = setInterval(() => {
-            setSecondsLeft((prev) => {
-                if (prev <= 1) {
-                    fetchData();
-                    return 30;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [autoRefresh, activePreset, fetchData]);
+    // The countdown timer is now managed in the child LiveCountdownTimer component
+    // to prevent parent re-renders every second.
 
     /* ── totals ─────────────────────────────────────────────────────────── */
     const totalRevenue = shopData.reduce((s, d) => s + (d.revenue ?? 0), 0);
@@ -663,21 +649,12 @@ export default function Home() {
 
                     {/* Live countdown (today only) */}
                     {activePreset === "today" && (
-                        <div className="flex items-center gap-2 bg-slate-900/70 border border-slate-700/50 rounded-xl px-3 py-1.5 backdrop-blur-sm select-none">
-                            <span className={cn(
-                                "h-2 w-2 rounded-full flex-shrink-0",
-                                autoRefresh ? "bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.5)]" : "bg-amber-500"
-                            )} />
-                            <span className="text-[11px] font-semibold text-slate-300 whitespace-nowrap">
-                                {autoRefresh ? `Live · ${secondsLeft}s` : "Paused"}
-                            </span>
-                            <button
-                                onClick={() => setAutoRefresh(!autoRefresh)}
-                                className="text-[10px] font-bold text-slate-400 hover:text-white transition-colors px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700/50"
-                            >
-                                {autoRefresh ? "Pause" : "Resume"}
-                            </button>
-                        </div>
+                        <LiveCountdownTimer
+                            autoRefresh={autoRefresh}
+                            onToggleAutoRefresh={() => setAutoRefresh(!autoRefresh)}
+                            onTriggerRefresh={handleManualRefresh}
+                            lastUpdated={lastUpdated}
+                        />
                     )}
 
                     {/* Refresh button */}
