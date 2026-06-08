@@ -10,7 +10,7 @@
  * The popup will automatically appear for all users on their next visit.
  */
 
-export const APP_VERSION = "1.5.0";
+export const APP_VERSION = "1.5.1";
 
 export type ChangeType = "new" | "fix" | "improve" | "remove";
 
@@ -29,6 +29,23 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+    {
+        version: "1.5.1",
+        date: "8 Jun 2026",
+        emoji: "⚡",
+        title: "Dashboard Speed & Battery Optimization",
+        summary: "We optimized how the dashboard refreshes its live data. The page now runs much smoother, consumes less memory, and keeps older laptops running cool.",
+        changes: [
+            {
+                type: "improve",
+                text: "Optimized the live refresh timer to update only the timer text, preventing the entire page (charts, tables, and lists) from re-rendering every second.",
+            },
+            {
+                type: "improve",
+                text: "Drastically reduced CPU and graphics load, preventing older computers from running hot or spinning up fans.",
+            },
+        ],
+    },
     {
         version: "1.5.0",
         date: "7 Jun 2026",
