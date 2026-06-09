@@ -18,11 +18,17 @@ dotenv.config();
  *   npm run db:nightly-sync
  */
 
+/**
+ * Returns yesterday's date string in KL timezone (Asia/Kuala_Lumpur).
+ * Uses a timezone-safe approach: first get today's KL date string,
+ * parse it as UTC midnight, then subtract 1 day — avoids any UTC/KL
+ * boundary drift that can occur with raw millisecond subtraction.
+ */
 function getKLYesterday(): string {
-    const now = new Date();
-    // Get yesterday's date in KL timezone
-    now.setTime(now.getTime() - (24 * 60 * 60 * 1000));
-    return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+    const todayKL = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+    const [y, m, d] = todayKL.split('-').map(Number);
+    const yesterday = new Date(Date.UTC(y, m - 1, d - 1));
+    return yesterday.toISOString().split('T')[0];
 }
 
 function generateDateRange(startStr: string, endStr: string): string[] {

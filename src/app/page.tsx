@@ -10,7 +10,7 @@ import { PerformanceLineChart, PerformanceDataPoint } from "@/components/dashboa
 import { ShopDetailModal } from "@/components/dashboard/ShopDetailModal";
 import { ShopData } from "@/lib/mockData";
 import { useSession } from "next-auth/react";
-import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag, DollarSign, Percent } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag, DollarSign, Percent, ShieldCheck, X, CheckCircle2, AlertCircle, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SyncIndicator } from "@/components/dashboard/SyncIndicator";
@@ -18,6 +18,7 @@ import { WhatsNewModal } from "@/components/dashboard/WhatsNewModal";
 import { LiveCountdownTimer } from "@/components/dashboard/LiveCountdownTimer";
 import { APP_VERSION } from "@/lib/changelog";
 import { Sparkles } from "lucide-react";
+import { FeatureTour } from "@/components/dashboard/FeatureTour";
 
 /* ── helpers ────────────────────────────────────────────────────────────── */
 
@@ -146,16 +147,88 @@ export default function Home() {
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [lastUpdated, setLastUpdated] = useState(Date.now());
 
+    // Recheck Data state
+    const [isRechecking, setIsRechecking] = useState(false);
+    const [recheckLog, setRecheckLog] = useState<{
+        visible: boolean;
+        startDate: string;
+        endDate: string;
+        synced: number;
+        skipped: number;
+        failed: number;
+        results: {
+            shopNumber: number;
+            shopName: string;
+            date: string;
+            status: 'synced' | 'skipped' | 'failed';
+            wasPresent: boolean;
+            gmv?: number;
+            orders?: number;
+            spend?: number;
+            error?: string;
+        }[];
+    } | null>(null);
+
+    // fetchData ref — used by handleRecheck which is declared before fetchData
+    const fetchDataRef = useRef<() => void>(() => {});
+
+    const handleRecheck = useCallback(async () => {
+        setIsRechecking(true);
+        setRecheckLog(null);
+        try {
+            // Call the internal proxy — no CRON_SECRET needed client-side.
+            // The proxy validates the session and forwards to /api/cron/recheck.
+            const res = await fetch(
+                `/api/internal/recheck?startDate=${startDate}&endDate=${endDate}`
+            );
+            const data = await res.json();
+            setRecheckLog({
+                visible: true,
+                startDate: data.startDate || startDate,
+                endDate: data.endDate || endDate,
+                synced: data.synced ?? 0,
+                skipped: data.skipped ?? 0,
+                failed: data.failed ?? 0,
+                results: data.results || [],
+            });
+            // If anything was synced, refresh the dashboard data
+            if ((data.synced ?? 0) > 0) {
+                fetchDataRef.current();
+            }
+        } catch (e: any) {
+            setRecheckLog({
+                visible: true,
+                startDate,
+                endDate,
+                synced: 0,
+                skipped: 0,
+                failed: 1,
+                results: [{
+                    shopNumber: 0,
+                    shopName: 'Network Error',
+                    date: startDate,
+                    status: 'failed',
+                    wasPresent: false,
+                    error: e.message,
+                }],
+            });
+        } finally {
+            setIsRechecking(false);
+        }
+    }, [startDate, endDate]);
+
     // What's New modal — auto-show when user hasn't seen current version
     const [whatsNewOpen, setWhatsNewOpen] = useState(false);
     const [whatsNewDot, setWhatsNewDot] = useState(false); // red dot on button
+    const [autoStartTour, setAutoStartTour] = useState(false);
     useEffect(() => {
         const STORAGE_KEY = 'him_dashboard_seen_version';
         const seenVersion = localStorage.getItem(STORAGE_KEY);
         if (seenVersion !== APP_VERSION) {
-            // New version — show popup and mark as seen
+            // New version — show popup, mark as seen, and queue tour auto-start
             setWhatsNewOpen(true);
             setWhatsNewDot(true);
+            setAutoStartTour(true);
             localStorage.setItem(STORAGE_KEY, APP_VERSION);
         }
     }, []);
@@ -555,6 +628,12 @@ export default function Home() {
         }
     }, [startDate, endDate, activePreset, session, companyFilter]);
 
+    // Keep fetchDataRef current so handleRecheck can call it without a forward-reference issue
+    useEffect(() => {
+        fetchDataRef.current = fetchData;
+    }, [fetchData]);
+
+
     const handleManualRefresh = useCallback(() => {
         fetchData();
         if (activePreset === "today") {
@@ -669,6 +748,23 @@ export default function Home() {
                         Refresh
                     </Button>
 
+                    {/* Recheck Data button */}
+                    <Button
+                        id="tour-recheck-btn"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRecheck}
+                        disabled={isRechecking || isLoading}
+                        className="h-9 px-3 rounded-xl border-amber-600/40 bg-amber-500/8 hover:bg-amber-500/15 text-amber-400 hover:text-amber-300 font-semibold text-[11px] gap-1.5 transition-all duration-200"
+                        title="Scan for missing TikTok data and backfill if needed"
+                    >
+                        <ShieldCheck className={cn("h-3.5 w-3.5", isRechecking && "animate-pulse")} />
+                        {isRechecking ? 'Rechecking...' : 'Recheck Data'}
+                    </Button>
+
+                    {/* Feature Tour — 'How to use' trigger */}
+                    <FeatureTour autoStart={autoStartTour} />
+
                     {/* What's New button */}
                     <button
                         onClick={openWhatsNew}
@@ -706,7 +802,7 @@ export default function Home() {
                 </div>
 
                 {/* Row 2: Date picker — full width on mobile */}
-                <div className="w-full">
+                <div id="tour-date-picker" className="w-full">
                     <SimpleDatePicker
                         startDate={startDate}
                         setStartDate={setStartDate}
@@ -717,6 +813,99 @@ export default function Home() {
                     />
                 </div>
             </div>
+
+            {/* ── Recheck Log Panel ──────────────────────────────────────── */}
+            {recheckLog?.visible && (
+                <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 backdrop-blur-sm overflow-hidden animate-in slide-in-from-top duration-300">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-amber-500/15">
+                        <div className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-amber-400" />
+                            <span className="text-sm font-bold text-amber-300">Recheck Results</span>
+                            <span className="text-[10px] text-slate-400">{recheckLog.startDate} → {recheckLog.endDate}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {/* Summary badges */}
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                <CheckCircle2 className="h-3 w-3" /> {recheckLog.synced} Synced
+                            </span>
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded-full border border-slate-500/20">
+                                <SkipForward className="h-3 w-3" /> {recheckLog.skipped} OK
+                            </span>
+                            {recheckLog.failed > 0 && (
+                                <span className="flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
+                                    <AlertCircle className="h-3 w-3" /> {recheckLog.failed} Failed
+                                </span>
+                            )}
+                            <button
+                                onClick={() => setRecheckLog(prev => prev ? { ...prev, visible: false } : null)}
+                                className="text-slate-500 hover:text-slate-200 transition-colors p-1 rounded"
+                                aria-label="Dismiss recheck log"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                    {/* Results table */}
+                    <div className="overflow-x-auto max-h-[240px] overflow-y-auto">
+                        <table className="w-full min-w-[520px] text-left text-xs border-collapse">
+                            <thead className="sticky top-0 bg-slate-950/90 backdrop-blur-sm">
+                                <tr className="text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800/60">
+                                    <th className="px-4 py-2">Date</th>
+                                    <th className="px-4 py-2">Shop</th>
+                                    <th className="px-4 py-2 text-center">Status</th>
+                                    <th className="px-4 py-2 text-center">Was in DB</th>
+                                    <th className="px-4 py-2 text-right">GMV</th>
+                                    <th className="px-4 py-2 text-right">Orders</th>
+                                    <th className="px-4 py-2">Note</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {recheckLog.results.map((r, i) => (
+                                    <tr key={i} className="border-b border-slate-800/30 hover:bg-slate-800/20 transition-colors">
+                                        <td className="px-4 py-2 font-mono text-slate-400">{r.date}</td>
+                                        <td className="px-4 py-2 text-slate-300 font-medium">{r.shopName}</td>
+                                        <td className="px-4 py-2 text-center">
+                                            {r.status === 'synced' && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                                    <CheckCircle2 className="h-2.5 w-2.5" /> Synced
+                                                </span>
+                                            )}
+                                            {r.status === 'skipped' && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-700/30 px-2 py-0.5 rounded-full">
+                                                    <SkipForward className="h-2.5 w-2.5" /> OK
+                                                </span>
+                                            )}
+                                            {r.status === 'failed' && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">
+                                                    <AlertCircle className="h-2.5 w-2.5" /> Failed
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-2 text-center">
+                                            <span className={cn(
+                                                "text-[10px] font-semibold",
+                                                r.wasPresent ? "text-slate-400" : "text-amber-400"
+                                            )}>
+                                                {r.wasPresent ? 'Yes' : '⚠ No'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-right font-mono text-slate-300">
+                                            {r.gmv !== undefined ? `RM ${r.gmv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                                        </td>
+                                        <td className="px-4 py-2 text-right text-slate-300">
+                                            {r.orders !== undefined ? r.orders.toLocaleString() : '—'}
+                                        </td>
+                                        <td className="px-4 py-2 text-slate-500 text-[10px] max-w-[180px] truncate" title={r.error}>
+                                            {r.error ? r.error : r.status === 'synced' && !r.wasPresent ? 'Was missing — now fixed' : r.status === 'synced' ? 'Re-synced (had zero data)' : ''}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* ── Row 1: Summary Cards — Total GMV (Highlighted), Ad Spend, ROAS ────────── */}
             <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">

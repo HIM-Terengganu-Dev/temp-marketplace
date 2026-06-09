@@ -10,7 +10,7 @@
  * The popup will automatically appear for all users on their next visit.
  */
 
-export const APP_VERSION = "1.5.1";
+export const APP_VERSION = "1.6.0";
 
 export type ChangeType = "new" | "fix" | "improve" | "remove";
 
@@ -29,6 +29,35 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+    {
+        version: "1.6.0",
+        date: "9 Jun 2026",
+        emoji: "🛡️",
+        title: "Recheck Data — Never Miss a Day Again",
+        summary: "We found and fixed missing TikTok data for June 8 and June 9. A new 'Recheck Data' button lets you scan and fix any missing data yourself, on demand.",
+        changes: [
+            {
+                type: "fix",
+                text: "Fixed missing TikTok shop data for June 8 and June 9 — numbers for all 4 shops are now fully restored",
+            },
+            {
+                type: "new",
+                text: "New 'Recheck Data' button (amber shield icon) in the toolbar — select any date range and tap it to scan for missing data and fix it instantly",
+            },
+            {
+                type: "new",
+                text: "A results log appears after rechecking, showing every shop and date checked, whether data was already there, and what was fixed",
+            },
+            {
+                type: "improve",
+                text: "The nightly sync (1:00 AM) now auto-heals the previous 2 days on every run — so even if one night fails, the next will fix it automatically",
+            },
+            {
+                type: "fix",
+                text: "Fixed a date calculation bug that could cause the nightly sync to target the wrong day near midnight KL time",
+            },
+        ],
+    },
     {
         version: "1.5.1",
         date: "8 Jun 2026",

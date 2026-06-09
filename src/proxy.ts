@@ -44,6 +44,7 @@ export default withAuth(
 );
 
 export const config = {
-  // Protect everything except API routes (so NextAuth itself works), login page, unauthorized page, and public assets
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|login|unauthorized).*)"],
+  // Protect everything except: auth routes, cron routes (use CRON_SECRET Bearer auth),
+  // next internals, login page, unauthorized page, and public assets
+  matcher: ["/((?!api/auth|api/cron|_next/static|_next/image|favicon.ico|login|unauthorized).*)"],
 };

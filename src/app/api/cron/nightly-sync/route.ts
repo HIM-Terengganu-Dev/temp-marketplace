@@ -13,10 +13,29 @@ import { query, pool } from '@/lib/db';
  * Requests without the correct secret are rejected with 401.
  */
 
+/**
+ * Returns yesterday's date string in KL timezone (Asia/Kuala_Lumpur).
+ * Uses a timezone-safe approach: first get today's KL date string,
+ * parse it as UTC midnight, then subtract 1 day — avoids any UTC/KL
+ * boundary drift that can occur with raw millisecond subtraction.
+ */
 function getKLYesterday(): string {
-    const now = new Date();
-    now.setTime(now.getTime() - 24 * 60 * 60 * 1000);
-    return now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+    const todayKL = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+    const [y, m, d] = todayKL.split('-').map(Number);
+    const yesterday = new Date(Date.UTC(y, m - 1, d - 1));
+    return yesterday.toISOString().split('T')[0];
+}
+
+/** Returns today's date string in KL timezone. */
+function getKLToday(): string {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+}
+
+/** Returns a date N days before the given YYYY-MM-DD string. */
+function subDaysKL(dateStr: string, n: number): string {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d - n));
+    return dt.toISOString().split('T')[0];
 }
 
 async function syncTikTokShop(shopNumber: number, date: string) {
@@ -129,6 +148,36 @@ export async function GET(request: Request) {
 
     const startedAt = new Date().toISOString();
     console.log(`[cron/nightly-sync] Starting sync for date: ${date}`);
+
+    // ── Guard-sync: heal any missing TikTok data from the past 2 days ────────
+    // If the cron failed silently on a recent night, this ensures data is
+    // backfilled before we proceed with tonight's sync.
+    const today = getKLToday();
+    const guardDates = [subDaysKL(today, 1), subDaysKL(today, 2)].filter(d => d !== date);
+    for (const guardDate of guardDates) {
+        try {
+            const existing = await query(
+                `SELECT COUNT(*) AS cnt FROM credentials.daily_shop_metrics WHERE date = $1::date`,
+                [guardDate]
+            );
+            const cnt = parseInt(existing.rows[0]?.cnt || '0', 10);
+            if (cnt < 4) {
+                console.log(`[cron/nightly-sync] Guard-sync: ${guardDate} has only ${cnt}/4 TikTok shop rows — backfilling...`);
+                for (const shopNumber of [1, 2, 3, 4]) {
+                    const existingShop = await query(
+                        `SELECT 1 FROM credentials.daily_shop_metrics WHERE date = $1::date AND shop_number = $2`,
+                        [guardDate, shopNumber]
+                    );
+                    if (existingShop.rows.length === 0) {
+                        await syncTikTokShop(shopNumber, guardDate);
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                }
+            }
+        } catch (guardErr: any) {
+            console.warn(`[cron/nightly-sync] Guard-sync check for ${guardDate} failed:`, guardErr.message);
+        }
+    }
 
     const results: {
         tiktok: { shopNumber: number; shopName: string; success: boolean; gmv?: number; orders?: number; spend?: number; error?: string }[];
