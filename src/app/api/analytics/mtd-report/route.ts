@@ -3,6 +3,29 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
 
+// Shop ID mappings
+// Shopee: HIM = 562396517, 1077500606, 1256177782, 1285322524, 1290223366, 1298030530
+//         Weroca = 793855746, 1245549673
+// TikTok: HIM = shop_number 1 (Himclinic, DrSamhanWellness, HIM CLINIC)
+//         Weroca = shop_number 3, 4 (Vigomax HQ, VigomaxPlus HQ)
+
+const SHOPEE_HIM_IDS = [562396517, 1077500606, 1256177782, 1285322524, 1290223366, 1298030530];
+const SHOPEE_WEROCA_IDS = [793855746, 1245549673];
+const TIKTOK_HIM_NUMBERS = [1];
+const TIKTOK_WEROCA_NUMBERS = [3, 4];
+
+function buildShopeeFilter(companyFilter: string): string {
+    if (companyFilter === 'HIMWELLNESS') return `AND shop_id = ANY(ARRAY[${SHOPEE_HIM_IDS.join(',')}]::bigint[])`;
+    if (companyFilter === 'WEROCA') return `AND shop_id = ANY(ARRAY[${SHOPEE_WEROCA_IDS.join(',')}]::bigint[])`;
+    return '';
+}
+
+function buildTiktokFilter(companyFilter: string): string {
+    if (companyFilter === 'HIMWELLNESS') return `AND shop_number = ANY(ARRAY[${TIKTOK_HIM_NUMBERS.join(',')}]::int[])`;
+    if (companyFilter === 'WEROCA') return `AND shop_number = ANY(ARRAY[${TIKTOK_WEROCA_NUMBERS.join(',')}]::int[])`;
+    return '';
+}
+
 export async function GET(request: Request) {
     try {
         const session = await getServerSession(authOptions);
@@ -14,6 +37,10 @@ export async function GET(request: Request) {
         const targetMonth = searchParams.get('targetMonth') || '2026-06'; // YYYY-MM
         const dayRangeEndParam = searchParams.get('dayRangeEnd') || '10';
         const dayRangeEnd = parseInt(dayRangeEndParam, 10) || 10;
+        const companyFilter = (searchParams.get('companyFilter') || 'ALL').toUpperCase();
+
+        const shopeeWhere = buildShopeeFilter(companyFilter);
+        const tiktokWhere = buildTiktokFilter(companyFilter);
 
         // Extract year and month
         const [yearStr, monthStr] = targetMonth.split('-');
@@ -29,6 +56,7 @@ export async function GET(request: Request) {
               AND EXTRACT(MONTH FROM date) = $2
               AND EXTRACT(DAY FROM date) >= 1 
               AND EXTRACT(DAY FROM date) <= $3
+              ${shopeeWhere}
         `, [year, month, dayRangeEnd]);
 
         // Ecommerce (TikTok Shop) metrics
@@ -39,6 +67,7 @@ export async function GET(request: Request) {
               AND EXTRACT(MONTH FROM date) = $2
               AND EXTRACT(DAY FROM date) >= 1 
               AND EXTRACT(DAY FROM date) <= $3
+              ${tiktokWhere}
         `, [year, month, dayRangeEnd]);
 
         // Fetch preceding months' MTD data dynamically
@@ -63,6 +92,7 @@ export async function GET(request: Request) {
                   AND EXTRACT(MONTH FROM date) = $2
                   AND EXTRACT(DAY FROM date) >= 1 
                   AND EXTRACT(DAY FROM date) <= $3
+                  ${shopeeWhere}
             `, [m.year, m.month, dayRangeEnd]);
 
             // Aggregate TikTok
@@ -73,6 +103,7 @@ export async function GET(request: Request) {
                   AND EXTRACT(MONTH FROM date) = $2
                   AND EXTRACT(DAY FROM date) >= 1 
                   AND EXTRACT(DAY FROM date) <= $3
+                  ${tiktokWhere}
             `, [m.year, m.month, dayRangeEnd]);
 
             const shopeeSales = shopeeRes.rows[0]?.sales || 0;

@@ -1,8 +1,9 @@
 "use client";
 
-import { Bell, LogOut, Menu } from "lucide-react";
+import { Bell, LogOut, Menu, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 
@@ -30,6 +31,27 @@ function getPageTitle(pathname: string): string {
 export function Header({ onMenuClick }: HeaderProps) {
     const { data: session } = useSession();
     const pathname = usePathname();
+    const [mounted, setMounted] = useState(false);
+    const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+    useEffect(() => {
+        setMounted(true);
+        const isDark = document.documentElement.classList.contains("dark");
+        setTheme(isDark ? "dark" : "light");
+    }, []);
+
+    const toggleTheme = () => {
+        const root = document.documentElement;
+        if (theme === "dark") {
+            root.classList.remove("dark");
+            localStorage.setItem("theme", "light");
+            setTheme("light");
+        } else {
+            root.classList.add("dark");
+            localStorage.setItem("theme", "dark");
+            setTheme("dark");
+        }
+    };
 
     const getInitials = (name: string) =>
         name?.split(" ").map(n => n[0]).join("").toUpperCase().substring(0, 2) || "U";
@@ -65,6 +87,22 @@ export function Header({ onMenuClick }: HeaderProps) {
 
             {/* Right: actions */}
             <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+
+                {/* Theme Toggle */}
+                <button
+                    onClick={toggleTheme}
+                    className="flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200 cursor-pointer"
+                    aria-label="Toggle theme"
+                    title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                >
+                    {!mounted ? (
+                        <div className="h-5 w-5 md:h-4.5 md:w-4.5" />
+                    ) : theme === "dark" ? (
+                        <Sun className="h-5 w-5 md:h-4.5 md:w-4.5 text-amber-400 hover:text-amber-300 transition-colors animate-fade-in" />
+                    ) : (
+                        <Moon className="h-5 w-5 md:h-4.5 md:w-4.5 text-indigo-600 hover:text-indigo-500 transition-colors animate-fade-in" />
+                    )}
+                </button>
 
                 {/* Notification bell */}
                 <button

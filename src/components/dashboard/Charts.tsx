@@ -23,7 +23,7 @@ export function GMVLineChart({ data }: { data: { date: string; gmv: number; cost
         <div className="h-[300px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                     <XAxis dataKey="date" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `RM${v}`} />
                     <Tooltip
@@ -109,7 +109,7 @@ export function PerformanceLineChart({ data, height = 280 }: PerformanceLineChar
                             <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
                         </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                     <XAxis
                         dataKey="label"
                         stroke="#6b7280"

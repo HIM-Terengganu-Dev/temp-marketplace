@@ -705,7 +705,7 @@ export default function Home() {
                 <div className="flex flex-wrap items-center gap-2">
 
                     {/* Company filter pills */}
-                    <div className="flex items-center gap-0.5 bg-slate-900/70 border border-slate-700/50 rounded-xl p-1 backdrop-blur-sm select-none">
+                    <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700/50 rounded-xl p-1 backdrop-blur-sm select-none">
                         {(["ALL", "HIMWELLNESS", "WEROCA"] as const).map((filter) => (
                             <button
                                 key={filter}
@@ -718,7 +718,7 @@ export default function Home() {
                                             : filter === "HIMWELLNESS"
                                             ? "bg-blue-600 text-white shadow-md shadow-blue-500/25"
                                             : "bg-purple-600 text-white shadow-md shadow-purple-500/25"
-                                        : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800/50"
                                 )}
                             >
                                 {filter === "ALL" ? "All" : filter === "HIMWELLNESS" ? "HIM" : "WEROCA"}
@@ -742,7 +742,7 @@ export default function Home() {
                         size="sm"
                         onClick={handleManualRefresh}
                         disabled={isLoading}
-                        className="h-9 px-3 rounded-xl border-slate-700/60 bg-slate-900/50 hover:bg-slate-800 text-slate-300 hover:text-white font-semibold text-[11px] gap-1.5"
+                        className="h-9 px-3 rounded-xl border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white font-semibold text-[11px] gap-1.5 shadow-sm dark:shadow-none"
                     >
                         <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
                         Refresh
@@ -755,7 +755,7 @@ export default function Home() {
                         size="sm"
                         onClick={handleRecheck}
                         disabled={isRechecking || isLoading}
-                        className="h-9 px-3 rounded-xl border-amber-600/40 bg-amber-500/8 hover:bg-amber-500/15 text-amber-400 hover:text-amber-300 font-semibold text-[11px] gap-1.5 transition-all duration-200"
+                        className="h-9 px-3 rounded-xl border-amber-200 dark:border-amber-600/40 bg-amber-50/50 dark:bg-amber-500/8 hover:bg-amber-100/70 dark:hover:bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:text-amber-850 dark:hover:text-amber-300 font-semibold text-[11px] gap-1.5 transition-all duration-200 shadow-sm dark:shadow-none"
                         title="Scan for missing TikTok data and backfill if needed"
                     >
                         <ShieldCheck className={cn("h-3.5 w-3.5", isRechecking && "animate-pulse")} />
@@ -768,7 +768,7 @@ export default function Home() {
                     {/* What's New button */}
                     <button
                         onClick={openWhatsNew}
-                        className="relative h-9 px-3 rounded-xl border border-slate-700/60 bg-slate-900/50 hover:bg-slate-800 text-slate-300 hover:text-primary transition-colors duration-200 font-semibold text-[11px] flex items-center gap-1.5"
+                        className="relative h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors duration-200 font-semibold text-[11px] flex items-center gap-1.5 shadow-sm dark:shadow-none"
                         title="What's New"
                     >
                         <Sparkles className="h-3.5 w-3.5" />
@@ -781,18 +781,18 @@ export default function Home() {
                     {/* Data source badge */}
                     {!isLoading && dataSource && (
                         <span className={cn(
-                            "inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-[11px] font-semibold border select-none",
+                            "inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-[11px] font-semibold border select-none shadow-sm dark:shadow-none",
                             dataSource.includes("database") && !dataSource.includes("api")
-                                ? "border-blue-500/30 text-blue-400 bg-blue-500/8"
+                                ? "border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/8"
                                 : dataSource.includes("database") && dataSource.includes("api")
-                                ? "border-purple-500/30 text-purple-400 bg-purple-500/8"
-                                : "border-emerald-500/30 text-emerald-400 bg-emerald-500/8"
+                                ? "border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-500/8"
+                                : "border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-500/8"
                         )}>
                             <span className={cn(
                                 "h-1.5 w-1.5 rounded-full flex-shrink-0",
-                                dataSource.includes("database") && !dataSource.includes("api") ? "bg-blue-400"
-                                : dataSource.includes("database") ? "bg-purple-400"
-                                : "bg-emerald-400 animate-pulse"
+                                dataSource.includes("database") && !dataSource.includes("api") ? "bg-blue-600 dark:bg-blue-400"
+                                : dataSource.includes("database") ? "bg-purple-650 dark:bg-purple-400"
+                                : "bg-emerald-600 dark:bg-emerald-400 animate-pulse"
                             )} />
                             {dataSource.includes("database") && !dataSource.includes("api") ? "DB Cache"
                              : dataSource.includes("database") ? "Mixed"
