@@ -54,9 +54,9 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                 {/* Page title — desktop shows full name, mobile shows short title */}
                 <div className="min-w-0">
-                    <h1 className="text-base md:text-lg font-bold text-foreground leading-tight truncate">
+                    <span className="block text-base md:text-lg font-bold text-foreground leading-tight truncate">
                         {pageTitle}
-                    </h1>
+                    </span>
                     <p className="text-[10px] text-muted-foreground hidden sm:block leading-none mt-0.5">
                         HIM Marketplace Tracking
                     </p>

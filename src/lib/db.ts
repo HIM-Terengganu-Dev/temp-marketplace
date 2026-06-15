@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 
 // Load environment variables if not already loaded (for scripts)
 if (typeof window === 'undefined') {
+    dotenv.config({ path: '.env.local' });
     dotenv.config();
 }
 

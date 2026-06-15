@@ -43,3 +43,6 @@ next-env.d.ts
 # security - token refresh UI (keep local only, don't deploy to cloud)
 src/app/refresh-tokens/
 src/app/api/tiktok/refresh-token/
+
+# agent skills
+.agents/

@@ -22,11 +22,41 @@ export async function GET(request: Request) {
         const endDate = searchParams.get('endDate') || todayKL();
         const companyFilter = (searchParams.get('companyFilter') || 'ALL') as 'ALL' | 'HIMWELLNESS' | 'WEROCA';
 
+        // Access control permission checks
+        const allowedShops = (session.user as any)?.allowed_tiktok_shops || [1, 2, 3, 4];
+        const userRole = (session.user as any)?.role || 'user';
+
+        if (userRole !== 'admin') {
+            if (companyFilter === "HIMWELLNESS" && !allowedShops.some((s: number) => s === 1 || s === 2)) {
+                return NextResponse.json({ error: 'Forbidden: Access denied to Himwellness metrics' }, { status: 403 });
+            }
+            if (companyFilter === "WEROCA" && !allowedShops.some((s: number) => s === 3 || s === 4)) {
+                return NextResponse.json({ error: 'Forbidden: Access denied to Weroca metrics' }, { status: 403 });
+            }
+            if (companyFilter === "ALL") {
+                const hasWellness = allowedShops.some((s: number) => s === 1 || s === 2);
+                const hasWeroca = allowedShops.some((s: number) => s === 3 || s === 4);
+                if (!hasWellness || !hasWeroca) {
+                    return NextResponse.json({ error: 'Forbidden: You do not have permissions for ALL channels' }, { status: 403 });
+                }
+            }
+        }
+
         // Parse date differences
         const start = new Date(startDate);
         const end = new Date(endDate);
         const diffTime = Math.abs(end.getTime() - start.getTime());
         const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+        const daysToGenerate = Math.min(totalDays, 30);
+
+        // Generate target dates list
+        const targetDates: string[] = [];
+        for (let i = daysToGenerate; i >= 0; i--) {
+            const dateObj = new Date(end);
+            dateObj.setDate(end.getDate() - i);
+            const dbDateStr = dateObj.toISOString().split('T')[0];
+            targetDates.push(dbDateStr);
+        }
 
         // Base multipliers based on company filter
         let companyMultiplier = 1.0;
@@ -53,112 +83,192 @@ export async function GET(request: Request) {
         const roasWow = gmvWow - spendWow;
         const convWow = 1.8 + (companyFilter === "HIMWELLNESS" ? 0.4 : -0.2);
 
-        // 2. Daily trends & DB persistence loop
-        const chartData = [];
-        const daysToGenerate = Math.min(totalDays, 30);
-        
-        // Channels mapping for persistence
-        const channels = [
-            { name: "Livestream Commerce", value: 0.45, spendShare: 0.35, trend: 18.2 },
-            { name: "Short Video Ads", value: 0.25, spendShare: 0.30, trend: 8.5 },
-            { name: "Product Showcase", value: 0.20, spendShare: 0.10, trend: -2.4 },
-            { name: "Creator Affiliates", value: 0.10, spendShare: 0.25, trend: 22.4 }
-        ];
+        // Check DB for existing daily attribution metrics and host sessions
+        const metricsResult = await query(`
+            SELECT date::text, channel, sales::float, spend::float, roas::float, trend::float
+            FROM credentials.daily_attribution_metrics
+            WHERE date::text = ANY($1) AND company_filter = $2
+        `, [targetDates, companyFilter]);
 
-        for (let i = daysToGenerate; i >= 0; i--) {
-            const dateObj = new Date(end);
-            dateObj.setDate(end.getDate() - i);
-            const dateString = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-            const dbDateStr = dateObj.toISOString().split('T')[0];
-            
-            // Fluctuations
-            const dayOfWeek = dateObj.getDay();
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-            const variance = 0.85 + Math.random() * 0.3 + (isWeekend ? 0.15 : -0.05);
+        const hostResult = await query(`
+            SELECT host_name as name, peak_viewers::int as peak, conversion_rate::float as conv, aov::float as aov, spend::float as spend, gmv::float as gmv, roi::float as roi, trend::float as trend
+            FROM credentials.daily_livestream_sessions
+            WHERE date::text = $1 AND company_filter = $2
+        `, [endDate, companyFilter]);
 
-            const dailySpend = (baseSpend / daysToGenerate) * variance;
-            const dailyGMV = dailySpend * (3.8 + Math.sin(i / 2) * 0.4 + (isWeekend ? 0.3 : 0));
-            const dailyROAS = dailySpend > 0 ? dailyGMV / dailySpend : 0;
+        const expectedRowsCount = targetDates.length * 4; // 4 channels per date
+        const hasCachedData = metricsResult.rows.length === expectedRowsCount && hostResult.rows.length === 4;
 
-            chartData.push({
-                date: dateString,
-                "Ad Spend": Math.round(dailySpend),
-                "Revenue (GMV)": Math.round(dailyGMV),
-                ROAS: parseFloat(dailyROAS.toFixed(2))
+        let chartData = [];
+        let attributionData = [];
+        let hostAudits = [];
+
+        if (hasCachedData) {
+            // --- CACHE HIT: READ FROM DB ---
+            // 1. Reconstruct chartData by grouping metrics by date
+            const dateGroups: Record<string, { spend: number; gmv: number }> = {};
+            targetDates.forEach(d => {
+                dateGroups[d] = { spend: 0, gmv: 0 };
             });
 
-            // Persist daily attribution data to database for future reference
-            for (const ch of channels) {
-                const chSales = dailyGMV * ch.value;
-                const chSpend = dailySpend * ch.spendShare;
-                const chRoas = chSpend > 0 ? chSales / chSpend : 0;
+            metricsResult.rows.forEach(row => {
+                if (dateGroups[row.date]) {
+                    dateGroups[row.date].spend += row.spend;
+                    dateGroups[row.date].gmv += row.sales;
+                }
+            });
+
+            chartData = targetDates.map(d => {
+                const dateObj = new Date(d);
+                const dateString = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "Asia/Kuala_Lumpur" });
+                const spend = dateGroups[d].spend;
+                const gmv = dateGroups[d].gmv;
+                const roas = spend > 0 ? gmv / spend : 0;
+                return {
+                    date: dateString,
+                    "Ad Spend": Math.round(spend),
+                    "Revenue (GMV)": Math.round(gmv),
+                    ROAS: parseFloat(roas.toFixed(2))
+                };
+            });
+
+            // 2. Reconstruct attributionData by grouping metrics by channel
+            const channelGroups: Record<string, { spend: number; gmv: number; trend: number }> = {
+                "Livestream Commerce": { spend: 0, gmv: 0, trend: 18.2 },
+                "Short Video Ads": { spend: 0, gmv: 0, trend: 8.5 },
+                "Product Showcase": { spend: 0, gmv: 0, trend: -2.4 },
+                "Creator Affiliates": { spend: 0, gmv: 0, trend: 22.4 }
+            };
+
+            metricsResult.rows.forEach(row => {
+                if (channelGroups[row.channel]) {
+                    channelGroups[row.channel].spend += row.spend;
+                    channelGroups[row.channel].gmv += row.sales;
+                    channelGroups[row.channel].trend = row.trend;
+                }
+            });
+
+            attributionData = Object.entries(channelGroups).map(([name, ch]) => {
+                const roas = ch.spend > 0 ? ch.gmv / ch.spend : 0;
+                const totalGmvSum = Object.values(channelGroups).reduce((s, c) => s + c.gmv, 0);
+                const totalSpendSum = Object.values(channelGroups).reduce((s, c) => s + c.spend, 0);
+                const value = totalGmvSum > 0 ? ch.gmv / totalGmvSum : 0;
+                const spendShare = totalSpendSum > 0 ? ch.spend / totalSpendSum : 0;
+
+                return {
+                    name,
+                    value,
+                    spendShare,
+                    trend: ch.trend,
+                    sales: ch.gmv,
+                    spend: ch.spend,
+                    roas
+                };
+            });
+
+            // 3. Reconstruct hostAudits
+            hostAudits = hostResult.rows;
+
+        } else {
+            // --- CACHE MISS: GENERATE AND WRITE TO DB ---
+            const channels = [
+                { name: "Livestream Commerce", value: 0.45, spendShare: 0.35, trend: 18.2 },
+                { name: "Short Video Ads", value: 0.25, spendShare: 0.30, trend: 8.5 },
+                { name: "Product Showcase", value: 0.20, spendShare: 0.10, trend: -2.4 },
+                { name: "Creator Affiliates", value: 0.10, spendShare: 0.25, trend: 22.4 }
+            ];
+
+            for (let i = daysToGenerate; i >= 0; i--) {
+                const dateObj = new Date(end);
+                dateObj.setDate(end.getDate() - i);
+                const dateString = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                const dbDateStr = dateObj.toISOString().split('T')[0];
+                
+                // Fluctuations
+                const dayOfWeek = dateObj.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const variance = 0.85 + Math.random() * 0.3 + (isWeekend ? 0.15 : -0.05);
+
+                const dailySpend = (baseSpend / daysToGenerate) * variance;
+                const dailyGMV = dailySpend * (3.8 + Math.sin(i / 2) * 0.4 + (isWeekend ? 0.3 : 0));
+                const dailyROAS = dailySpend > 0 ? dailyGMV / dailySpend : 0;
+
+                chartData.push({
+                    date: dateString,
+                    "Ad Spend": Math.round(dailySpend),
+                    "Revenue (GMV)": Math.round(dailyGMV),
+                    ROAS: parseFloat(dailyROAS.toFixed(2))
+                });
+
+                // Persist daily attribution data
+                for (const ch of channels) {
+                    const chSales = dailyGMV * ch.value;
+                    const chSpend = dailySpend * ch.spendShare;
+                    const chRoas = chSpend > 0 ? chSales / chSpend : 0;
+
+                    await query(`
+                        INSERT INTO credentials.daily_attribution_metrics (
+                            date, company_filter, channel, sales, spend, roas, trend, updated_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
+                        ON CONFLICT (date, company_filter, channel) DO UPDATE SET
+                            sales = EXCLUDED.sales,
+                            spend = EXCLUDED.spend,
+                            roas = EXCLUDED.roas,
+                            trend = EXCLUDED.trend,
+                            updated_at = CURRENT_TIMESTAMP
+                    `, [dbDateStr, companyFilter, ch.name, chSales, chSpend, chRoas, ch.trend]);
+                }
+            }
+
+            attributionData = channels.map(item => {
+                const channelSales = baseGMV * item.value;
+                const channelSpend = baseSpend * item.spendShare;
+                const channelROAS = channelSpend > 0 ? channelSales / channelSpend : 0;
+                return {
+                    ...item,
+                    sales: channelSales,
+                    spend: channelSpend,
+                    roas: channelROAS
+                };
+            });
+
+            const rawHosts = [
+                { name: "Husna", peak: 1850, conv: 6.8, aov: 42.00, spend: 1200, gmv: 6800, trend: 14.5 },
+                { name: "Azrul", peak: 1420, conv: 5.4, aov: 38.50, spend: 900, gmv: 4200, trend: 8.1 },
+                { name: "Syamil", peak: 950, conv: 4.1, aov: 45.00, spend: 750, gmv: 3100, trend: -1.8 },
+                { name: "Ikram", peak: 780, conv: 3.8, aov: 36.00, spend: 600, gmv: 2400, trend: 11.2 }
+            ];
+
+            for (const host of rawHosts) {
+                const spend = host.spend * companyMultiplier;
+                const gmv = host.gmv * companyMultiplier;
+                const roi = spend > 0 ? gmv / spend : 0;
+                const peak = Math.round(host.peak * trafficSkew);
+
+                const auditedHost = {
+                    ...host,
+                    peak,
+                    spend,
+                    gmv,
+                    roi
+                };
+                hostAudits.push(auditedHost);
 
                 await query(`
-                    INSERT INTO credentials.daily_attribution_metrics (
-                        date, company_filter, channel, sales, spend, roas, trend, updated_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
-                    ON CONFLICT (date, company_filter, channel) DO UPDATE SET
-                        sales = EXCLUDED.sales,
+                    INSERT INTO credentials.daily_livestream_sessions (
+                        date, company_filter, host_name, peak_viewers, conversion_rate, aov, spend, gmv, roi, trend, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
+                    ON CONFLICT (date, company_filter, host_name) DO UPDATE SET
+                        peak_viewers = EXCLUDED.peak_viewers,
+                        conversion_rate = EXCLUDED.conversion_rate,
+                        aov = EXCLUDED.aov,
                         spend = EXCLUDED.spend,
-                        roas = EXCLUDED.roas,
+                        gmv = EXCLUDED.gmv,
+                        roi = EXCLUDED.roi,
                         trend = EXCLUDED.trend,
                         updated_at = CURRENT_TIMESTAMP
-                `, [dbDateStr, companyFilter, ch.name, chSales, chSpend, chRoas, ch.trend]);
+                `, [endDate, companyFilter, host.name, peak, host.conv, host.aov, spend, gmv, roi, host.trend]);
             }
-        }
-
-        // 3. Attribution share details
-        const attributionData = channels.map(item => {
-            const channelSales = baseGMV * item.value;
-            const channelSpend = baseSpend * item.spendShare;
-            const channelROAS = channelSpend > 0 ? channelSales / channelSpend : 0;
-            return {
-                ...item,
-                sales: channelSales,
-                spend: channelSpend,
-                roas: channelROAS
-            };
-        });
-
-        // 4. Livestream sessions and host performance
-        const rawHosts = [
-            { name: "Husna", peak: 1850, conv: 6.8, aov: 42.00, spend: 1200, gmv: 6800, trend: 14.5 },
-            { name: "Azrul", peak: 1420, conv: 5.4, aov: 38.50, spend: 900, gmv: 4200, trend: 8.1 },
-            { name: "Syamil", peak: 950, conv: 4.1, aov: 45.00, spend: 750, gmv: 3100, trend: -1.8 },
-            { name: "Ikram", peak: 780, conv: 3.8, aov: 36.00, spend: 600, gmv: 2400, trend: 11.2 }
-        ];
-
-        const hostAudits = [];
-        for (const host of rawHosts) {
-            const spend = host.spend * companyMultiplier;
-            const gmv = host.gmv * companyMultiplier;
-            const roi = spend > 0 ? gmv / spend : 0;
-            const peak = Math.round(host.peak * trafficSkew);
-
-            const auditedHost = {
-                ...host,
-                peak,
-                spend,
-                gmv,
-                roi
-            };
-            hostAudits.push(auditedHost);
-
-            // Persist stream session audit data to database for future reference
-            await query(`
-                INSERT INTO credentials.daily_livestream_sessions (
-                    date, company_filter, host_name, peak_viewers, conversion_rate, aov, spend, gmv, roi, trend, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)
-                ON CONFLICT (date, company_filter, host_name) DO UPDATE SET
-                    peak_viewers = EXCLUDED.peak_viewers,
-                    conversion_rate = EXCLUDED.conversion_rate,
-                    aov = EXCLUDED.aov,
-                    spend = EXCLUDED.spend,
-                    gmv = EXCLUDED.gmv,
-                    roi = EXCLUDED.roi,
-                    trend = EXCLUDED.trend,
-                    updated_at = CURRENT_TIMESTAMP
-            `, [endDate, companyFilter, host.name, peak, host.conv, host.aov, spend, gmv, roi, host.trend]);
         }
 
         // 5. Creator Affiliate Tiers
