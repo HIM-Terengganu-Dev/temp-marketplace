@@ -115,21 +115,23 @@ export default function AnalyticsPage() {
         return 4000000;
     });
     const [targetInput, setTargetInput] = useState<number | null>(null);
+    const [tiktokTargetPct, setTiktokTargetPct] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('mtd_tiktok_target_pct');
+            return saved ? Number(saved) : 75;
+        }
+        return 75;
+    });
+    const [tiktokTargetPctInput, setTiktokTargetPctInput] = useState<number | null>(null);
     const [targetSaved, setTargetSaved] = useState(false);
     const [mtdCompany, setMtdCompany] = useState<'ALL' | 'HIMWELLNESS' | 'WEROCA'>('ALL');
     const [mtdData, setMtdData] = useState<any>(null);
     const [isMtdLoading, setIsMtdLoading] = useState(false);
     // WhatsApp share modal
     const [showWaModal, setShowWaModal] = useState(false);
-    const [waMetrics, setWaMetrics] = useState<Record<string, boolean>>({
-        roadToTarget: true,
-        platformTable: true,
-        ringkasanTable: true,
-        ringkasanChart: true,
-        momLatest: true,
-        momAll: false,
-    });
-    const [isGeneratingImg, setIsGeneratingImg] = useState(false);
+    const [waPreviewUrl, setWaPreviewUrl] = useState<string | null>(null);
+    const [waPreviewLoading, setWaPreviewLoading] = useState(false);
+    const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('dark');
     const mtdReportRef = useRef<HTMLDivElement>(null);
 
     // Derived: the displayed monthly target (use input override if being edited)
@@ -137,14 +139,72 @@ export default function AnalyticsPage() {
 
     const handleSaveTarget = useCallback(() => {
         const val = targetInput !== null ? targetInput : monthlyTarget;
+        const pctVal = tiktokTargetPctInput !== null ? tiktokTargetPctInput : tiktokTargetPct;
         setMonthlyTarget(val);
+        setTiktokTargetPct(pctVal);
         setTargetInput(null);
+        setTiktokTargetPctInput(null);
         if (typeof window !== 'undefined') {
             localStorage.setItem('mtd_monthly_target', String(val));
+            localStorage.setItem('mtd_tiktok_target_pct', String(pctVal));
         }
         setTargetSaved(true);
         setTimeout(() => setTargetSaved(false), 2000);
-    }, [targetInput, monthlyTarget]);
+    }, [targetInput, tiktokTargetPctInput, monthlyTarget, tiktokTargetPct]);
+
+    // Theme detector for WhatsApp preview styling
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const observer = new MutationObserver(() => {
+            const isDark = document.documentElement.classList.contains("dark");
+            setCurrentTheme(isDark ? "dark" : "light");
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+        setCurrentTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
+        return () => observer.disconnect();
+    }, []);
+
+    // Generate/refresh WhatsApp preview image
+    useEffect(() => {
+        if (!showWaModal || !mtdData) return;
+        let isMounted = true;
+        
+        const generatePreview = async () => {
+            setWaPreviewLoading(true);
+            setWaPreviewUrl(null);
+            try {
+                // Stagger slightly to make sure the offscreen element is fully rendered and styled under the active theme classes
+                await new Promise(resolve => setTimeout(resolve, 350));
+                
+                const { toPng } = await import("html-to-image");
+                await document.fonts.ready;
+                
+                const el = document.getElementById("mtd-whatsapp-export-target");
+                if (el && isMounted) {
+                    const dataUrl = await toPng(el, {
+                        width: 1080,
+                        height: 1080,
+                        pixelRatio: 1,
+                        quality: 0.95
+                    });
+                    if (isMounted) {
+                        setWaPreviewUrl(dataUrl);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to generate MTD image preview:", err);
+            } finally {
+                if (isMounted) {
+                    setWaPreviewLoading(false);
+                }
+            }
+        };
+
+        generatePreview();
+        return () => {
+            isMounted = false;
+        };
+    }, [showWaModal, mtdData, currentTheme, targetMonth, dayRangeEnd, mtdCompany, monthlyTarget, tiktokTargetPct]);
 
     // Load Funnel Overview Data
     useEffect(() => {
@@ -677,7 +737,7 @@ export default function AnalyticsPage() {
                             </div>
 
                             {/* Target Input + Save */}
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                                 <Target className="h-4 w-4 text-primary" />
                                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Target:</span>
                                 <input
@@ -687,6 +747,18 @@ export default function AnalyticsPage() {
                                     onChange={(e) => setTargetInput(Number(e.target.value))}
                                     className="w-32 bg-card dark:bg-slate-950 border border-border dark:border-slate-800 text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary text-right font-mono font-semibold"
                                 />
+                                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">TikTok Split:</span>
+                                <div className="relative flex items-center">
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        max={100}
+                                        value={tiktokTargetPctInput !== null ? tiktokTargetPctInput : tiktokTargetPct}
+                                        onChange={(e) => setTiktokTargetPctInput(Number(e.target.value))}
+                                        className="w-16 bg-card dark:bg-slate-950 border border-border dark:border-slate-800 text-foreground text-sm rounded-lg p-2 pr-6 focus:ring-primary focus:border-primary text-center font-mono font-semibold"
+                                    />
+                                    <span className="absolute right-2 text-xs text-muted-foreground font-mono">%</span>
+                                </div>
                                 <button
                                     onClick={handleSaveTarget}
                                     className={cn(
@@ -755,6 +827,19 @@ export default function AnalyticsPage() {
                         const avgDaily = actualSales / daysElapsed;
                         const performancePct = estCumulative > 0 ? (actualSales / estCumulative) * 100 : 0;
                         const gap = actualSales - estCumulative;
+
+                        const tkMonthlyTarget = monthlyTarget * (tiktokTargetPct / 100);
+                        const spMonthlyTarget = monthlyTarget * ((100 - tiktokTargetPct) / 100);
+
+                        const tkEstCumulative = estCumulative * (tiktokTargetPct / 100);
+                        const spEstCumulative = estCumulative * ((100 - tiktokTargetPct) / 100);
+
+                        const tkSales = mtdData.currentMonthData?.tiktok?.sales || 0;
+                        const spSales = mtdData.currentMonthData?.shopee?.sales || 0;
+
+                        const tkPacingMet = tkEstCumulative > 0 ? (tkSales / tkEstCumulative) * 100 : 0;
+                        const spPacingMet = spEstCumulative > 0 ? (spSales / spEstCumulative) * 100 : 0;
+                        const totalPacingMet = estCumulative > 0 ? (actualSales / estCumulative) * 100 : 0;
 
                         return (
                             <div className="space-y-6" ref={mtdReportRef}>
@@ -864,8 +949,10 @@ export default function AnalyticsPage() {
                                                     <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                                         <th className="py-3 px-4">Platform</th>
                                                         <th className="py-3 px-4 text-right">Actual Sales (GMV)</th>
+                                                        <th className="py-3 px-4 text-right">Target MTD (Month)</th>
                                                         <th className="py-3 px-4 text-right">Spent (Ad Cost)</th>
                                                         <th className="py-3 px-4 text-center">MTD ROAS</th>
+                                                        <th className="py-3 px-4 text-center">Pacing Met %</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -877,13 +964,29 @@ export default function AnalyticsPage() {
                                                             </span>
                                                         </td>
                                                         <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-700 dark:text-slate-300">
-                                                            RM {(mtdData.currentMonthData?.tiktok?.sales ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            RM {tkSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="py-3.5 px-4 text-right font-mono text-slate-700 dark:text-slate-300">
+                                                            <div className="flex flex-col items-end">
+                                                                <span>RM {tkEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                                                <span className="text-[10px] text-muted-foreground font-semibold">Month: RM {tkMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                                            </div>
                                                         </td>
                                                         <td className="py-3.5 px-4 text-right font-mono text-slate-600 dark:text-slate-300">
                                                             RM {(mtdData.currentMonthData?.tiktok?.spend ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </td>
                                                         <td className="py-3.5 px-4 text-center font-mono font-bold text-pink-600 dark:text-pink-400">
                                                             {(mtdData.currentMonthData?.tiktok?.roas ?? 0).toFixed(2)}x
+                                                        </td>
+                                                        <td className="py-3.5 px-4 text-center">
+                                                            <span className={cn(
+                                                                "font-bold px-2.5 py-1 rounded-full text-xs font-mono border",
+                                                                tkPacingMet >= 100 
+                                                                    ? "border-emerald-500/20 text-emerald-600 dark:text-emerald-450 bg-emerald-500/5 dark:bg-emerald-950/10" 
+                                                                    : "border-rose-500/20 text-rose-600 dark:text-rose-450 bg-rose-500/5 dark:bg-rose-950/10"
+                                                            )}>
+                                                                {tkPacingMet.toFixed(1)}%
+                                                            </span>
                                                         </td>
                                                     </tr>
                                                     {/* Shopee — SECOND */}
@@ -894,7 +997,13 @@ export default function AnalyticsPage() {
                                                             </span>
                                                         </td>
                                                         <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-700 dark:text-slate-300">
-                                                            RM {(mtdData.currentMonthData?.shopee?.sales ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            RM {spSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                        </td>
+                                                        <td className="py-3.5 px-4 text-right font-mono text-slate-700 dark:text-slate-300">
+                                                            <div className="flex flex-col items-end">
+                                                                <span>RM {spEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                                                <span className="text-[10px] text-muted-foreground font-semibold">Month: RM {spMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                                            </div>
                                                         </td>
                                                         <td className="py-3.5 px-4 text-right font-mono text-slate-600 dark:text-slate-300">
                                                             RM {(mtdData.currentMonthData?.shopee?.spend ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -902,18 +1011,44 @@ export default function AnalyticsPage() {
                                                         <td className="py-3.5 px-4 text-center font-mono font-bold text-orange-600 dark:text-orange-400">
                                                             {(mtdData.currentMonthData?.shopee?.roas ?? 0).toFixed(2)}x
                                                         </td>
+                                                        <td className="py-3.5 px-4 text-center">
+                                                            <span className={cn(
+                                                                "font-bold px-2.5 py-1 rounded-full text-xs font-mono border",
+                                                                spPacingMet >= 100 
+                                                                    ? "border-emerald-500/20 text-emerald-600 dark:text-emerald-450 bg-emerald-500/5 dark:bg-emerald-950/10" 
+                                                                    : "border-rose-500/20 text-rose-600 dark:text-rose-450 bg-rose-500/5 dark:bg-rose-950/10"
+                                                            )}>
+                                                                {spPacingMet.toFixed(1)}%
+                                                            </span>
+                                                        </td>
                                                     </tr>
                                                     {/* Total */}
-                                                    <tr className="border-b border-border/10 hover:bg-muted/10 transition-colors bg-primary/5">
-                                                        <td className="py-3.5 px-4 font-extrabold text-primary">Total</td>
-                                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-primary">
+                                                    <tr className="border-b border-border/10 hover:bg-muted/10 transition-colors bg-primary/5 font-extrabold">
+                                                        <td className="py-3.5 px-4 text-primary">Total</td>
+                                                        <td className="py-3.5 px-4 text-right font-mono text-primary font-bold">
                                                             RM {(mtdData.currentMonthData?.total?.sales ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </td>
-                                                        <td className="py-3.5 px-4 text-right font-mono font-semibold text-slate-700 dark:text-slate-300">
+                                                        <td className="py-3.5 px-4 text-right font-mono text-primary">
+                                                            <div className="flex flex-col items-end">
+                                                                <span>RM {estCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                                                <span className="text-[10px] text-primary/75 font-semibold">Month: RM {monthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3.5 px-4 text-right font-mono text-slate-700 dark:text-slate-350">
                                                             RM {(mtdData.currentMonthData?.total?.spend ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </td>
-                                                        <td className="py-3.5 px-4 text-center font-mono font-extrabold text-primary">
+                                                        <td className="py-3.5 px-4 text-center font-mono text-primary font-extrabold">
                                                             {(mtdData.currentMonthData?.total?.roas ?? 0).toFixed(2)}x
+                                                        </td>
+                                                        <td className="py-3.5 px-4 text-center">
+                                                            <span className={cn(
+                                                                "font-extrabold px-2.5 py-1 rounded-full text-xs font-mono border",
+                                                                totalPacingMet >= 100 
+                                                                    ? "border-emerald-500/30 text-emerald-700 dark:text-emerald-450 bg-emerald-500/10" 
+                                                                    : "border-rose-500/30 text-rose-700 dark:text-rose-455 bg-rose-500/10"
+                                                            )}>
+                                                                {totalPacingMet.toFixed(1)}%
+                                                            </span>
                                                         </td>
                                                     </tr>
                                                 </tbody>
@@ -1118,260 +1253,87 @@ export default function AnalyticsPage() {
                     {/* WhatsApp Share Modal */}
                     {showWaModal && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowWaModal(false)}>
-                            <div className="relative bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => setShowWaModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer">
+                            <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4 flex flex-col" onClick={(e) => e.stopPropagation()}>
+                                <button onClick={() => setShowWaModal(false)} className="absolute top-4 right-4 text-slate-450 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white cursor-pointer transition-colors">
                                     <X className="h-5 w-5" />
                                 </button>
+                                
                                 <div className="flex items-center gap-3 mb-5">
-                                    <div className="p-2 bg-emerald-500/20 rounded-xl">
-                                        <MessageCircle className="h-5 w-5 text-emerald-400" />
+                                    <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl">
+                                        <MessageCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-white">Share via WhatsApp</h3>
-                                        <p className="text-xs text-slate-400">Each section downloads as a separate polished image</p>
+                                        <h3 className="text-base font-bold text-slate-900 dark:text-white">Share MTD Report</h3>
+                                        <p className="text-xs text-slate-550 dark:text-slate-400">Preview the unified square performance graphic (1080x1080)</p>
                                     </div>
                                 </div>
 
-                                <div className="space-y-2.5 mb-6 max-h-[260px] overflow-y-auto pr-1">
-                                    {([
-                                        ['roadToTarget',   '🎯 Road to Target KPIs',       'Target, Cumulative, Actual Sales, BTG Gap'],
-                                        ['platformTable',  '📊 Platform MTD Contribution',  'TikTok & Shopee sales, spend, ROAS'],
-                                        ['ringkasanTable', '📅 Ringkasan Bulanan Table',    'Historical month-over-month sales table'],
-                                        ['ringkasanChart', '📊 Sales Visualizer Chart',    'Visual comparison of total MTD sales'],
-                                        ['momLatest',      '📈 MoM Delta (Latest Month)',   'TikTok & Shopee vs latest prior month'],
-                                        ['momAll',         '📈 All MoM Deltas (Full Grid)', 'All historical comparison cards'],
-                                    ] as const).map(([key, title, desc]) => (
-                                        <label key={key} className="flex items-start gap-3 p-3 rounded-xl border border-slate-700/50 hover:border-slate-600 cursor-pointer transition-colors bg-slate-800/30">
-                                            <input
-                                                type="checkbox"
-                                                checked={waMetrics[key] ?? false}
-                                                onChange={(e) => setWaMetrics(prev => ({ ...prev, [key]: e.target.checked }))}
-                                                className="mt-0.5 h-4 w-4 rounded accent-emerald-500 cursor-pointer"
+                                {/* Preview Area */}
+                                <div className="mb-6 flex flex-col items-center">
+                                    {waPreviewLoading ? (
+                                        <div className="w-full aspect-square max-w-[380px] rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 gap-3">
+                                            <RefreshCw className="h-6 w-6 text-indigo-500 animate-spin" />
+                                            <span className="text-xs font-semibold">Generating report preview…</span>
+                                        </div>
+                                    ) : waPreviewUrl ? (
+                                        <div className="w-full max-w-[380px] rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-550/5 dark:bg-slate-950/40 shadow-inner p-1 flex items-center justify-center">
+                                            <img 
+                                                src={waPreviewUrl} 
+                                                className="w-full aspect-square object-contain rounded-lg border border-slate-200/50 dark:border-slate-800/50" 
+                                                alt="WhatsApp Report Preview" 
                                             />
-                                            <div>
-                                                <p className="text-sm font-semibold text-slate-200">{title}</p>
-                                                <p className="text-[11px] text-slate-400">{desc}</p>
-                                            </div>
-                                        </label>
-                                    ))}
+                                        </div>
+                                    ) : (
+                                        <div className="w-full aspect-square max-w-[380px] rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 gap-2">
+                                            <AlertCircle className="h-6 w-6 text-rose-500" />
+                                            <span className="text-xs font-semibold">Failed to generate preview</span>
+                                        </div>
+                                    )}
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-450 text-center mt-2.5">
+                                        💡 Tip: Long-press or right-click the preview image to copy/share directly.
+                                    </p>
                                 </div>
 
-                                {/* Progress bar */}
-                                {isGeneratingImg && (
-                                    <div className="mb-4">
-                                        <div className="flex items-center justify-between mb-1.5">
-                                            <span className="text-xs text-slate-400 font-semibold">Generating images…</span>
-                                            <RefreshCw className="h-3.5 w-3.5 text-emerald-400 animate-spin" />
-                                        </div>
-                                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                            <div className="h-full bg-emerald-500 rounded-full animate-pulse w-3/4" />
-                                        </div>
-                                        <p className="text-[10px] text-slate-500 mt-1.5">Do not close this window…</p>
-                                    </div>
-                                )}
-
+                                {/* Action Buttons */}
                                 <div className="flex gap-3">
                                     <button
-                                        onClick={async () => {
-                                            setIsGeneratingImg(true);
-                                            try {
-                                                const { toPng } = await import('html-to-image');
-
-                                                // Wait for fonts to finish loading so text doesn't render in fallback fonts
-                                                await document.fonts.ready;
-
-                                                // Section definitions — label, DOM id, checkbox key
-                                                const sectionDefs = [
-                                                    { label: '🎯 Road to Target KPIs',      id: 'mtd-road-to-target',   key: 'roadToTarget'   },
-                                                    { label: '📊 Platform MTD Contribution', id: 'mtd-platform-table',  key: 'platformTable'  },
-                                                    { label: '📅 Ringkasan Bulanan Table',   id: 'mtd-ringkasan-table',  key: 'ringkasanTable' },
-                                                    { label: '📊 Sales Visualizer Chart',    id: 'mtd-ringkasan-chart',  key: 'ringkasanChart' },
-                                                    { label: '📈 MoM Delta (Latest Month)',   id: 'mtd-mom-latest',       key: 'momLatest'      },
-                                                    { label: '📈 All MoM Deltas (Full Grid)', id: 'mtd-mom-deltas',       key: 'momAll'         },
-                                                ] as const;
-
-                                                const selected = sectionDefs.filter(s => waMetrics[s.key]);
-                                                if (selected.length === 0) return;
-
-                                                const dateLabel = `${targetMonth} · Day 1–${dayRangeEnd}`;
-                                                const streamLabel = mtdCompany === 'ALL' ? 'All Streams' : mtdCompany === 'HIMWELLNESS' ? 'HIM Wellness' : 'Weroca';
-
-                                                let partNum = 1;
-                                                for (const sec of selected) {
-                                                    const el = document.getElementById(sec.id);
-                                                    if (!el) continue;
-
-                                                    // --- Render live element + canvas stitching ---
-                                                    // 1. Capture the element's actual PNG image
-                                                    const contentDataUrl = await toPng(el, {
-                                                        quality: 0.98,
-                                                        pixelRatio: 2,
-                                                        backgroundColor: '#0b1120',
-                                                    });
-
-                                                    // 2. Load it as an Image
-                                                    const contentImg = new Image();
-                                                    contentImg.src = contentDataUrl;
-                                                    await new Promise((resolve, reject) => {
-                                                        contentImg.onload = resolve;
-                                                        contentImg.onerror = reject;
-                                                    });
-
-                                                    // 3. Create canvas
-                                                    const canvas = document.createElement('canvas');
-                                                    const scale = 2; // matching pixelRatio
-                                                    const headerHeight = 64 * scale;
-                                                    const footerHeight = 36 * scale;
-                                                    
-                                                    canvas.width = contentImg.width;
-                                                    canvas.height = contentImg.height + headerHeight + footerHeight;
-
-                                                    const ctx = canvas.getContext('2d');
-                                                    if (!ctx) throw new Error('Could not get 2D context');
-
-                                                    // 4. Fill background (slate-950 color: #0b1120)
-                                                    ctx.fillStyle = '#0b1120';
-                                                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                                                    // 5. Draw Header background (linear gradient)
-                                                    const gradient = ctx.createLinearGradient(0, 0, canvas.width, headerHeight);
-                                                    gradient.addColorStop(0, '#1e1b4b'); // deep indigo-950
-                                                    gradient.addColorStop(1, '#0f172a'); // slate-900
-                                                    ctx.fillStyle = gradient;
-                                                    ctx.fillRect(0, 0, canvas.width, headerHeight);
-
-                                                    // Draw header bottom border
-                                                    ctx.strokeStyle = 'rgba(99, 102, 241, 0.2)'; // indigo border
-                                                    ctx.lineWidth = 1 * scale;
-                                                    ctx.beginPath();
-                                                    ctx.moveTo(0, headerHeight);
-                                                    ctx.lineTo(canvas.width, headerHeight);
-                                                    ctx.stroke();
-
-                                                    // 6. Draw Header text
-                                                    const paddingX = 24 * scale;
-
-                                                    // Small category label
-                                                    ctx.fillStyle = '#a5b4fc'; // indigo-300
-                                                    ctx.font = `bold ${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-                                                    ctx.fillText('HIM ANALYTICS · MTD REPORT', paddingX, 22 * scale);
-
-                                                    // Main section title
-                                                    ctx.fillStyle = '#ffffff';
-                                                    ctx.font = `bold ${17 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-                                                    ctx.fillText(sec.label, paddingX, 44 * scale);
-
-                                                    // Right-aligned header metadata
-                                                    ctx.textAlign = 'right';
-                                                    
-                                                    // Date Label
-                                                    ctx.fillStyle = '#6366f1'; // indigo-500
-                                                    ctx.font = `bold ${11 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-                                                    ctx.fillText(dateLabel, canvas.width - paddingX, 24 * scale);
-
-                                                    // Stream Label & Part Number
-                                                    ctx.fillStyle = '#94a3b8'; // slate-400
-                                                    ctx.font = `${10 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-                                                    ctx.fillText(`${streamLabel} · Part ${partNum} of ${selected.length}`, canvas.width - paddingX, 42 * scale);
-
-                                                    // Reset alignment
-                                                    ctx.textAlign = 'left';
-
-                                                    // 7. Draw Content Image
-                                                    ctx.drawImage(contentImg, 0, headerHeight);
-
-                                                    // 8. Draw Footer background
-                                                    ctx.fillStyle = '#0b1120';
-                                                    ctx.fillRect(0, canvas.height - footerHeight, canvas.width, footerHeight);
-
-                                                    // Draw footer top border
-                                                    ctx.strokeStyle = 'rgba(99, 102, 241, 0.1)';
-                                                    ctx.lineWidth = 1 * scale;
-                                                    ctx.beginPath();
-                                                    ctx.moveTo(0, canvas.height - footerHeight);
-                                                    ctx.lineTo(canvas.width, canvas.height - footerHeight);
-                                                    ctx.stroke();
-
-                                                    // Draw footer text
-                                                    ctx.fillStyle = '#475569'; // slate-600
-                                                    ctx.font = `${9 * scale}px Inter, system-ui, -apple-system, sans-serif`;
-                                                    ctx.fillText('Generated from HIM Analytics Dashboard', paddingX, canvas.height - 14 * scale);
-
-                                                    // Right-aligned timestamp
-                                                    ctx.textAlign = 'right';
-                                                    const timeStr = new Date().toLocaleString('en-MY', {
-                                                        timeZone: 'Asia/Kuala_Lumpur',
-                                                        dateStyle: 'medium',
-                                                        timeStyle: 'short'
-                                                    });
-                                                    ctx.fillText(timeStr, canvas.width - paddingX, canvas.height - 14 * scale);
-
-                                                    const finalDataUrl = canvas.toDataURL('image/png');
-
-                                                    const link = document.createElement('a');
-                                                    link.download = `mtd-${sec.id}-part${partNum}-${targetMonth}.png`;
-                                                    link.href = finalDataUrl;
-                                                    link.click();
-
-                                                    // Stagger downloads so browser doesn't block them
-                                                    await new Promise(r => setTimeout(r, 400));
-                                                    partNum++;
-                                                }
-
-                                                // Build WA text summary
-                                                const lines: string[] = [
-                                                    `📊 *MTD Performance Report*`,
-                                                    `📅 ${dateLabel} · ${streamLabel}`,
-                                                    ``
-                                                ];
-                                                if (waMetrics.roadToTarget) {
-                                                    const actualSalesWa = mtdData.currentMonthData?.total?.sales || 0;
-                                                    const gapWa = actualSalesWa - (monthlyTarget / 30 * dayRangeEnd);
-                                                    lines.push(`🎯 *Road to Target*`);
-                                                    lines.push(`Target: RM ${monthlyTarget.toLocaleString()}`);
-                                                    lines.push(`Actual: RM ${actualSalesWa.toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
-                                                    lines.push(`Gap: ${gapWa >= 0 ? '+' : '-'}RM ${Math.abs(gapWa).toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
-                                                    lines.push(``);
-                                                }
-                                                if (waMetrics.platformTable) {
-                                                    lines.push(`📊 *Platform Breakdown*`);
-                                                    lines.push(`🛒 TikTok: RM ${(mtdData.currentMonthData?.tiktok?.sales ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} (ROAS: ${(mtdData.currentMonthData?.tiktok?.roas ?? 0).toFixed(2)}x)`);
-                                                    lines.push(`🛍 Shopee: RM ${(mtdData.currentMonthData?.shopee?.sales ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} (ROAS: ${(mtdData.currentMonthData?.shopee?.roas ?? 0).toFixed(2)}x)`);
-                                                    lines.push(`💰 Total: RM ${(mtdData.currentMonthData?.total?.sales ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
-                                                    lines.push(``);
-                                                }
-                                                lines.push(`_${selected.length} image${selected.length > 1 ? 's' : ''} downloaded — attach above to this message_`);
-                                                lines.push(`_Generated from HIM Analytics Dashboard_`);
-                                                const waText = encodeURIComponent(lines.join('\n'));
-
-                                                setTimeout(() => {
-                                                    window.open(`https://wa.me/?text=${waText}`, '_blank');
-                                                }, 600);
-
-                                                setShowWaModal(false);
-                                            } catch (err) {
-                                                console.error('Image generation error:', err);
-                                            } finally {
-                                                setIsGeneratingImg(false);
-                                            }
+                                        onClick={() => {
+                                            if (!waPreviewUrl) return;
+                                            const link = document.createElement('a');
+                                            link.download = `mtd-performance-${targetMonth}-${mtdCompany.toLowerCase()}.png`;
+                                            link.href = waPreviewUrl;
+                                            link.click();
+                                            setShowWaModal(false);
                                         }}
-                                        disabled={isGeneratingImg || !Object.values(waMetrics).some(Boolean)}
-                                        className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm py-2.5 rounded-xl transition-colors cursor-pointer"
+                                        disabled={waPreviewLoading || !waPreviewUrl}
+                                        className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm py-2.5 rounded-xl transition-colors cursor-pointer"
                                     >
-                                        {isGeneratingImg ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                                        {isGeneratingImg ? 'Generating images…' : `Download ${Object.values(waMetrics).filter(Boolean).length} Image${Object.values(waMetrics).filter(Boolean).length !== 1 ? 's' : ''} + Open WA`}
+                                        <Download className="h-4 w-4" />
+                                        Download PNG
                                     </button>
                                     <button
                                         onClick={() => setShowWaModal(false)}
-                                        className="px-4 py-2.5 text-sm font-semibold text-slate-400 hover:text-white border border-slate-700 rounded-xl hover:border-slate-600 transition-colors cursor-pointer"
+                                        className="px-4 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white border border-slate-200 dark:border-slate-700 rounded-xl hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer"
                                     >
                                         Cancel
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    )}
 
-                                <p className="text-[10px] text-slate-500 text-center mt-3">
-                                    Each section saves as a separate polished PNG. WhatsApp opens with a text summary — attach images manually.
-                                </p>
+                    {/* Offscreen container for 1080x1080 MTD Report Graphic */}
+                    {mtdData && (
+                        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', pointerEvents: 'none' }}>
+                            <div id="mtd-whatsapp-export-target" style={{ width: '1080px', height: '1080px' }}>
+                                <MtdReportGraphic 
+                                    mtdData={mtdData} 
+                                    targetMonth={targetMonth} 
+                                    dayRangeEnd={dayRangeEnd} 
+                                    mtdCompany={mtdCompany} 
+                                    monthlyTarget={monthlyTarget} 
+                                    tiktokTargetPct={tiktokTargetPct}
+                                />
                             </div>
                         </div>
                     )}
@@ -1383,4 +1345,288 @@ export default function AnalyticsPage() {
             </p>
         </div>
     );
+}
+
+function MtdReportGraphic({
+    mtdData,
+    targetMonth,
+    dayRangeEnd,
+    mtdCompany,
+    monthlyTarget,
+    tiktokTargetPct
+}: MtdReportGraphicProps) {
+    if (!mtdData) return null;
+
+    const actualSales = mtdData.currentMonthData?.total?.sales || 0;
+    const estDaily = monthlyTarget / 30;
+    const estCumulative = estDaily * dayRangeEnd;
+    const gap = actualSales - estCumulative;
+    const progressPct = monthlyTarget > 0 ? (actualSales / monthlyTarget) * 100 : 0;
+
+    const tkMonthlyTarget = monthlyTarget * (tiktokTargetPct / 100);
+    const spMonthlyTarget = monthlyTarget * ((100 - tiktokTargetPct) / 100);
+    const tkEstCumulative = estCumulative * (tiktokTargetPct / 100);
+    const spEstCumulative = estCumulative * ((100 - tiktokTargetPct) / 100);
+
+    const streamLabel = mtdCompany === 'ALL' ? 'ALL STREAMS' : mtdCompany === 'HIMWELLNESS' ? 'HIM WELLNESS' : 'WEROCA';
+    
+    // Format Month Label (e.g. "2026-06" -> "JUNE 2026")
+    const dateLabel = (() => {
+        try {
+            const [yearStr, monthStr] = targetMonth.split('-');
+            const months = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+            const mIdx = parseInt(monthStr, 10) - 1;
+            return `${months[mIdx]} ${yearStr} · DAY 1–${dayRangeEnd}`;
+        } catch (e) {
+            return `${targetMonth} · DAY 1–${dayRangeEnd}`;
+        }
+    })();
+
+    // Platform breakdown metrics (TikTok Shop always first!)
+    const tkSales = mtdData.currentMonthData?.tiktok?.sales || 0;
+    const tkSpend = mtdData.currentMonthData?.tiktok?.spend || 0;
+    const tkRoas = mtdData.currentMonthData?.tiktok?.roas || 0;
+
+    const spSales = mtdData.currentMonthData?.shopee?.sales || 0;
+    const spSpend = mtdData.currentMonthData?.shopee?.spend || 0;
+    const spRoas = mtdData.currentMonthData?.shopee?.roas || 0;
+
+    // MoM comparison delta values (vs prior month)
+    const latestComp = mtdData.comparisons && mtdData.comparisons.length > 0 
+        ? mtdData.comparisons[mtdData.comparisons.length - 1] 
+        : null;
+
+    const tkDeltaSales = latestComp?.tiktok?.deltaSales ?? 0;
+    const tkDeltaSalesPct = latestComp?.tiktok?.deltaSalesPct ?? 0;
+
+    const spDeltaSales = latestComp?.shopee?.deltaSales ?? 0;
+    const spDeltaSalesPct = latestComp?.shopee?.deltaSalesPct ?? 0;
+
+    // Trend items (last 3 months)
+    const trendItems = mtdData.monthlyTrend ? mtdData.monthlyTrend.slice(-3).reverse() : [];
+
+    return (
+        <div className="w-[1080px] h-[1080px] p-12 bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 font-sans flex flex-col justify-between select-none border border-slate-200 dark:border-slate-800">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-6">
+                <div className="flex flex-col gap-1">
+                    <span className="text-xs font-black tracking-widest text-indigo-650 dark:text-indigo-400 uppercase">
+                        HIM & WEROCA ANALYTICS
+                    </span>
+                    <h1 className="text-3xl font-black uppercase tracking-wider text-slate-800 dark:text-white">
+                        MTD Performance Report
+                    </h1>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                    <span className="text-xs font-mono font-bold px-3.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        {dateLabel}
+                    </span>
+                    <span className={cn(
+                        "text-[10px] font-black px-2.5 py-0.5 rounded border uppercase tracking-wider",
+                        mtdCompany === 'ALL' ? "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400"
+                        : mtdCompany === 'HIMWELLNESS' ? "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400"
+                        : "bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-400"
+                    )}>
+                        {streamLabel}
+                    </span>
+                </div>
+            </div>
+
+            {/* Target Card */}
+            <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-indigo-500" />
+                    <span className="text-xs font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-400">Target Pacing Analysis</span>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-6">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Target Bulanan</span>
+                        <span className="text-2xl font-black font-mono text-slate-800 dark:text-slate-100">RM {monthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 font-mono">Est. Daily Target: RM {estDaily.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                    </div>
+                    
+                    <div className="flex flex-col gap-1 border-x border-slate-200 dark:border-slate-800/60 px-6">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Actual MTD Sales</span>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-black font-mono text-slate-800 dark:text-slate-100">RM {actualSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">({progressPct.toFixed(1)}%)</span>
+                        </div>
+                        <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mt-1.5">
+                            <div className="h-full bg-indigo-600 dark:bg-indigo-500 rounded-full" style={{ width: `${progressPct}%` }} />
+                        </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-1 pl-6">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Gap vs Est. Cumulative</span>
+                        <span className={cn(
+                            "text-2xl font-black font-mono",
+                            gap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                        )}>
+                            {gap >= 0 ? '+' : '-'}RM {Math.abs(gap).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                            {gap >= 0 ? 'Pacing ahead of target' : `Behind pacing by -${Math.abs(gap / estCumulative * 100).toFixed(1)}%`}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Platform Comparison Split */}
+            <div className="grid grid-cols-2 gap-6">
+                {/* TikTok - ALWAYS first/top */}
+                <div className="bg-pink-500/5 dark:bg-pink-950/10 border border-pink-500/15 dark:border-pink-500/20 rounded-2xl p-6 flex flex-col justify-between">
+                    <div className="flex items-center justify-between border-b border-pink-500/10 pb-3.5 mb-4">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🛒</span>
+                            <span className="text-sm font-black text-pink-700 dark:text-pink-400 tracking-wide">TikTok Shop</span>
+                        </div>
+                        {latestComp && (
+                            <div className={cn(
+                                "flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded border font-mono",
+                                tkDeltaSales >= 0 
+                                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                                    : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-455"
+                            )}>
+                                {tkDeltaSales >= 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+                                {Math.abs(tkDeltaSalesPct).toFixed(1)}% MoM
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Sales (GMV)</span>
+                            <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {tkSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Target (MTD Pacing)</span>
+                            <div className="flex flex-col">
+                                <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {tkEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                <span className="text-[9px] font-bold text-slate-500 font-mono mt-0.5">({(tkEstCumulative > 0 ? (tkSales / tkEstCumulative) * 100 : 0).toFixed(0)}% met of RM {tkMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
+                            </div>
+                        </div>
+                        <div className="flex flex-col border-t border-pink-500/10 pt-2.5">
+                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Ad Spend</span>
+                            <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {tkSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        </div>
+                        <div className="flex flex-col border-t border-pink-500/10 pt-2.5">
+                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">ROAS</span>
+                            <span className="text-lg font-black font-mono text-pink-700 dark:text-pink-450">{tkRoas.toFixed(2)}x</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Shopee */}
+                <div className="bg-orange-500/5 dark:bg-orange-950/10 border border-orange-500/15 dark:border-orange-500/20 rounded-2xl p-6 flex flex-col justify-between">
+                    <div className="flex items-center justify-between border-b border-orange-500/10 pb-3.5 mb-4">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🛍</span>
+                            <span className="text-sm font-black text-orange-700 dark:text-orange-400 tracking-wide">Shopee Shop</span>
+                        </div>
+                        {latestComp && (
+                            <div className={cn(
+                                "flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded border font-mono",
+                                spDeltaSales >= 0 
+                                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                                    : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-455"
+                            )}>
+                                {spDeltaSales >= 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+                                {Math.abs(spDeltaSalesPct).toFixed(1)}% MoM
+                            </div>
+                        )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Sales (GMV)</span>
+                            <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {spSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Target (MTD Pacing)</span>
+                            <div className="flex flex-col">
+                                <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {spEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                <span className="text-[9px] font-bold text-slate-500 font-mono mt-0.5">({(spEstCumulative > 0 ? (spSales / spEstCumulative) * 100 : 0).toFixed(0)}% met of RM {spMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
+                            </div>
+                        </div>
+                        <div className="flex flex-col border-t border-orange-500/10 pt-2.5">
+                            <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Ad Spend</span>
+                            <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {spSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        </div>
+                        <div className="flex flex-col border-t border-orange-500/10 pt-2.5">
+                            <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">ROAS</span>
+                            <span className="text-lg font-black font-mono text-orange-700 dark:text-orange-450">{spRoas.toFixed(2)}x</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Section 3: Ringkasan Bulanan Table */}
+            <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/60 rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-indigo-500" />
+                    <span className="text-xs font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-400 font-mono">Ringkasan Bulanan (MTD Day 1 - {dayRangeEnd})</span>
+                </div>
+                
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-400 dark:text-slate-500 font-extrabold uppercase tracking-wider">
+                            <th className="py-2 px-4">Month</th>
+                            <th className="py-2 px-4 text-right">TikTok Sales</th>
+                            <th className="py-2 px-4 text-right">Shopee Sales</th>
+                            <th className="py-2 px-4 text-right">Total Sales</th>
+                            <th className="py-2 px-4 text-right">Ad Spend</th>
+                            <th className="py-2 px-4 text-right">Blended ROAS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {trendItems.map((item: any) => {
+                            const isCurrent = item.monthKey === targetMonth;
+                            return (
+                                <tr 
+                                    key={item.monthKey} 
+                                    className={cn(
+                                        "border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 text-xs font-semibold",
+                                        isCurrent && "bg-indigo-500/5 dark:bg-indigo-950/10 font-bold border-l-2 border-l-indigo-600 dark:border-l-indigo-400"
+                                    )}
+                                >
+                                    <td className="py-2.5 px-4 font-bold text-slate-700 dark:text-slate-300">
+                                        {item.monthLabel} {isCurrent && "⭐"}
+                                    </td>
+                                    <td className="py-2.5 px-4 text-right font-mono text-slate-850 dark:text-slate-200">RM {item.tiktok.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                    <td className="py-2.5 px-4 text-right font-mono text-slate-850 dark:text-slate-200">RM {item.shopee.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                    <td className="py-2.5 px-4 text-right font-mono text-slate-900 dark:text-white font-extrabold">RM {item.totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                    <td className="py-2.5 px-4 text-right font-mono text-slate-850 dark:text-slate-200">RM {item.totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                    <td className="py-2.5 px-4 text-right font-mono font-black text-indigo-600 dark:text-indigo-400">{item.roas.toFixed(2)}x</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-800 pt-6">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    HIMWELLNESS & WEROCA ECOMMERCE GROUP
+                </span>
+                <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500">
+                    Generated on {new Date().toLocaleString('en-MY', {
+                        timeZone: 'Asia/Kuala_Lumpur',
+                        dateStyle: 'medium',
+                        timeStyle: 'short'
+                    })} (MYT)
+                </span>
+            </div>
+        </div>
+    );
+}
+
+interface MtdReportGraphicProps {
+    mtdData: any;
+    targetMonth: string;
+    dayRangeEnd: number;
+    mtdCompany: 'ALL' | 'HIMWELLNESS' | 'WEROCA';
+    monthlyTarget: number;
+    tiktokTargetPct: number;
 }
