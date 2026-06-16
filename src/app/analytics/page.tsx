@@ -115,14 +115,22 @@ export default function AnalyticsPage() {
         return 4000000;
     });
     const [targetInput, setTargetInput] = useState<number | null>(null);
-    const [tiktokTargetPct, setTiktokTargetPct] = useState(() => {
+    const [tiktokTargetVal, setTiktokTargetVal] = useState(() => {
         if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('mtd_tiktok_target_pct');
-            return saved ? Number(saved) : 75;
+            const savedVal = localStorage.getItem('mtd_tiktok_target_val');
+            if (savedVal) return Number(savedVal);
+            
+            const savedPct = localStorage.getItem('mtd_tiktok_target_pct');
+            if (savedPct) {
+                const pct = Number(savedPct);
+                const target = localStorage.getItem('mtd_monthly_target') ? Number(localStorage.getItem('mtd_monthly_target')) : 4000000;
+                return target * (pct / 100);
+            }
+            return 3000000;
         }
-        return 75;
+        return 3000000;
     });
-    const [tiktokTargetPctInput, setTiktokTargetPctInput] = useState<number | null>(null);
+    const [tiktokTargetValInput, setTiktokTargetValInput] = useState<number | null>(null);
     const [targetSaved, setTargetSaved] = useState(false);
     const [mtdCompany, setMtdCompany] = useState<'ALL' | 'HIMWELLNESS' | 'WEROCA'>('ALL');
     const [mtdData, setMtdData] = useState<any>(null);
@@ -139,18 +147,18 @@ export default function AnalyticsPage() {
 
     const handleSaveTarget = useCallback(() => {
         const val = targetInput !== null ? targetInput : monthlyTarget;
-        const pctVal = tiktokTargetPctInput !== null ? tiktokTargetPctInput : tiktokTargetPct;
+        const splitVal = tiktokTargetValInput !== null ? tiktokTargetValInput : tiktokTargetVal;
         setMonthlyTarget(val);
-        setTiktokTargetPct(pctVal);
+        setTiktokTargetVal(splitVal);
         setTargetInput(null);
-        setTiktokTargetPctInput(null);
+        setTiktokTargetValInput(null);
         if (typeof window !== 'undefined') {
             localStorage.setItem('mtd_monthly_target', String(val));
-            localStorage.setItem('mtd_tiktok_target_pct', String(pctVal));
+            localStorage.setItem('mtd_tiktok_target_val', String(splitVal));
         }
         setTargetSaved(true);
         setTimeout(() => setTargetSaved(false), 2000);
-    }, [targetInput, tiktokTargetPctInput, monthlyTarget, tiktokTargetPct]);
+    }, [targetInput, tiktokTargetValInput, monthlyTarget, tiktokTargetVal]);
 
     // Theme detector for WhatsApp preview styling
     useEffect(() => {
@@ -204,7 +212,7 @@ export default function AnalyticsPage() {
         return () => {
             isMounted = false;
         };
-    }, [showWaModal, mtdData, currentTheme, targetMonth, dayRangeEnd, mtdCompany, monthlyTarget, tiktokTargetPct]);
+    }, [showWaModal, mtdData, currentTheme, targetMonth, dayRangeEnd, mtdCompany, monthlyTarget, tiktokTargetVal]);
 
     // Load Funnel Overview Data
     useEffect(() => {
@@ -748,17 +756,13 @@ export default function AnalyticsPage() {
                                     className="w-32 bg-card dark:bg-slate-950 border border-border dark:border-slate-800 text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary text-right font-mono font-semibold"
                                 />
                                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1">TikTok Split:</span>
-                                <div className="relative flex items-center">
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        max={100}
-                                        value={tiktokTargetPctInput !== null ? tiktokTargetPctInput : tiktokTargetPct}
-                                        onChange={(e) => setTiktokTargetPctInput(Number(e.target.value))}
-                                        className="w-16 bg-card dark:bg-slate-950 border border-border dark:border-slate-800 text-foreground text-sm rounded-lg p-2 pr-6 focus:ring-primary focus:border-primary text-center font-mono font-semibold"
-                                    />
-                                    <span className="absolute right-2 text-xs text-muted-foreground font-mono">%</span>
-                                </div>
+                                <input
+                                    type="number"
+                                    step="100000"
+                                    value={tiktokTargetValInput !== null ? tiktokTargetValInput : tiktokTargetVal}
+                                    onChange={(e) => setTiktokTargetValInput(Number(e.target.value))}
+                                    className="w-32 bg-card dark:bg-slate-950 border border-border dark:border-slate-800 text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary text-right font-mono font-semibold"
+                                />
                                 <button
                                     onClick={handleSaveTarget}
                                     className={cn(
@@ -828,11 +832,11 @@ export default function AnalyticsPage() {
                         const performancePct = estCumulative > 0 ? (actualSales / estCumulative) * 100 : 0;
                         const gap = actualSales - estCumulative;
 
-                        const tkMonthlyTarget = monthlyTarget * (tiktokTargetPct / 100);
-                        const spMonthlyTarget = monthlyTarget * ((100 - tiktokTargetPct) / 100);
+                        const tkMonthlyTarget = tiktokTargetVal;
+                        const spMonthlyTarget = Math.max(0, monthlyTarget - tiktokTargetVal);
 
-                        const tkEstCumulative = estCumulative * (tiktokTargetPct / 100);
-                        const spEstCumulative = estCumulative * ((100 - tiktokTargetPct) / 100);
+                        const tkEstCumulative = (tkMonthlyTarget / 30) * dayRangeEnd;
+                        const spEstCumulative = (spMonthlyTarget / 30) * dayRangeEnd;
 
                         const tkSales = mtdData.currentMonthData?.tiktok?.sales || 0;
                         const spSales = mtdData.currentMonthData?.shopee?.sales || 0;
@@ -1332,7 +1336,7 @@ export default function AnalyticsPage() {
                                     dayRangeEnd={dayRangeEnd} 
                                     mtdCompany={mtdCompany} 
                                     monthlyTarget={monthlyTarget} 
-                                    tiktokTargetPct={tiktokTargetPct}
+                                    tiktokTargetVal={tiktokTargetVal}
                                 />
                             </div>
                         </div>
@@ -1353,7 +1357,7 @@ function MtdReportGraphic({
     dayRangeEnd,
     mtdCompany,
     monthlyTarget,
-    tiktokTargetPct
+    tiktokTargetVal
 }: MtdReportGraphicProps) {
     if (!mtdData) return null;
 
@@ -1363,10 +1367,10 @@ function MtdReportGraphic({
     const gap = actualSales - estCumulative;
     const progressPct = monthlyTarget > 0 ? (actualSales / monthlyTarget) * 100 : 0;
 
-    const tkMonthlyTarget = monthlyTarget * (tiktokTargetPct / 100);
-    const spMonthlyTarget = monthlyTarget * ((100 - tiktokTargetPct) / 100);
-    const tkEstCumulative = estCumulative * (tiktokTargetPct / 100);
-    const spEstCumulative = estCumulative * ((100 - tiktokTargetPct) / 100);
+    const tkMonthlyTarget = tiktokTargetVal;
+    const spMonthlyTarget = Math.max(0, monthlyTarget - tiktokTargetVal);
+    const tkEstCumulative = (tkMonthlyTarget / 30) * dayRangeEnd;
+    const spEstCumulative = (spMonthlyTarget / 30) * dayRangeEnd;
 
     const streamLabel = mtdCompany === 'ALL' ? 'ALL STREAMS' : mtdCompany === 'HIMWELLNESS' ? 'HIM WELLNESS' : 'WEROCA';
     
@@ -1628,5 +1632,5 @@ interface MtdReportGraphicProps {
     dayRangeEnd: number;
     mtdCompany: 'ALL' | 'HIMWELLNESS' | 'WEROCA';
     monthlyTarget: number;
-    tiktokTargetPct: number;
+    tiktokTargetVal: number;
 }
