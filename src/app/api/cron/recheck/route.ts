@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { fetchShopGMV, fetchShopROAS, SHOPS } from '@/lib/metrics-fetcher';
+import { fetchShopeeShopPerformance, getConnectedShopeeShops, getValidShopeeToken, fetchShopeeGMVAndOrders } from '@/lib/shopee-client';
 import { query } from '@/lib/db';
 
 /**
@@ -7,7 +8,7 @@ import { query } from '@/lib/db';
  *
  * GET /api/cron/recheck?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
  *
- * Scans the database for TikTok shops with missing or zero-data rows
+ * Scans the database for TikTok and Shopee shops with missing or zero-data rows
  * in the specified date range (defaults: last 3 days including today).
  * Syncs any missing dates/shops and returns a detailed log.
  *
@@ -146,6 +147,124 @@ async function recheckAndSyncShop(
     }
 }
 
+async function recheckAndSyncShopeeShop(
+    shopId: number,
+    date: string,
+    forceResync: boolean
+): Promise<ShopRecheckResult> {
+    let shopName = `Shopee Shop ${shopId}`;
+    try {
+        // Check if data already exists for this shop+date
+        const existing = await query(
+            `SELECT gmv, order_count, spend_before_tax, updated_at, shop_name, spend_after_tax, cpas_spend, shopee_cpc_spend
+             FROM credentials.daily_shopee_metrics
+             WHERE shop_id = $1 AND date = $2::date`,
+            [shopId, date]
+        );
+
+        const row = existing.rows[0];
+        const wasPresent = !!row;
+        if (row && row.shop_name) {
+            shopName = row.shop_name;
+        }
+
+        const hasNonZeroData = row && (parseFloat(row.gmv) > 0 || parseInt(row.order_count, 10) > 0);
+
+        // Skip only if data exists, is non-zero, and forceResync is false
+        if (wasPresent && hasNonZeroData && !forceResync) {
+            return {
+                shopNumber: shopId,
+                shopName,
+                date,
+                status: 'skipped',
+                wasPresent: true,
+                gmv: parseFloat(row.gmv),
+                orders: parseInt(row.order_count, 10),
+                spend: parseFloat(row.spend_before_tax),
+            };
+        }
+
+        // Sync this Shopee shop for this date
+        const isToday = date === getKLToday();
+        let spendBeforeTax = 0;
+        let spendAfterTax = 0;
+        let cpasSpend = 0;
+        let shopeeCpcSpend = 0;
+        let hasCachedSpend = false;
+
+        // Optimize: Reuse cached daily spend for past days to avoid hitting Shopee Ads API rate limits
+        if (!isToday && wasPresent) {
+            spendBeforeTax = parseFloat(row.spend_before_tax || '0');
+            spendAfterTax = parseFloat(row.spend_after_tax || '0');
+            cpasSpend = parseFloat(row.cpas_spend || '0');
+            shopeeCpcSpend = parseFloat(row.shopee_cpc_spend || '0');
+            hasCachedSpend = true;
+        }
+
+        let gmv = 0;
+        let orderCount = 0;
+
+        if (hasCachedSpend) {
+            // Spend is cached; only query Shopee Order API to get latest GMV / cancellations
+            const accessToken = await getValidShopeeToken(shopId);
+            const orderData = await fetchShopeeGMVAndOrders(shopId, accessToken, date, date);
+            gmv = orderData.gmv || 0;
+            orderCount = orderData.orderCount || 0;
+            shopName = orderData.shopName || shopName;
+        } else {
+            // Fetch everything dynamically
+            const data = await fetchShopeeShopPerformance(shopId, date, date);
+            gmv = data.gmv || 0;
+            orderCount = data.orderCount || 0;
+            spendBeforeTax = data.spendBeforeTax || 0;
+            spendAfterTax = data.spendAfterTax || 0;
+            cpasSpend = data.cpasSpend || 0;
+            shopeeCpcSpend = data.shopeeCpcSpend || 0;
+            shopName = data.shopName || shopName;
+        }
+
+        const roasBeforeTax = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
+        const roasAfterTax = spendAfterTax > 0 ? gmv / spendAfterTax : 0;
+
+        await query(`
+            INSERT INTO credentials.daily_shopee_metrics (
+                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+            ON CONFLICT (shop_id, date) DO UPDATE SET
+                gmv = EXCLUDED.gmv,
+                spend_before_tax = EXCLUDED.spend_before_tax,
+                spend_after_tax = EXCLUDED.spend_after_tax,
+                roas_before_tax = EXCLUDED.roas_before_tax,
+                roas_after_tax = EXCLUDED.roas_after_tax,
+                order_count = EXCLUDED.order_count,
+                cpas_spend = EXCLUDED.cpas_spend,
+                shopee_cpc_spend = EXCLUDED.shopee_cpc_spend,
+                updated_at = CURRENT_TIMESTAMP
+        `, [shopId, shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend]);
+
+        return {
+            shopNumber: shopId,
+            shopName,
+            date,
+            status: 'synced',
+            wasPresent,
+            gmv,
+            orders: orderCount,
+            spend: spendBeforeTax,
+        };
+    } catch (e: any) {
+        console.error(`[cron/recheck] Shopee Shop ${shopId} on ${date} failed:`, e.message);
+        return {
+            shopNumber: shopId,
+            shopName,
+            date,
+            status: 'failed',
+            wasPresent: false,
+            error: e.message,
+        };
+    }
+}
+
 export async function GET(request: Request) {
     // ── Security ──────────────────────────────────────────────────────────────
     const authHeader = request.headers.get('authorization');
@@ -167,6 +286,14 @@ export async function GET(request: Request) {
 
     const dates = generateDateRange(startDate, endDate);
     const shopNumbers = [1, 2, 3, 4];
+    
+    // Fetch connected Shopee shops
+    let shopeeShops: any[] = [];
+    try {
+        shopeeShops = await getConnectedShopeeShops();
+    } catch (err: any) {
+        console.error('[cron/recheck] Failed to retrieve Shopee shops:', err.message);
+    }
 
     const startedAt = new Date().toISOString();
     console.log(`[cron/recheck] Starting recheck for ${startDate} → ${endDate} (${dates.length} days, force=${forceResync})`);
@@ -177,8 +304,23 @@ export async function GET(request: Request) {
     // Process dates oldest-first; serialize within each date to avoid API hammering
     for (const date of dates) {
         console.log(`[cron/recheck] Checking date: ${date}`);
+        
+        // 1. Recheck TikTok Shops
         for (const shopNumber of shopNumbers) {
             const r = await recheckAndSyncShop(shopNumber, date, forceResync);
+            results.push(r);
+            if (r.status === 'synced')  synced++;
+            if (r.status === 'skipped') skipped++;
+            if (r.status === 'failed')  failed++;
+            // Rate-limit buffer between API calls
+            if (r.status === 'synced' || r.status === 'failed') {
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        }
+
+        // 2. Recheck Shopee Shops
+        for (const shShop of shopeeShops) {
+            const r = await recheckAndSyncShopeeShop(shShop.shop_id, date, forceResync);
             results.push(r);
             if (r.status === 'synced')  synced++;
             if (r.status === 'skipped') skipped++;
@@ -192,13 +334,14 @@ export async function GET(request: Request) {
 
     const finishedAt = new Date().toISOString();
     const hasFailures = failed > 0;
+    const shopsCountPerDay = shopNumbers.length + shopeeShops.length;
 
     const summary = {
         startDate,
         endDate,
         daysChecked: dates.length,
-        shopsPerDay: shopNumbers.length,
-        totalChecked: dates.length * shopNumbers.length,
+        shopsPerDay: shopsCountPerDay,
+        totalChecked: dates.length * shopsCountPerDay,
         synced,
         skipped,
         failed,
