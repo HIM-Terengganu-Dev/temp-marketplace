@@ -151,7 +151,7 @@ export async function saveShopeeTokens(
 /**
  * Fetches the database tokens for a shop, automatically refreshing the access token if expired.
  */
-export async function getValidShopeeToken(shopId: number): Promise<string> {
+export async function getValidShopeeToken(shopId: number, forceRefresh = false): Promise<string> {
     const res = await query(
         'SELECT * FROM credentials.refresh_shopeeshops_token WHERE shop_id = $1',
         [shopId]
@@ -165,9 +165,9 @@ export async function getValidShopeeToken(shopId: number): Promise<string> {
     const now = new Date();
     const expiresAt = new Date(shop.access_token_expires_at);
 
-    // If token is expired or will expire in less than 5 minutes
-    if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000) {
-        console.log(`Access token for Shopee shop ${shopId} is expired or close to expiry. Refreshing...`);
+    // If token is expired, will expire in less than 5 minutes, or forceRefresh is true
+    if (forceRefresh || (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000)) {
+        console.log(`Access token for Shopee shop ${shopId} is expired, close to expiry, or force-refreshed. Refreshing...`);
         try {
             const tokens = await refreshShopeeAccessToken(shop.refresh_token, shopId);
             
@@ -259,164 +259,188 @@ export async function fetchShopeeGMVAndOrders(
     startDateStr: string,
     endDateStr: string
 ) {
-    const start = parseDateGMT8(startDateStr, 0, 0, 0, 0);
-    const end = parseDateGMT8(endDateStr, 23, 59, 59, 999);
-    
-    const timeFrom = Math.floor(start.getTime() / 1000);
-    const timeTo = Math.floor(end.getTime() / 1000);
-
-    const allOrderSns: string[] = [];
-    let hasMore = true;
-    let cursor = "";
-
-    while (hasMore) {
-        const timestamp = Math.floor(Date.now() / 1000);
-        const path = '/api/v2/order/get_order_list';
-        const sign = generateShopeeSignature(path, timestamp, accessToken, shopId);
+    const runWithToken = async (token: string) => {
+        const start = parseDateGMT8(startDateStr, 0, 0, 0, 0);
+        const end = parseDateGMT8(endDateStr, 23, 59, 59, 999);
         
-        let url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${shopId}`;
-        url += `&time_range_field=create_time&time_from=${timeFrom}&time_to=${timeTo}&page_size=50`;
-        if (cursor) {
-            url += `&cursor=${encodeURIComponent(cursor)}`;
-        }
+        const timeFrom = Math.floor(start.getTime() / 1000);
+        const timeTo = Math.floor(end.getTime() / 1000);
 
-        console.log(`Fetching Shopee orders list for ${shopId} with cursor: "${cursor}"...`);
-        let response;
-        try {
-            response = await axios.get(url);
-        } catch (error: any) {
-            console.error(`Axios GET error calling Shopee get_order_list API:`, error.message);
-            if (error.response?.data) {
-                console.error(`Shopee API error detail:`, JSON.stringify(error.response.data));
-                const errMsg = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data);
-                throw new Error(`Shopee API error: ${errMsg} (HTTP ${error.response.status})`);
+        const allOrderSns: string[] = [];
+        let hasMore = true;
+        let cursor = "";
+
+        while (hasMore) {
+            const timestamp = Math.floor(Date.now() / 1000);
+            const path = '/api/v2/order/get_order_list';
+            const sign = generateShopeeSignature(path, timestamp, token, shopId);
+            
+            let url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${token}&shop_id=${shopId}`;
+            url += `&time_range_field=create_time&time_from=${timeFrom}&time_to=${timeTo}&page_size=50`;
+            if (cursor) {
+                url += `&cursor=${encodeURIComponent(cursor)}`;
             }
-            throw error;
-        }
-        const data = response.data;
 
-        if (data.error) {
-            throw new Error(`Shopee get_order_list error: ${data.message || data.error}`);
-        }
-
-        const resp = data.response;
-        if (resp) {
-            const orders = resp.order_list || [];
-            orders.forEach((o: { order_sn?: string }) => {
-                if (o.order_sn) {
-                    allOrderSns.push(o.order_sn);
+            console.log(`Fetching Shopee orders list for ${shopId} with cursor: "${cursor}"...`);
+            let response;
+            try {
+                response = await axios.get(url);
+            } catch (error: any) {
+                console.error(`Axios GET error calling Shopee get_order_list API:`, error.message);
+                if (error.response?.data) {
+                    console.error(`Shopee API error detail:`, JSON.stringify(error.response.data));
+                    const errMsg = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data);
+                    throw new Error(`Shopee API error: ${errMsg} (HTTP ${error.response.status})`);
                 }
-            });
-            hasMore = !!resp.more;
-            cursor = resp.next_cursor || "";
-        } else {
-            hasMore = false;
-        }
-    }
-
-    const chunkedOrderSns: string[][] = [];
-    for (let i = 0; i < allOrderSns.length; i += 50) {
-        chunkedOrderSns.push(allOrderSns.slice(i, i + 50));
-    }
-
-    let totalGMV = 0;
-    let validOrderCount = 0;
-    const uniqueBuyers = new Set<number | string>();
-    const ordersDetails: {
-        id: string;
-        status: string;
-        createTime: number;
-        gmv: number;
-        itemCount: number;
-        buyerUserId: number | string | null;
-        isIncluded: boolean;
-    }[] = [];
-    let fetchedShopName = `Shopee Shop ${shopId}`;
-
-    for (const chunk of chunkedOrderSns) {
-        const timestamp = Math.floor(Date.now() / 1000);
-        const path = '/api/v2/order/get_order_detail';
-        const sign = generateShopeeSignature(path, timestamp, accessToken, shopId);
-        
-        const orderSnListStr = chunk.join(',');
-        const optionalFields = 'buyer_user_id,total_amount,item_list,order_status';
-        
-        let url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${shopId}`;
-        url += `&order_sn_list=${encodeURIComponent(orderSnListStr)}&response_optional_fields=${encodeURIComponent(optionalFields)}`;
-
-        console.log(`Fetching Shopee order details for batch of ${chunk.length}...`);
-        let response;
-        try {
-            response = await axios.get(url);
-        } catch (error: any) {
-            console.error(`Axios GET error calling Shopee get_order_detail API:`, error.message);
-            if (error.response?.data) {
-                console.error(`Shopee API error detail:`, JSON.stringify(error.response.data));
-                const errMsg = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data);
-                throw new Error(`Shopee API error: ${errMsg} (HTTP ${error.response.status})`);
+                throw error;
             }
-            throw error;
-        }
-        const data = response.data;
+            const data = response.data;
 
-        if (data.error) {
-            throw new Error(`Shopee get_order_detail error: ${data.message || data.error}`);
-        }
+            if (data.error) {
+                throw new Error(`Shopee get_order_list error: ${data.message || data.error}`);
+            }
 
-        const resp = data.response;
-        if (resp && resp.order_list) {
-            for (const order of resp.order_list) {
-                const status = order.order_status?.toUpperCase();
-                const isIncluded = status !== 'CANCELLED' && status !== 'TO_RETURN' && status !== 'UNPAID';
-                
-                // Calculate item-level discounted subtotal (original price before customer vouchers are applied)
-                let productSubtotal = 0;
-                if (order.item_list) {
-                    order.item_list.forEach((item: any) => {
-                        const priceVal = item.model_discounted_price !== undefined ? item.model_discounted_price : (item.model_original_price !== undefined ? item.model_original_price : 0);
-                        productSubtotal += parseFloat(priceVal || 0) * (item.model_quantity_purchased || 1);
-                    });
-                }
-
-                ordersDetails.push({
-                    id: order.order_sn,
-                    status: order.order_status,
-                    createTime: order.create_time, // UNIX timestamp in seconds
-                    gmv: productSubtotal,
-                    itemCount: order.item_list?.length || 0,
-                    buyerUserId: order.buyer_user_id || null,
-                    isIncluded
+            const resp = data.response;
+            if (resp) {
+                const orders = resp.order_list || [];
+                orders.forEach((o: { order_sn?: string }) => {
+                    if (o.order_sn) {
+                        allOrderSns.push(o.order_sn);
+                    }
                 });
+                hasMore = !!resp.more;
+                cursor = resp.next_cursor || "";
+            } else {
+                hasMore = false;
+            }
+        }
 
-                if (isIncluded) {
-                    totalGMV += productSubtotal;
-                    validOrderCount++;
-                    if (order.buyer_user_id) {
-                        uniqueBuyers.add(order.buyer_user_id);
+        const chunkedOrderSns: string[][] = [];
+        for (let i = 0; i < allOrderSns.length; i += 50) {
+            chunkedOrderSns.push(allOrderSns.slice(i, i + 50));
+        }
+
+        let totalGMV = 0;
+        let validOrderCount = 0;
+        const uniqueBuyers = new Set<number | string>();
+        const ordersDetails: {
+            id: string;
+            status: string;
+            createTime: number;
+            gmv: number;
+            itemCount: number;
+            buyerUserId: number | string | null;
+            isIncluded: boolean;
+        }[] = [];
+        let fetchedShopName = `Shopee Shop ${shopId}`;
+
+        for (const chunk of chunkedOrderSns) {
+            const timestamp = Math.floor(Date.now() / 1000);
+            const path = '/api/v2/order/get_order_detail';
+            const sign = generateShopeeSignature(path, timestamp, token, shopId);
+            
+            const orderSnListStr = chunk.join(',');
+            const optionalFields = 'buyer_user_id,total_amount,item_list,order_status';
+            
+            let url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${token}&shop_id=${shopId}`;
+            url += `&order_sn_list=${encodeURIComponent(orderSnListStr)}&response_optional_fields=${encodeURIComponent(optionalFields)}`;
+
+            console.log(`Fetching Shopee order details for batch of ${chunk.length}...`);
+            let response;
+            try {
+                response = await axios.get(url);
+            } catch (error: any) {
+                console.error(`Axios GET error calling Shopee get_order_detail API:`, error.message);
+                if (error.response?.data) {
+                    console.error(`Shopee API error detail:`, JSON.stringify(error.response.data));
+                    const errMsg = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data);
+                    throw new Error(`Shopee API error: ${errMsg} (HTTP ${error.response.status})`);
+                }
+                throw error;
+            }
+            const data = response.data;
+
+            if (data.error) {
+                throw new Error(`Shopee get_order_detail error: ${data.message || data.error}`);
+            }
+
+            const resp = data.response;
+            if (resp && resp.order_list) {
+                for (const order of resp.order_list) {
+                    const status = order.order_status?.toUpperCase();
+                    const isIncluded = status !== 'CANCELLED' && status !== 'TO_RETURN' && status !== 'UNPAID';
+                    
+                    // Calculate item-level discounted subtotal (original price before customer vouchers are applied)
+                    let productSubtotal = 0;
+                    if (order.item_list) {
+                        order.item_list.forEach((item: any) => {
+                            const priceVal = item.model_discounted_price !== undefined ? item.model_discounted_price : (item.model_original_price !== undefined ? item.model_original_price : 0);
+                            productSubtotal += parseFloat(priceVal || 0) * (item.model_quantity_purchased || 1);
+                        });
+                    }
+
+                    ordersDetails.push({
+                        id: order.order_sn,
+                        status: order.order_status,
+                        createTime: order.create_time, // UNIX timestamp in seconds
+                        gmv: productSubtotal,
+                        itemCount: order.item_list?.length || 0,
+                        buyerUserId: order.buyer_user_id || null,
+                        isIncluded
+                    });
+
+                    if (isIncluded) {
+                        totalGMV += productSubtotal;
+                        validOrderCount++;
+                        if (order.buyer_user_id) {
+                            uniqueBuyers.add(order.buyer_user_id);
+                        }
                     }
                 }
             }
         }
-    }
 
-    // Try to get dynamic shop name from getShopeeShopInfo or fallback
-    try {
-        const info = await getShopeeShopInfo(shopId, accessToken);
-        if (info && info.shop_name) {
-            fetchedShopName = info.shop_name;
+        // Try to get dynamic shop name from getShopeeShopInfo or fallback
+        try {
+            const info = await getShopeeShopInfo(shopId, token);
+            if (info && info.shop_name) {
+                fetchedShopName = info.shop_name;
+            }
+        } catch {
+            // Fallback is okay
         }
-    } catch {
-        // Fallback is okay
-    }
 
-    return {
-        shopName: fetchedShopName,
-        gmv: totalGMV,
-        orderCount: validOrderCount,
-        totalOrderCount: allOrderSns.length,
-        uniqueCustomers: uniqueBuyers.size,
-        orders: ordersDetails
+        return {
+            shopName: fetchedShopName,
+            gmv: totalGMV,
+            orderCount: validOrderCount,
+            totalOrderCount: allOrderSns.length,
+            uniqueCustomers: uniqueBuyers.size,
+            orders: ordersDetails
+        };
     };
+
+    try {
+        return await runWithToken(accessToken);
+    } catch (error: any) {
+        const isInvalidToken = error.message?.includes('Invalid access_token') || 
+                               error.message?.includes('invalid access_token') ||
+                               error.message?.includes('Invalid token') ||
+                               error.message?.includes('invalid token') ||
+                               (error.response?.data && JSON.stringify(error.response.data).includes('access_token'));
+                               
+        if (isInvalidToken) {
+            console.warn(`Shopee Access Token for shop ${shopId} is invalid or expired in fetchShopeeGMVAndOrders. Forcing a token refresh...`);
+            try {
+                const newToken = await getValidShopeeToken(shopId, true);
+                return await runWithToken(newToken);
+            } catch (refreshErr: any) {
+                console.error(`Shopee token force-refresh failed during recovery in fetchShopeeGMVAndOrders:`, refreshErr.message);
+                throw error;
+            }
+        }
+        throw error;
+    }
 }
 
 /**
