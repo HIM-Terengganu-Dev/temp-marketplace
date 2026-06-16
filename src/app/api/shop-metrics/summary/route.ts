@@ -483,12 +483,24 @@ async function fetchShopeeShopMetricsSWR(
                         fn: () => fetchAndSaveShopee(shopId, date)
                     });
                 } else {
-                    // DB row was written mid-day (before midnight KL) — data is incomplete.
-                    // Re-fetch live synchronously so first load shows correct totals.
-                    console.log(`[summary-swr] Shopee Shop ${shopId} date ${date}: DB cached mid-day (before close), re-fetching live...`);
-                    syncPromises.push(fetchAndSaveShopee(shopId, date));
+                    // DB row was written mid-day (before midnight KL) — data may be incomplete.
+                    // SAFE: Serve the stale cached value immediately so the UI always shows data.
+                    // Queue a background revalidation to refresh without risking API failures zeroing the data.
+                    console.log(`[summary-swr] Shopee Shop ${shopId} date ${date}: DB cached mid-day (before close), serving stale cache + scheduling background refresh...`);
+                    totalGMV += cached.gmv;
+                    totalSpend += cached.spend;
+                    totalOrders += cached.orders;
+                    totalCpasSpend += cached.cpasSpend;
+                    totalShopeeCpcSpend += cached.shopeeCpcSpend;
+                    if (cached.shopName) shopName = cached.shopName;
+                    loadedFromDbCount++;
                     loadedStaleCount++;
-                    loadedFromApiCount++;
+                    // Schedule background refresh to update the DB with final values
+                    backgroundThunks.push({
+                        key,
+                        date,
+                        fn: () => fetchAndSaveShopee(shopId, date)
+                    });
                 }
             } else {
                 syncPromises.push(fetchAndSaveShopee(shopId, date));
