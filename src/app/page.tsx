@@ -176,10 +176,8 @@ export default function Home() {
         setIsRechecking(true);
         setRecheckLog(null);
         try {
-            // Call the internal proxy — no CRON_SECRET needed client-side.
-            // The proxy validates the session and forwards to /api/cron/recheck.
             const res = await fetch(
-                `/api/internal/recheck?startDate=${startDate}&endDate=${endDate}`
+                `/api/internal/recheck?startDate=${startDate}&endDate=${endDate}&force=true`
             );
             const data = await res.json();
             setRecheckLog({

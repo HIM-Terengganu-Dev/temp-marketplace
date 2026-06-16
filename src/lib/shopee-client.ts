@@ -5,7 +5,7 @@ import { format, parseISO, differenceInDays, subDays } from 'date-fns';
 
 const PARTNER_ID = parseInt(process.env.SHOPEE_PARTNER_ID || '0', 10);
 const PARTNER_KEY = process.env.SHOPEE_PARTNER_KEY || '';
-const API_BASE_URL = process.env.SHOPEE_API_BASE_URL || 'https://partner.shopeesz.com';
+const API_BASE_URL = process.env.SHOPEE_API_BASE_URL || 'https://partner.shopeemobile.com';
 
 /**
  * Generates the HMAC-SHA256 signature required by Shopee Open API v2.

@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const API_BASE_URL = process.env.SHOPEE_API_BASE_URL || 'https://partner.shopeesz.com';
+const API_BASE_URL = process.env.SHOPEE_API_BASE_URL || 'https://partner.shopeemobile.com';
 const PARTNER_ID = parseInt(process.env.SHOPEE_PARTNER_ID || '0', 10);
 const PARTNER_KEY = process.env.SHOPEE_PARTNER_KEY || '';
 

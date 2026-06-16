@@ -22,7 +22,7 @@ export async function GET(request: Request) {
         }
 
         const partnerId = process.env.SHOPEE_PARTNER_ID || '';
-        const apiBaseUrl = process.env.SHOPEE_API_BASE_URL || 'https://partner.shopeesz.com';
+        const apiBaseUrl = process.env.SHOPEE_API_BASE_URL || 'https://partner.shopeemobile.com';
         const timestamp = Math.floor(Date.now() / 1000);
         const path = '/api/v2/shop/auth_partner';
         
