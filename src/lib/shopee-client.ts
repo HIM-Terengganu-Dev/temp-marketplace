@@ -281,7 +281,18 @@ export async function fetchShopeeGMVAndOrders(
         }
 
         console.log(`Fetching Shopee orders list for ${shopId} with cursor: "${cursor}"...`);
-        const response = await axios.get(url);
+        let response;
+        try {
+            response = await axios.get(url);
+        } catch (error: any) {
+            console.error(`Axios GET error calling Shopee get_order_list API:`, error.message);
+            if (error.response?.data) {
+                console.error(`Shopee API error detail:`, JSON.stringify(error.response.data));
+                const errMsg = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data);
+                throw new Error(`Shopee API error: ${errMsg} (HTTP ${error.response.status})`);
+            }
+            throw error;
+        }
         const data = response.data;
 
         if (data.error) {
@@ -334,7 +345,18 @@ export async function fetchShopeeGMVAndOrders(
         url += `&order_sn_list=${encodeURIComponent(orderSnListStr)}&response_optional_fields=${encodeURIComponent(optionalFields)}`;
 
         console.log(`Fetching Shopee order details for batch of ${chunk.length}...`);
-        const response = await axios.get(url);
+        let response;
+        try {
+            response = await axios.get(url);
+        } catch (error: any) {
+            console.error(`Axios GET error calling Shopee get_order_detail API:`, error.message);
+            if (error.response?.data) {
+                console.error(`Shopee API error detail:`, JSON.stringify(error.response.data));
+                const errMsg = error.response.data.message || error.response.data.error || JSON.stringify(error.response.data);
+                throw new Error(`Shopee API error: ${errMsg} (HTTP ${error.response.status})`);
+            }
+            throw error;
+        }
         const data = response.data;
 
         if (data.error) {
