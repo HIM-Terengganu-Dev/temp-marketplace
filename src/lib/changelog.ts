@@ -10,7 +10,7 @@
  * The popup will automatically appear for all users on their next visit.
  */
 
-export const APP_VERSION = "1.6.0";
+export const APP_VERSION = "1.6.1";
 
 export type ChangeType = "new" | "fix" | "improve" | "remove";
 
@@ -29,6 +29,27 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+    {
+        version: "1.6.1",
+        date: "20 Jun 2026",
+        emoji: "📊",
+        title: "Gap Metrics & Refined WhatsApp Sharing",
+        summary: "We added 'Gap' metric indicators to the platform comparison section inside your MTD Performance WhatsApp preview, and rearranged the layout to prioritize Target and Sales first.",
+        changes: [
+            {
+                type: "new",
+                text: "Added the 'Gap' metric to both TikTok Shop and Shopee Shop comparison cards in the WhatsApp preview graphic, showing if you are ahead of or behind pacing",
+            },
+            {
+                type: "improve",
+                text: "Rearranged the metric layout to place Target, Sales, and Gap first, presented side-by-side in a clean 3-column top row",
+            },
+            {
+                type: "fix",
+                text: "Resolved server configuration URL parsing error by setting the development NextAuth port to match port 3001",
+            },
+        ],
+    },
     {
         version: "1.6.0",
         date: "9 Jun 2026",

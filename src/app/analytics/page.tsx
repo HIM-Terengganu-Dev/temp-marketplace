@@ -1395,6 +1395,9 @@ function MtdReportGraphic({
     const spSpend = mtdData.currentMonthData?.shopee?.spend || 0;
     const spRoas = mtdData.currentMonthData?.shopee?.roas || 0;
 
+    const tkGap = tkSales - tkEstCumulative;
+    const spGap = spSales - spEstCumulative;
+
     // MoM comparison delta values (vs prior month)
     const latestComp = mtdData.comparisons && mtdData.comparisons.length > 0 
         ? mtdData.comparisons[mtdData.comparisons.length - 1] 
@@ -1498,17 +1501,26 @@ function MtdReportGraphic({
                         )}
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Sales (GMV)</span>
-                            <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {tkSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                        </div>
+                    <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Target (MTD Pacing)</span>
                             <div className="flex flex-col">
                                 <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {tkEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                                 <span className="text-[9px] font-bold text-slate-500 font-mono mt-0.5">({(tkEstCumulative > 0 ? (tkSales / tkEstCumulative) * 100 : 0).toFixed(0)}% met of RM {tkMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
                             </div>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Sales (GMV)</span>
+                            <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {tkSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Gap</span>
+                            <span className={cn(
+                                "text-lg font-black font-mono",
+                                tkGap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-455"
+                            )}>
+                                {tkGap >= 0 ? '+' : '-'}RM {Math.abs(tkGap).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </span>
                         </div>
                         <div className="flex flex-col border-t border-pink-500/10 pt-2.5">
                             <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Ad Spend</span>
@@ -1518,6 +1530,7 @@ function MtdReportGraphic({
                             <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">ROAS</span>
                             <span className="text-lg font-black font-mono text-pink-700 dark:text-pink-450">{tkRoas.toFixed(2)}x</span>
                         </div>
+                        <div className="flex flex-col border-t border-pink-500/10 pt-2.5" />
                     </div>
                 </div>
 
@@ -1541,17 +1554,26 @@ function MtdReportGraphic({
                         )}
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Sales (GMV)</span>
-                            <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {spSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                        </div>
+                    <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Target (MTD Pacing)</span>
                             <div className="flex flex-col">
                                 <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {spEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                                 <span className="text-[9px] font-bold text-slate-500 font-mono mt-0.5">({(spEstCumulative > 0 ? (spSales / spEstCumulative) * 100 : 0).toFixed(0)}% met of RM {spMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
                             </div>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Sales (GMV)</span>
+                            <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {spSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Gap</span>
+                            <span className={cn(
+                                "text-lg font-black font-mono",
+                                spGap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-455"
+                            )}>
+                                {spGap >= 0 ? '+' : '-'}RM {Math.abs(spGap).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </span>
                         </div>
                         <div className="flex flex-col border-t border-orange-500/10 pt-2.5">
                             <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Ad Spend</span>
@@ -1561,6 +1583,7 @@ function MtdReportGraphic({
                             <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">ROAS</span>
                             <span className="text-lg font-black font-mono text-orange-700 dark:text-orange-450">{spRoas.toFixed(2)}x</span>
                         </div>
+                        <div className="flex flex-col border-t border-orange-500/10 pt-2.5" />
                     </div>
                 </div>
             </div>
