@@ -11,6 +11,7 @@ async function main() {
     console.log(`\n=============================================================`);
     console.log(`🚀 SYNCING TODAY'S SHOPEE METRICS`);
     console.log(`📅 Target Date: ${today}`);
+    console.log(`🔑 FB TOKEN LENGTH: ${process.env.FB_ACCESS_TOKEN ? process.env.FB_ACCESS_TOKEN.length : 'undefined'}`);
     console.log(`=============================================================\n`);
 
     try {

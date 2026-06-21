@@ -588,12 +588,14 @@ export async function fetchMetaCPASSpendForDate(
     shopId: number,
     dateStr: string
 ): Promise<number> {
+    const numericShopId = typeof shopId === 'string' ? parseInt(shopId, 10) : shopId;
     const ALLOWED_CPAS_SHOPS = [1298030530, 1077500606, 1256177782];
-    if (!ALLOWED_CPAS_SHOPS.includes(shopId)) {
+    if (!ALLOWED_CPAS_SHOPS.includes(numericShopId)) {
         return 0; // No CPAS allowed for other shops
     }
 
     const accessToken = process.env.FB_ACCESS_TOKEN;
+    console.log(`[trace] fetchMetaCPASSpendForDate: shopId=${shopId} (numeric=${numericShopId}), dateStr=${dateStr}, tokenLength=${accessToken ? accessToken.length : 'undefined'}`);
     if (!accessToken) {
         return 0; // Meta Ads not configured, fail-silent
     }
@@ -609,7 +611,7 @@ export async function fetchMetaCPASSpendForDate(
         1256177782: 'HIM.DRSAMHAN2'
     };
 
-    let adAccountId = SHOPEE_FB_AD_ACCOUNTS[shopId];
+    let adAccountId = SHOPEE_FB_AD_ACCOUNTS[numericShopId];
     if (!adAccountId) {
         return 0; // No FB ad account configured for this shop
     }
@@ -619,14 +621,14 @@ export async function fetchMetaCPASSpendForDate(
         adAccountId = `act_${adAccountId}`;
     }
 
-    const campaignFilter = SHOPEE_FB_CAMPAIGN_FILTERS[shopId];
+    const campaignFilter = SHOPEE_FB_CAMPAIGN_FILTERS[numericShopId];
 
     try {
         const timeRange = JSON.stringify({ since: dateStr, until: dateStr });
         
         if (campaignFilter) {
             const url = `https://graph.facebook.com/v19.0/${adAccountId}/insights?access_token=${accessToken}&level=campaign&fields=campaign_name,spend&time_range=${encodeURIComponent(timeRange)}&limit=100`;
-            console.log(`Fetching Meta CPAS campaign-level spend for shop ${shopId} (${adAccountId}) with filter "${campaignFilter}" on ${dateStr}...`);
+            console.log(`Fetching Meta CPAS campaign-level spend for shop ${numericShopId} (${adAccountId}) with filter "${campaignFilter}" on ${dateStr}...`);
             
             const response = await axios.get(url);
             const data = response.data;
@@ -644,24 +646,24 @@ export async function fetchMetaCPASSpendForDate(
                 }
             });
             
-            console.log(`Total filtered Meta CPAS spend for shop ${shopId} on ${dateStr}: RM ${totalFilteredSpend.toFixed(2)}`);
+            console.log(`Total filtered Meta CPAS spend for shop ${numericShopId} on ${dateStr}: RM ${totalFilteredSpend.toFixed(2)}`);
             return totalFilteredSpend;
         } else {
             const url = `https://graph.facebook.com/v19.0/${adAccountId}/insights?access_token=${accessToken}&level=account&fields=spend&time_range=${encodeURIComponent(timeRange)}`;
-            console.log(`Fetching Meta CPAS account-level spend for shop ${shopId} (${adAccountId}) on ${dateStr}...`);
+            console.log(`Fetching Meta CPAS account-level spend for shop ${numericShopId} (${adAccountId}) on ${dateStr}...`);
             
             const response = await axios.get(url);
             const data = response.data;
             const insights = data.data || [];
             if (insights.length > 0 && insights[0].spend) {
                 const spend = parseFloat(insights[0].spend);
-                console.log(`Meta CPAS spend for shop ${shopId} on ${dateStr}: RM ${spend.toFixed(2)}`);
+                console.log(`Meta CPAS spend for shop ${numericShopId} on ${dateStr}: RM ${spend.toFixed(2)}`);
                 return spend;
             }
             return 0;
         }
     } catch (error: any) {
-        console.warn(`Failed to fetch Meta CPAS spend for shop ${shopId} on ${dateStr}:`, error.message);
+        console.warn(`Failed to fetch Meta CPAS spend for shop ${numericShopId} on ${dateStr}:`, error.message);
         if (error.response?.data) {
             console.warn(`Meta API Error Detail:`, JSON.stringify(error.response.data));
         }
