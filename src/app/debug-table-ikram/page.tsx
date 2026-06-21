@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Calendar, ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
+import { SimpleDatePicker, DatePreset } from "@/components/dashboard/SimpleDatePicker";
 
 export default function DebugTableIkramPage() {
     const { data: session } = useSession();
@@ -44,6 +45,7 @@ export default function DebugTableIkramPage() {
     // Default to today's date (GMT+8)
     const [startDate, setStartDate] = useState(getTodayGMT8());
     const [endDate, setEndDate] = useState(getTodayGMT8());
+    const [activePreset, setActivePreset] = useState<DatePreset>("today");
     const [selectedMetric, setSelectedMetric] = useState("gross_revenue");
     const [selectedShop, setSelectedShop] = useState(allowedTiktokShops[0]?.toString() || "1");
     
@@ -71,6 +73,7 @@ export default function DebugTableIkramPage() {
         const yesterday = getYesterdayGMT8();
         setStartDate(yesterday);
         setEndDate(yesterday);
+        setActivePreset("yesterday");
         setData(null); // Clear data when date changes
         setExpandedAccounts(new Set()); // Clear expanded accounts
         setExpandedCampaigns(new Set()); // Clear expanded campaigns
@@ -334,79 +337,27 @@ export default function DebugTableIkramPage() {
                         ))}
                     </select>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium mb-1">Start Date</label>
-                    <div className="relative">
-                    <input
-                        type="date"
-                        value={startDate}
-                            onChange={(e) => {
-                                setStartDate(e.target.value);
-                                setData(null); // Clear data on date change
-                                setExpandedAccounts(new Set()); // Clear expanded accounts
-                                setExpandedCampaigns(new Set()); // Clear expanded campaigns
-                            }}
-                            className="border rounded p-2 bg-background pr-8 w-full"
-                            id="start-date-input-ikram"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const input = document.getElementById('start-date-input-ikram') as HTMLInputElement;
-                                if (input) {
-                                    if (input.showPicker) {
-                                        input.showPicker();
-                                    } else {
-                                        input.focus();
-                                        input.click();
-                                    }
-                                }
-                            }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:opacity-70 transition-opacity bg-transparent border-0 p-0"
-                            aria-label="Open date picker"
-                        >
-                            <Calendar className="h-4 w-4 text-gray-600" />
-                        </button>
-                    </div>
+                <div className="flex flex-col gap-1">
+                    <label className="block text-sm font-medium mb-1">Date Range</label>
+                    <SimpleDatePicker
+                        startDate={startDate}
+                        setStartDate={(date) => {
+                            setStartDate(date);
+                            setData(null); // Clear data on date change
+                            setExpandedAccounts(new Set()); // Clear expanded accounts
+                            setExpandedCampaigns(new Set()); // Clear expanded campaigns
+                        }}
+                        endDate={endDate}
+                        setEndDate={(date) => {
+                            setEndDate(date);
+                            setData(null); // Clear data on date change
+                            setExpandedAccounts(new Set()); // Clear expanded accounts
+                            setExpandedCampaigns(new Set()); // Clear expanded campaigns
+                        }}
+                        activePreset={activePreset}
+                        onPresetChange={setActivePreset}
+                    />
                 </div>
-                <div>
-                    <label className="block text-sm font-medium mb-1">End Date</label>
-                    <div className="relative">
-                    <input
-                        type="date"
-                        value={endDate}
-                            onChange={(e) => {
-                                setEndDate(e.target.value);
-                                setData(null); // Clear data on date change
-                                setExpandedAccounts(new Set()); // Clear expanded accounts
-                                setExpandedCampaigns(new Set()); // Clear expanded campaigns
-                            }}
-                            className="border rounded p-2 bg-background pr-8 w-full"
-                            id="end-date-input-ikram"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const input = document.getElementById('end-date-input-ikram') as HTMLInputElement;
-                                if (input) {
-                                    if (input.showPicker) {
-                                        input.showPicker();
-                                    } else {
-                                        input.focus();
-                                        input.click();
-                                    }
-                                }
-                            }}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:opacity-70 transition-opacity bg-transparent border-0 p-0"
-                            aria-label="Open date picker"
-                        >
-                            <Calendar className="h-4 w-4 text-gray-600" />
-                        </button>
-                    </div>
-                </div>
-                <Button onClick={jumpToYesterday} variant="outline" disabled={loading}>
-                    Yesterday
-                </Button>
                 <Button onClick={fetchData} disabled={loading}>
                     {loading ? 'Fetching...' : 'Fetch Data'}
                 </Button>
