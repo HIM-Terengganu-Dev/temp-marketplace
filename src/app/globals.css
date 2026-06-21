@@ -37,58 +37,58 @@
 
 :root {
   /* Premium Light Theme (Soft, Modern) */
-  --background: oklch(0.985 0.01 240);
-  --foreground: oklch(0.15 0.05 240);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0.05 240);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0.05 240);
-  --primary: oklch(0.55 0.2 260); /* Vibrant Blue */
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.96 0.01 240);
-  --secondary-foreground: oklch(0.55 0.2 260);
-  --muted: oklch(0.96 0.01 240);
-  --muted-foreground: oklch(0.55 0.05 240);
-  --accent: oklch(0.96 0.01 240);
-  --accent-foreground: oklch(0.55 0.2 260);
-  --destructive: oklch(0.6 0.18 20);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.92 0.01 240);
-  --input: oklch(0.92 0.01 240);
-  --ring: oklch(0.55 0.2 260);
-  --chart-1: oklch(0.6 0.18 20);   /* Red */
-  --chart-2: oklch(0.55 0.2 260);  /* Blue */
-  --chart-3: oklch(0.55 0.2 140);  /* Green */
-  --chart-4: oklch(0.65 0.2 50);   /* Orange */
-  --chart-5: oklch(0.6 0.2 300);   /* Purple */
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #004aad; /* Biru */
+  --primary-foreground: #ffffff; /* Putih */
+  --secondary: #ffffff; /* Putih */
+  --secondary-foreground: #004aad; /* Biru */
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #004aad;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #004aad;
+  --chart-1: #ef4444;   /* Red */
+  --chart-2: #004aad;  /* Blue */
+  --chart-3: #22c55e;  /* Green */
+  --chart-4: #f97316;   /* Orange */
+  --chart-5: #a855f7;   /* Purple */
 }
 
 .dark {
-  /* Premium Dark Theme (Deep Cosmos, Glassy) */
-  --background: oklch(0.12 0.03 260); /* Deep Blue-Black */
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.15 0.04 260); /* Slightly lighter */
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.15 0.04 260);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.6 0.22 300); /* Neon Purple */
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.25 0.05 260);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.2 0.05 260);
-  --muted-foreground: oklch(0.7 0.05 260);
-  --accent: oklch(0.25 0.05 260);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.5 0.2 20);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0.05 260);
-  --input: oklch(0.25 0.05 260);
-  --ring: oklch(0.6 0.22 300);
-  --chart-1: oklch(0.6 0.22 300);  /* Purple */
-  --chart-2: oklch(0.55 0.2 200);  /* Cyan */
-  --chart-3: oklch(0.6 0.18 20);   /* Red/Pink */
-  --chart-4: oklch(0.65 0.2 140);  /* Green */
-  --chart-5: oklch(0.7 0.15 80);   /* Yellow */
+  /* Premium Dark Theme matching user's specification */
+  --background: #000000; /* Hitam (Tertiary) */
+  --foreground: #ffffff; /* Putih (Secondary) */
+  --card: #000000; /* Hitam (Tertiary) */
+  --card-foreground: #ffffff; /* Putih (Secondary) */
+  --popover: #000000;
+  --popover-foreground: #ffffff;
+  --primary: #004aad; /* Biru (Primary) */
+  --primary-foreground: #ffffff; /* Putih (Secondary) */
+  --secondary: #ffffff; /* Putih (Secondary) */
+  --secondary-foreground: #004aad; /* Biru (Primary) */
+  --muted: #111111;
+  --muted-foreground: #a1a1aa;
+  --accent: #111111;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 74, 173, 0.3); /* Biru border opacity */
+  --input: rgba(0, 74, 173, 0.2);
+  --ring: #004aad;
+  --chart-1: #ef4444;
+  --chart-2: #004aad;
+  --chart-3: #22c55e;
+  --chart-4: #f97316;
+  --chart-5: #a855f7;
 }
 
 @layer base {

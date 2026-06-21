@@ -8,6 +8,72 @@ const PARTNER_KEY = process.env.SHOPEE_PARTNER_KEY || '';
 const API_BASE_URL = process.env.SHOPEE_API_BASE_URL || 'https://partner.shopeemobile.com';
 
 /**
+ * Helper to execute a Shopee GET API call with retries and exponential backoff on HTTP/body rate limits.
+ */
+export async function shopeeApiGet(url: string, retries = 3, delay = 1500): Promise<any> {
+    try {
+        const response = await axios.get(url);
+        const data = response.data;
+        if (data && data.error && (
+            data.error.includes('rate_limit') || 
+            data.error.includes('frequency') || 
+            data.error.includes('busy') ||
+            data.message?.toLowerCase().includes('rate') ||
+            data.message?.toLowerCase().includes('limit') ||
+            data.message?.toLowerCase().includes('frequency')
+        )) {
+            if (retries > 0) {
+                console.warn(`Shopee API body-level error ${data.error}: ${data.message || ''}. Retrying in ${delay}ms... (${retries} retries left)`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return shopeeApiGet(url, retries - 1, delay * 2);
+            }
+        }
+        return response;
+    } catch (error: any) {
+        const isRateLimitOrServer = error.response?.status === 429 || error.response?.status >= 500;
+        if (retries > 0 && isRateLimitOrServer) {
+            console.warn(`Shopee API HTTP error ${error.response?.status || 'unknown'}: ${error.message}. Retrying in ${delay}ms... (${retries} retries left)`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return shopeeApiGet(url, retries - 1, delay * 2);
+        }
+        throw error;
+    }
+}
+
+/**
+ * Helper to execute a Shopee POST API call with retries and exponential backoff on HTTP/body rate limits.
+ */
+export async function shopeeApiPost(url: string, body: any, config: any, retries = 3, delay = 1500): Promise<any> {
+    try {
+        const response = await axios.post(url, body, config);
+        const data = response.data;
+        if (data && data.error && (
+            data.error.includes('rate_limit') || 
+            data.error.includes('frequency') || 
+            data.error.includes('busy') ||
+            data.message?.toLowerCase().includes('rate') ||
+            data.message?.toLowerCase().includes('limit') ||
+            data.message?.toLowerCase().includes('frequency')
+        )) {
+            if (retries > 0) {
+                console.warn(`Shopee API body-level error ${data.error}: ${data.message || ''}. Retrying in ${delay}ms... (${retries} retries left)`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return shopeeApiPost(url, body, config, retries - 1, delay * 2);
+            }
+        }
+        return response;
+    } catch (error: any) {
+        const isRateLimitOrServer = error.response?.status === 429 || error.response?.status >= 500;
+        if (retries > 0 && isRateLimitOrServer) {
+            console.warn(`Shopee API HTTP error ${error.response?.status || 'unknown'}: ${error.message}. Retrying in ${delay}ms... (${retries} retries left)`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return shopeeApiPost(url, body, config, retries - 1, delay * 2);
+        }
+        throw error;
+    }
+}
+
+/**
  * Generates the HMAC-SHA256 signature required by Shopee Open API v2.
  */
 export function generateShopeeSignature(
@@ -56,7 +122,7 @@ export async function exchangeShopeeCodeForTokens(
     const url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}`;
 
     console.log(`Exchanging Shopee code for shop ${shopId}...`);
-    const response = await axios.post(url, {
+    const response = await shopeeApiPost(url, {
         code,
         partner_id: PARTNER_ID,
         shop_id: parseInt(shopId as any, 10)
@@ -86,7 +152,7 @@ export async function refreshShopeeAccessToken(
     const url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}`;
 
     console.log(`Refreshing access token for Shopee shop ${shopId}...`);
-    const response = await axios.post(url, {
+    const response = await shopeeApiPost(url, {
         refresh_token: refreshToken,
         partner_id: PARTNER_ID,
         shop_id: parseInt(shopId as any, 10)
@@ -228,7 +294,7 @@ export async function getShopeeShopInfo(shopId: number, accessToken: string): Pr
     const url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${shopId}`;
 
     console.log(`Fetching Shopee shop info for shop ${shopId}...`);
-    const response = await axios.get(url);
+    const response = await shopeeApiGet(url);
     const data = response.data;
     
     if (data.error) {
@@ -284,7 +350,7 @@ export async function fetchShopeeGMVAndOrders(
             console.log(`Fetching Shopee orders list for ${shopId} with cursor: "${cursor}"...`);
             let response;
             try {
-                response = await axios.get(url);
+                response = await shopeeApiGet(url);
             } catch (error: any) {
                 console.error(`Axios GET error calling Shopee get_order_list API:`, error.message);
                 if (error.response?.data) {
@@ -348,7 +414,7 @@ export async function fetchShopeeGMVAndOrders(
             console.log(`Fetching Shopee order details for batch of ${chunk.length}...`);
             let response;
             try {
-                response = await axios.get(url);
+                response = await shopeeApiGet(url);
             } catch (error: any) {
                 console.error(`Axios GET error calling Shopee get_order_detail API:`, error.message);
                 if (error.response?.data) {
@@ -463,11 +529,14 @@ export async function fetchShopeeAdsSpendForDate(
 
     try {
         console.log(`Fetching Shopee Ads CPC performance for ${shopId} on ${dateStr} (${performanceDate})...`);
-        const response = await axios.get(url);
+        const response = await shopeeApiGet(url);
         const data = response.data;
 
         if (data.error) {
             console.warn(`Shopee CPC ads hourly API error for shop ${shopId} on ${dateStr}: ${data.message || data.error}`);
+            if (data.error.includes('rate_limit') || data.error.includes('token') || data.error.includes('authorize')) {
+                throw new Error(`Shopee Open API error: ${data.message || data.error}`);
+            }
             return { totalSpend: 0, hourlySpend };
         }
 
@@ -502,9 +571,12 @@ export async function fetchShopeeAdsSpendForDate(
         }
 
         return { totalSpend, hourlySpend };
-    } catch (error: unknown) {
+    } catch (error: any) {
         const msg = error instanceof Error ? error.message : 'Unknown error';
         console.warn(`Failed to fetch Shopee CPC ads for ${shopId} on ${dateStr}:`, msg);
+        if (msg.includes('429') || msg.includes('token') || msg.includes('auth') || msg.includes('Rate limit')) {
+            throw error;
+        }
         return { totalSpend: 0, hourlySpend };
     }
 }
@@ -516,18 +588,20 @@ export async function fetchMetaCPASSpendForDate(
     shopId: number,
     dateStr: string
 ): Promise<number> {
+    const ALLOWED_CPAS_SHOPS = [1298030530, 1077500606, 1256177782];
+    if (!ALLOWED_CPAS_SHOPS.includes(shopId)) {
+        return 0; // No CPAS allowed for other shops
+    }
+
     const accessToken = process.env.FB_ACCESS_TOKEN;
     if (!accessToken) {
         return 0; // Meta Ads not configured, fail-silent
     }
 
     const SHOPEE_FB_AD_ACCOUNTS: Record<number, string> = {
-        1298030530: process.env.SHOPEE_FB_AD_ACCOUNT_1298030530 || '', // HIM by Dr Samhan
-        1077500606: process.env.SHOPEE_FB_AD_ACCOUNT_1077500606 || '', // HIM by Dr Samhan 1
-        1256177782: process.env.SHOPEE_FB_AD_ACCOUNT_1256177782 || '', // HIM by Dr Samhan 2
-        1290223366: process.env.SHOPEE_FB_AD_ACCOUNT_1290223366 || '', // him.drsamhan4
-        793855746: process.env.SHOPEE_FB_AD_ACCOUNT_793855746 || '',   // Vigomaxplus08
-        562396517: process.env.SHOPEE_FB_AD_ACCOUNT_562396517 || ''    // VigomaxPlus
+        1298030530: process.env.SHOPEE_FB_AD_ACCOUNT_1298030530 || '1462603651298383', // HIM by Dr Samhan
+        1077500606: process.env.SHOPEE_FB_AD_ACCOUNT_1077500606 || '1199749218961620', // HIM by Dr Samhan 1
+        1256177782: process.env.SHOPEE_FB_AD_ACCOUNT_1256177782 || '1199749218961620', // HIM by Dr Samhan 2
     };
 
     const SHOPEE_FB_CAMPAIGN_FILTERS: Record<number, string> = {
@@ -618,8 +692,15 @@ export async function fetchShopeeAllCpcDailyPerformanceForDate(
     const url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${accessToken}&shop_id=${shopId}&start_date=${performanceDate}&end_date=${performanceDate}`;
     
     try {
-        const response = await axios.get(url);
+        const response = await shopeeApiGet(url);
         const data = response.data;
+        if (data.error) {
+            console.warn(`Shopee CPC daily API error for shop ${shopId} on ${dateStr}: ${data.message || data.error}`);
+            if (data.error.includes('rate_limit') || data.error.includes('token') || data.error.includes('authorize')) {
+                throw new Error(`Shopee Open API error: ${data.message || data.error}`);
+            }
+            return { impression: 0, clicks: 0, broadOrder: 0, broadGmv: 0, expense: 0 };
+        }
         if (data.response && Array.isArray(data.response) && data.response.length > 0) {
             const perf = data.response[0];
             return {
@@ -633,6 +714,9 @@ export async function fetchShopeeAllCpcDailyPerformanceForDate(
         return { impression: 0, clicks: 0, broadOrder: 0, broadGmv: 0, expense: 0 };
     } catch (e: any) {
         console.warn(`Failed to fetch Shopee CPC daily performance for shop ${shopId}:`, e.message);
+        if (e.message?.includes('429') || e.message?.includes('token') || e.message?.includes('auth') || e.message?.includes('Rate limit')) {
+            throw e;
+        }
         return { impression: 0, clicks: 0, broadOrder: 0, broadGmv: 0, expense: 0 };
     }
 }
@@ -661,22 +745,13 @@ export async function fetchShopeeShopPerformance(
     // Fetch both Shopee native CPC spends, Meta CPAS spends, and daily CPC performance in parallel
     const [adsResults, cpasResults, dailyPerfResults] = await Promise.all([
         Promise.all(
-            dates.map(date => fetchShopeeAdsSpendForDate(shopId, accessToken, date).catch(() => ({
-                totalSpend: 0,
-                hourlySpend: Array.from({ length: 24 }, () => 0)
-            })))
+            dates.map(date => fetchShopeeAdsSpendForDate(shopId, accessToken, date))
         ),
         Promise.all(
             dates.map(date => fetchMetaCPASSpendForDate(shopId, date).catch(() => 0))
         ),
         Promise.all(
-            dates.map(date => fetchShopeeAllCpcDailyPerformanceForDate(shopId, accessToken, date).catch(() => ({
-                impression: 0,
-                clicks: 0,
-                broadOrder: 0,
-                broadGmv: 0,
-                expense: 0
-            })))
+            dates.map(date => fetchShopeeAllCpcDailyPerformanceForDate(shopId, accessToken, date))
         )
     ]);
 

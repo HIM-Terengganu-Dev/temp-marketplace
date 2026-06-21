@@ -703,7 +703,7 @@ export default function Home() {
                 <div className="flex flex-wrap items-center gap-2">
 
                     {/* Company filter pills */}
-                    <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700/50 rounded-xl p-1 backdrop-blur-sm select-none">
+                    <div className="flex items-center gap-0.5 bg-muted/20 dark:bg-muted/40 border border-border rounded-xl p-1 backdrop-blur-sm select-none">
                         {(["ALL", "HIMWELLNESS", "WEROCA"] as const).map((filter) => (
                             <button
                                 key={filter}
@@ -715,8 +715,8 @@ export default function Home() {
                                             ? "bg-primary text-white shadow-md shadow-primary/25"
                                             : filter === "HIMWELLNESS"
                                             ? "bg-blue-600 text-white shadow-md shadow-blue-500/25"
-                                            : "bg-purple-600 text-white shadow-md shadow-purple-500/25"
-                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800/50"
+                                            : "bg-purple-650 text-white shadow-md shadow-purple-500/25"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-muted dark:hover:bg-muted/50"
                                 )}
                             >
                                 {filter === "ALL" ? "All" : filter === "HIMWELLNESS" ? "HIM" : "WEROCA"}
@@ -740,7 +740,7 @@ export default function Home() {
                         size="sm"
                         onClick={handleManualRefresh}
                         disabled={isLoading}
-                        className="h-9 px-3 rounded-xl border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white font-semibold text-[11px] gap-1.5 shadow-sm dark:shadow-none"
+                        className="h-9 px-3 rounded-xl border-border bg-card hover:bg-accent hover:text-accent-foreground text-foreground font-semibold text-[11px] gap-1.5 shadow-sm dark:shadow-none"
                     >
                         <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
                         Refresh
@@ -766,13 +766,13 @@ export default function Home() {
                     {/* What's New button */}
                     <button
                         onClick={openWhatsNew}
-                        className="relative h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-primary transition-colors duration-200 font-semibold text-[11px] flex items-center gap-1.5 shadow-sm dark:shadow-none"
+                        className="relative h-9 px-3 rounded-xl border border-border bg-card hover:bg-accent hover:text-primary text-foreground transition-colors duration-200 font-semibold text-[11px] flex items-center gap-1.5 shadow-sm dark:shadow-none"
                         title="What's New"
                     >
                         <Sparkles className="h-3.5 w-3.5" />
                         What&apos;s New
                         {whatsNewDot && (
-                            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-primary border-2 border-slate-950 animate-pulse" />
+                            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-primary border-2 border-background animate-pulse" />
                         )}
                     </button>
 
@@ -911,7 +911,7 @@ export default function Home() {
                 <Card className="col-span-2 lg:col-span-2 bg-gradient-to-br from-primary/15 to-purple-900/10 border-primary/25 backdrop-blur-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
                         <div className="flex flex-col gap-1">
-                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-primary">Total GMV</CardTitle>
+                            <CardTitle className="text-2xl sm:text-3xl font-extrabold uppercase tracking-wider text-primary">Total GMV</CardTitle>
                             <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
                         </div>
                         {!isLoading && <TrendBadge pct={gmvPct} />}
@@ -982,29 +982,29 @@ export default function Home() {
             {/* ── Row 2: Platform-Specific Performance Breakdown ────────── */}
             <div className="grid gap-4 md:grid-cols-2">
                 {/* 1. TikTok Shop Card */}
-                <Card className="border-slate-800/80 bg-slate-900/20 hover:border-slate-700/60 transition-all duration-300 backdrop-blur-sm">
+                <Card className="border-purple-500/20 bg-purple-500/5 hover:border-purple-500/40 transition-all duration-300 backdrop-blur-sm">
                     <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/30">
                         <div className="flex items-center gap-2">
                             <span className="text-xl">🎵</span>
                             <div>
-                                <CardTitle className="text-sm font-bold text-slate-100">TikTok Shop</CardTitle>
+                                <CardTitle className="text-sm font-bold text-foreground">TikTok Shop</CardTitle>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">Performance across TikTok shops</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
-                            <Badge className="bg-primary/20 text-primary border border-primary/30">TikTok</Badge>
+                            <Badge className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20">TikTok</Badge>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Sales</span>
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">Total Sales</span>
                             <div className="text-base sm:text-lg font-extrabold text-foreground">
                                 RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                         </div>
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Cost</span>
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">Total Cost</span>
                             <div className="text-base sm:text-lg font-extrabold text-foreground">
                                 RM {ttsSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
@@ -1012,8 +1012,8 @@ export default function Home() {
                                 RM {ttsSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
                             </div>
                         </div>
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">ROAS</span>
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">ROAS</span>
                             <div className="text-base sm:text-lg font-extrabold text-green-400">
                                 {ttsRoas.toFixed(2)}x
                             </div>
@@ -1025,12 +1025,12 @@ export default function Home() {
                 </Card>
 
                 {/* 2. Shopee Card */}
-                <Card className="border-slate-800/80 bg-slate-900/20 hover:border-slate-700/60 transition-all duration-300 backdrop-blur-sm">
+                <Card className="border-orange-500/20 bg-orange-500/5 hover:border-orange-500/40 transition-all duration-300 backdrop-blur-sm">
                     <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/30">
                         <div className="flex items-center gap-2">
                             <span className="text-xl">🛍️</span>
                             <div>
-                                <CardTitle className="text-sm font-bold text-slate-100">Shopee Shop</CardTitle>
+                                <CardTitle className="text-sm font-bold text-foreground">Shopee Shop</CardTitle>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">Performance across Shopee shops</p>
                             </div>
                         </div>
@@ -1040,14 +1040,14 @@ export default function Home() {
                         </div>
                     </CardHeader>
                     <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Sales</span>
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">Total Sales</span>
                             <div className="text-base sm:text-lg font-extrabold text-foreground">
                                 RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                         </div>
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Total Cost</span>
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">Total Cost</span>
                             <div className="text-base sm:text-lg font-extrabold text-foreground">
                                 RM {shpSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
@@ -1055,8 +1055,8 @@ export default function Home() {
                                 RM {shpSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
                             </div>
                         </div>
-                        <div className="space-y-1 bg-slate-950/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">ROAS</span>
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">ROAS</span>
                             <div className="text-base sm:text-lg font-extrabold text-green-400">
                                 {shpRoas.toFixed(2)}x
                             </div>
@@ -1072,8 +1072,8 @@ export default function Home() {
             {totalRevenue > 0 && (
                 <div className="grid gap-4 md:grid-cols-2">
                     {/* Platform Contribution */}
-                    <Card className="border-slate-800/60 bg-slate-900/30 backdrop-blur-sm">
-                        <CardHeader className="pb-3 border-b border-slate-800/40">
+                    <Card className="border-border bg-card/50 backdrop-blur-sm">
+                        <CardHeader className="pb-3 border-b border-border/40">
                             <CardTitle className="text-sm font-bold flex items-center gap-2">
                                 <Percent className="h-4 w-4 text-primary" />
                                 Platform Contribution
@@ -1084,30 +1084,30 @@ export default function Home() {
                             {/* TikTok */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-xs">
-                                    <span className="flex items-center gap-1.5 font-semibold text-slate-200">
+                                    <span className="flex items-center gap-1.5 font-semibold text-foreground">
                                         <span className="text-sm">🎵</span> TikTok Shop
                                     </span>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-slate-400 font-mono text-[10px]">RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                        <span className="font-bold text-primary">{ttsContrib.toFixed(1)}%</span>
+                                        <span className="text-muted-foreground font-mono text-[10px]">RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        <span className="font-bold text-purple-650 dark:text-purple-400">{ttsContrib.toFixed(1)}%</span>
                                     </div>
                                 </div>
-                                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
-                                    <div className="h-full rounded-full bg-gradient-to-r from-primary to-purple-400 transition-all duration-700" style={{ width: `${ttsContrib}%` }} />
+                                <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-purple-600 to-pink-500 transition-all duration-700" style={{ width: `${ttsContrib}%` }} />
                                 </div>
                             </div>
                             {/* Shopee */}
                             <div className="space-y-1.5">
                                 <div className="flex items-center justify-between text-xs">
-                                    <span className="flex items-center gap-1.5 font-semibold text-slate-200">
+                                    <span className="flex items-center gap-1.5 font-semibold text-foreground">
                                         <span className="text-sm">🛍️</span> Shopee
                                     </span>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-slate-400 font-mono text-[10px]">RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        <span className="text-muted-foreground font-mono text-[10px]">RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                         <span className="font-bold text-orange-400">{shpContrib.toFixed(1)}%</span>
                                     </div>
                                 </div>
-                                <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                                <div className="h-2 rounded-full bg-muted overflow-hidden">
                                     <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-700" style={{ width: `${shpContrib}%` }} />
                                 </div>
                             </div>
@@ -1115,8 +1115,8 @@ export default function Home() {
                     </Card>
 
                     {/* Per-Store Contribution */}
-                    <Card className="border-slate-800/60 bg-slate-900/30 backdrop-blur-sm">
-                        <CardHeader className="pb-3 border-b border-slate-800/40">
+                    <Card className="border-border bg-card/50 backdrop-blur-sm">
+                        <CardHeader className="pb-3 border-b border-border/40">
                             <CardTitle className="text-sm font-bold flex items-center gap-2">
                                 <Percent className="h-4 w-4 text-amber-400" />
                                 Store Contribution
@@ -1133,18 +1133,18 @@ export default function Home() {
                                     return (
                                         <div key={shop.id} className="space-y-1">
                                             <div className="flex items-center justify-between text-xs">
-                                                <span className="flex items-center gap-1.5 font-medium text-slate-300 truncate max-w-[55%]">
+                                                <span className="flex items-center gap-1.5 font-medium text-foreground truncate max-w-[55%]">
                                                     <span className="text-[10px]">{isTikTok ? '🎵' : '🛍️'}</span>
                                                     <span className="truncate">{shop.name}</span>
                                                 </span>
                                                 <div className="flex items-center gap-2 flex-shrink-0">
-                                                    <span className="text-slate-500 font-mono text-[9px]">RM {(shop.revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                                    <span className={cn("font-bold text-xs", isTikTok ? "text-primary" : "text-orange-400")}>{contrib.toFixed(1)}%</span>
+                                                    <span className="text-muted-foreground font-mono text-[9px]">RM {(shop.revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                                    <span className={cn("font-bold text-xs", isTikTok ? "text-purple-600 dark:text-purple-400" : "text-orange-400")}>{contrib.toFixed(1)}%</span>
                                                 </div>
                                             </div>
-                                            <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                                                 <div
-                                                    className={cn("h-full rounded-full transition-all duration-700", isTikTok ? "bg-gradient-to-r from-primary/80 to-purple-400/80" : "bg-gradient-to-r from-orange-500/80 to-amber-400/80")}
+                                                    className={cn("h-full rounded-full transition-all duration-700", isTikTok ? "bg-gradient-to-r from-purple-600/80 to-pink-500/80" : "bg-gradient-to-r from-orange-500/80 to-amber-400/80")}
                                                     style={{ width: `${contrib}%` }}
                                                 />
                                             </div>
@@ -1158,8 +1158,8 @@ export default function Home() {
 
             {/* ── Profit & Cost Breakdown ────────────────────────────────── */}
             {totalRevenue > 0 && (
-                <Card className="border-slate-800/60 bg-gradient-to-br from-slate-900/60 to-slate-950/80 backdrop-blur-sm overflow-hidden">
-                    <CardHeader className="pb-3 border-b border-slate-800/50">
+                <Card className="border-border bg-gradient-to-br from-card/60 to-muted/80 backdrop-blur-sm overflow-hidden">
+                    <CardHeader className="pb-3 border-b border-border/50">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div>
                                 <CardTitle className="text-sm font-bold flex items-center gap-2">

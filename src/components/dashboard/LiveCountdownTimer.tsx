@@ -16,7 +16,7 @@ export function LiveCountdownTimer({
     onTriggerRefresh,
     lastUpdated,
 }: LiveCountdownTimerProps) {
-    const [secondsLeft, setSecondsLeft] = useState(30);
+    const [secondsLeft, setSecondsLeft] = useState(300);
     const onTriggerRefreshRef = useRef(onTriggerRefresh);
 
     // Keep the refresh callback ref current to avoid restarting interval on parent re-renders
@@ -26,7 +26,7 @@ export function LiveCountdownTimer({
 
     // Reset countdown when data fetching completes or a manual reset is triggered
     useEffect(() => {
-        setSecondsLeft(30);
+        setSecondsLeft(300);
     }, [lastUpdated]);
 
     useEffect(() => {
@@ -41,7 +41,7 @@ export function LiveCountdownTimer({
                     setTimeout(() => {
                         onTriggerRefreshRef.current();
                     }, 0);
-                    return 30;
+                    return 300;
                 }
                 return prev - 1;
             });
@@ -49,6 +49,12 @@ export function LiveCountdownTimer({
 
         return () => clearInterval(interval);
     }, [autoRefresh]);
+
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
+    };
 
     return (
         <div className="flex items-center gap-2 bg-slate-900/70 border border-slate-700/50 rounded-xl px-3 py-1.5 backdrop-blur-sm select-none">
@@ -61,7 +67,7 @@ export function LiveCountdownTimer({
                 )}
             />
             <span className="text-[11px] font-semibold text-slate-300 whitespace-nowrap">
-                {autoRefresh ? `Live · ${secondsLeft}s` : "Paused"}
+                {autoRefresh ? `Live · ${formatTime(secondsLeft)}` : "Paused"}
             </span>
             <button
                 onClick={onToggleAutoRefresh}

@@ -20,6 +20,14 @@ function getKLToday(): string {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
 }
 
+function dateDiffDays(dateStr: string, todayStr: string): number {
+    const [dy, dm, dd] = dateStr.split('-').map(Number);
+    const [ty, tm, td] = todayStr.split('-').map(Number);
+    const d1 = Date.UTC(dy, dm - 1, dd);
+    const d2 = Date.UTC(ty, tm - 1, td);
+    return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24));
+}
+
 function subDaysKL(dateStr: string, n: number): string {
     const [y, m, d] = dateStr.split('-').map(Number);
     const dt = new Date(Date.UTC(y, m - 1, d - n));
@@ -194,11 +202,20 @@ async function recheckAndSyncShopeeShop(
 
         // Optimize: Reuse cached daily spend for past days to avoid hitting Shopee Ads API rate limits
         if (!isToday && wasPresent) {
-            spendBeforeTax = parseFloat(row.spend_before_tax || '0');
-            spendAfterTax = parseFloat(row.spend_after_tax || '0');
-            cpasSpend = parseFloat(row.cpas_spend || '0');
-            shopeeCpcSpend = parseFloat(row.shopee_cpc_spend || '0');
-            hasCachedSpend = true;
+            const sBefore = parseFloat(row.spend_before_tax || '0');
+            const sCpc = parseFloat(row.shopee_cpc_spend || '0');
+            const sCpas = parseFloat(row.cpas_spend || '0');
+            
+            // Only use cached spend if it is non-zero, or if it is older than 3 days
+            // (to prevent endlessly re-fetching zero-spend days from the deep past).
+            const isRecent = dateDiffDays(date, getKLToday()) <= 3;
+            if (sBefore > 0 || !isRecent) {
+                spendBeforeTax = sBefore;
+                spendAfterTax = parseFloat(row.spend_after_tax || '0');
+                cpasSpend = sCpas;
+                shopeeCpcSpend = sCpc;
+                hasCachedSpend = true;
+            }
         }
 
         let gmv = 0;

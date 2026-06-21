@@ -40,7 +40,7 @@ const PLATFORM_CONFIG: Record<string, {
     activeGlow: string;
 }> = {
     TikTok: {
-        dot:         "bg-white",
+        dot:         "bg-slate-950 dark:bg-white",
         topGradient: "from-purple-600/30 via-pink-500/10 to-transparent",
         badgeClass:  "border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-500/10",
         activeGlow:  "hover:shadow-purple-500/10",

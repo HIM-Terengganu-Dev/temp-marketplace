@@ -5,19 +5,19 @@ dotenv.config();
 
 async function run() {
     try {
-        const date = '2026-05-25';
+        const date = '2026-06-20';
         console.log(`Querying all shop metrics from DB for ${date}...`);
 
         console.log('\n--- Shopee Shops Daily Metrics ---');
         const shopeeRes = await query(`
-            SELECT shop_id, shop_name, gmv, spend_before_tax, order_count
+            SELECT shop_id, shop_name, gmv, spend_before_tax, order_count, cpas_spend, shopee_cpc_spend
             FROM credentials.daily_shopee_metrics
             WHERE date = $1::date
         `, [date]);
         
         let shopeeGmvSum = 0;
         shopeeRes.rows.forEach(r => {
-            console.log(`  Shop: ${r.shop_name} (${r.shop_id}), GMV: RM ${r.gmv}, Spend: RM ${r.spend_before_tax}, Orders: ${r.order_count}`);
+            console.log(`  Shop: ${r.shop_name} (${r.shop_id}), GMV: RM ${r.gmv}, Total Spend: RM ${r.spend_before_tax} (CPC: RM ${r.shopee_cpc_spend}, CPAS: RM ${r.cpas_spend}), Orders: ${r.order_count}`);
             shopeeGmvSum += parseFloat(r.gmv || '0');
         });
         console.log(`  Total Shopee GMV: RM ${shopeeGmvSum.toFixed(2)}`);

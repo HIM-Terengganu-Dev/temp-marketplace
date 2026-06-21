@@ -21,6 +21,11 @@ async function main() {
         const cpasSpend = data.cpasSpend || 0;
         const shopeeCpcSpend = data.shopeeCpcSpend || 0;
 
+        const adImpressions = data.adImpressions || 0;
+        const adClicks = data.adClicks || 0;
+        const adOrders = data.adOrders || 0;
+        const adSales = data.adSales || 0;
+
         console.log(`\nNew Calculated Metrics for ${data.shopName}:`);
         console.log(`- GMV:             RM ${gmv.toFixed(2)}`);
         console.log(`- Order Count:     ${orderCount}`);
@@ -31,8 +36,9 @@ async function main() {
         // Upsert into credentials.daily_shopee_metrics
         const sql = `
             INSERT INTO credentials.daily_shopee_metrics (
-                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend,
+                ad_impressions, ad_clicks, ad_orders, ad_sales, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_id, date) DO UPDATE SET
                 gmv = EXCLUDED.gmv,
                 spend_before_tax = EXCLUDED.spend_before_tax,
@@ -42,6 +48,10 @@ async function main() {
                 order_count = EXCLUDED.order_count,
                 cpas_spend = EXCLUDED.cpas_spend,
                 shopee_cpc_spend = EXCLUDED.shopee_cpc_spend,
+                ad_impressions = EXCLUDED.ad_impressions,
+                ad_clicks = EXCLUDED.ad_clicks,
+                ad_orders = EXCLUDED.ad_orders,
+                ad_sales = EXCLUDED.ad_sales,
                 updated_at = CURRENT_TIMESTAMP
             RETURNING *;
         `;
@@ -57,7 +67,11 @@ async function main() {
             roasAfterTax,
             orderCount,
             cpasSpend,
-            shopeeCpcSpend
+            shopeeCpcSpend,
+            adImpressions,
+            adClicks,
+            adOrders,
+            adSales
         ]);
 
         console.log(`\n✓ Cache table successfully updated in database:`);

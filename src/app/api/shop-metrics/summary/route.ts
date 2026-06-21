@@ -161,11 +161,20 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
 
             if (cachedRow.rows[0]) {
                 const r = cachedRow.rows[0];
-                spendBeforeTax = parseFloat(r.spend_before_tax || '0');
-                spendAfterTax = parseFloat(r.spend_after_tax || '0');
-                cpasSpend = parseFloat(r.cpas_spend || '0');
-                shopeeCpcSpend = parseFloat(r.shopee_cpc_spend || '0');
-                hasCachedSpend = true;
+                const sBefore = parseFloat(r.spend_before_tax || '0');
+                const sCpc = parseFloat(r.shopee_cpc_spend || '0');
+                const sCpas = parseFloat(r.cpas_spend || '0');
+                
+                // Only use cached spend if it is non-zero, or if it is older than 3 days
+                // (to prevent endlessly re-fetching zero-spend days from the deep past).
+                const isRecent = dateDiffDays(date, getKLToday()) <= 3;
+                if (sBefore > 0 || !isRecent) {
+                    spendBeforeTax = sBefore;
+                    spendAfterTax = parseFloat(r.spend_after_tax || '0');
+                    cpasSpend = sCpas;
+                    shopeeCpcSpend = sCpc;
+                    hasCachedSpend = true;
+                }
             }
         }
 
