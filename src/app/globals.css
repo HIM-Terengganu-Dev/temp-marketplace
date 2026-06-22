@@ -192,3 +192,36 @@
 .animate-fade-in {
   animation: fade-in 0.2s ease-out forwards;
 }
+
+/* ── Lite Mode — Performance-friendly rendering ────────────────────────── */
+/* Strips GPU-heavy effects: backdrop-blur, animations, gradients, shadows */
+.lite-mode,
+.lite-mode * {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+}
+.lite-mode *,
+.lite-mode *::before,
+.lite-mode *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* Remove gradient backgrounds on cards/containers */
+.lite-mode [class*="bg-gradient"] {
+  background-image: none !important;
+}
+/* Simplify box-shadows */
+.lite-mode [class*="shadow-"] {
+  box-shadow: none !important;
+}
+/* Kill animate-pulse (CPU-intensive) */
+.lite-mode .animate-pulse {
+  animation: none !important;
+  opacity: 1 !important;
+}
+/* Ensure scroll behavior is instant */
+.lite-mode html {
+  scroll-behavior: auto !important;
+}

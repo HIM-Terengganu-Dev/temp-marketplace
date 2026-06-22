@@ -10,7 +10,7 @@ import { PerformanceLineChart, PerformanceDataPoint } from "@/components/dashboa
 import { ShopDetailModal } from "@/components/dashboard/ShopDetailModal";
 import { ShopData } from "@/lib/mockData";
 import { useSession } from "next-auth/react";
-import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag, DollarSign, Percent, ShieldCheck, X, CheckCircle2, AlertCircle, SkipForward } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag, DollarSign, Percent, ShieldCheck, X, CheckCircle2, AlertCircle, SkipForward, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SyncIndicator } from "@/components/dashboard/SyncIndicator";
@@ -20,6 +20,7 @@ import { APP_VERSION } from "@/lib/changelog";
 import { Sparkles } from "lucide-react";
 import { FeatureTour } from "@/components/dashboard/FeatureTour";
 import { AiAnalysis } from "@/components/dashboard/AiAnalysis";
+import { useLiteMode } from "@/context/LiteModeContext";
 
 /* ── helpers ────────────────────────────────────────────────────────────── */
 
@@ -120,6 +121,7 @@ function TrendBadge({ pct }: { pct: number }) {
 
 export default function Home() {
     const { data: session } = useSession();
+    const { isLiteMode } = useLiteMode();
 
     // Use KL timezone for all date state — prevents SSR/client mismatch
     const [activePreset, setActivePreset] = useState<DatePreset>("today");
@@ -906,6 +908,17 @@ export default function Home() {
                 </div>
             )}
 
+            {/* ── Lite Mode Banner ────────────────────────────────────── */}
+            {isLiteMode && (
+                <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-yellow-500/25 bg-yellow-500/5 text-yellow-300">
+                    <Zap className="h-4 w-4 text-yellow-400 flex-shrink-0 fill-yellow-400" />
+                    <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-yellow-300">⚡ Lite Mode Active</p>
+                        <p className="text-[10px] text-yellow-400/70 mt-0.5">Charts, AI analysis, livestream leaderboard, animations & blur effects disabled for faster performance. Toggle off via ⚡ button in header.</p>
+                    </div>
+                </div>
+            )}
+
             {/* ── Row 1: Summary Cards — Total GMV (Highlighted), Ad Spend, ROAS ────────── */}
             <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
                 {/* 1. GMV Hero Card */}
@@ -980,7 +993,8 @@ export default function Home() {
                 </Card>
             </div>
 
-            {/* ── AI Analysis Card ────────────────────────────────────────── */}
+            {/* ── AI Analysis Card (hidden in Lite Mode) ──────────────── */}
+            {!isLiteMode && (
             <AiAnalysis
                 startDate={startDate}
                 endDate={endDate}
@@ -1000,6 +1014,7 @@ export default function Home() {
                     roas: roasPct,
                 }}
             />
+            )}
 
             {/* ── Row 2: Platform-Specific Performance Breakdown ────────── */}
             <div className="grid gap-4 md:grid-cols-2">
@@ -1090,8 +1105,8 @@ export default function Home() {
                 </Card>
             </div>
 
-            {/* ── Row 3: % Contribution by Platform & Store ────────────────────── */}
-            {totalRevenue > 0 && (
+            {/* ── Row 3: % Contribution by Platform & Store (hidden in Lite Mode) ── */}
+            {totalRevenue > 0 && !isLiteMode && (
                 <div className="grid gap-4 md:grid-cols-2">
                     {/* Platform Contribution */}
                     <Card className="border-border bg-card/50 backdrop-blur-sm">
@@ -1178,8 +1193,8 @@ export default function Home() {
                 </div>
             )}
 
-            {/* ── Profit & Cost Breakdown ────────────────────────────────── */}
-            {totalRevenue > 0 && (
+            {/* ── Profit & Cost Breakdown (hidden in Lite Mode) ──────── */}
+            {totalRevenue > 0 && !isLiteMode && (
                 <Card className="border-border bg-gradient-to-br from-card/60 to-muted/80 backdrop-blur-sm overflow-hidden">
                     <CardHeader className="pb-3 border-b border-border/50">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1289,7 +1304,8 @@ export default function Home() {
                 </Card>
             )}
 
-            {/* Performance Chart */}
+            {/* Performance Chart (hidden in Lite Mode) */}
+            {!isLiteMode && (
             <Card className="border-border/50 bg-card/40 backdrop-blur-sm">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <div>
@@ -1317,8 +1333,10 @@ export default function Home() {
                     )}
                 </CardContent>
             </Card>
+            )}
 
-            {/* Livestream Performance Leaderboard Section */}
+            {/* Livestream Performance Leaderboard Section (hidden in Lite Mode) */}
+            {!isLiteMode && (
             <Card className="border-border/50 bg-card/40 backdrop-blur-sm overflow-hidden hover:border-blue-500/30 transition-colors">
                 <CardHeader className="border-b border-border/30 pb-4">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1441,6 +1459,7 @@ export default function Home() {
                     )}
                 </CardContent>
             </Card>
+            )}
 
 
 
@@ -1487,7 +1506,8 @@ export default function Home() {
                 />
             )}
 
-            {/* Floating Sales Notifications */}
+            {/* Floating Sales Notifications (hidden in Lite Mode) */}
+            {!isLiteMode && (
             <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0">
                 {notifications.map((n) => (
                     <div
@@ -1524,6 +1544,7 @@ export default function Home() {
                     </div>
                 ))}
             </div>
+            )}
         </div>
     );
 }

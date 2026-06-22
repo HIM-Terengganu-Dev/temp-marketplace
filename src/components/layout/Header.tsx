@@ -1,11 +1,12 @@
 "use client";
 
-import { Bell, LogOut, Menu, Sun, Moon } from "lucide-react";
+import { Bell, LogOut, Menu, Sun, Moon, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
+import { useLiteMode } from "@/context/LiteModeContext";
 
 interface HeaderProps {
     onMenuClick?: () => void;
@@ -31,6 +32,7 @@ function getPageTitle(pathname: string): string {
 export function Header({ onMenuClick }: HeaderProps) {
     const { data: session } = useSession();
     const pathname = usePathname();
+    const { isLiteMode, toggleLiteMode } = useLiteMode();
     const [mounted, setMounted] = useState(false);
     const [theme, setTheme] = useState<"dark" | "light">("dark");
 
@@ -87,6 +89,20 @@ export function Header({ onMenuClick }: HeaderProps) {
 
             {/* Right: actions */}
             <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+
+                {/* Lite Mode Toggle */}
+                <button
+                    onClick={toggleLiteMode}
+                    className={`flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-lg transition-all duration-200 cursor-pointer ${
+                        isLiteMode
+                            ? "bg-yellow-500/15 text-yellow-400 hover:bg-yellow-500/25 ring-1 ring-yellow-500/30"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                    aria-label={isLiteMode ? "Switch to Full Mode" : "Switch to Lite Mode"}
+                    title={isLiteMode ? "⚡ Lite Mode ON — Click to go Full" : "Switch to Lite Mode (faster on older devices)"}
+                >
+                    <Zap className={`h-5 w-5 md:h-4.5 md:w-4.5 ${isLiteMode ? "fill-yellow-400" : ""}`} />
+                </button>
 
                 {/* Theme Toggle */}
                 <button

@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Providers } from "@/components/Providers";
+import { LiteModeProvider } from "@/context/LiteModeContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,6 +31,9 @@ export default function RootLayout({
                   } else {
                     document.documentElement.classList.add('dark');
                   }
+                  if (localStorage.getItem('him_lite_mode') === 'true') {
+                    document.documentElement.classList.add('lite-mode');
+                  }
                 } catch (e) {}
               })();
             `
@@ -38,9 +42,11 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} antialiased bg-background text-foreground`}>
         <Providers>
-          <AppLayout>
-            {children}
-          </AppLayout>
+          <LiteModeProvider>
+            <AppLayout>
+              {children}
+            </AppLayout>
+          </LiteModeProvider>
         </Providers>
       </body>
     </html>
