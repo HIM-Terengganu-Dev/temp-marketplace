@@ -201,12 +201,24 @@
   animation-delay: 0s !important;
   transition-duration: 0s !important;
   transition-delay: 0s !important;
+  animation-iteration-count: 0 !important;
 }
 .lite-mode *,
 .lite-mode *::before,
 .lite-mode *::after {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+/* Disable any hover states that cause layout shifts, GPU transforms, or repaint delays */
+.lite-mode *:hover {
+  transform: none !important;
+  transition: none !important;
+  box-shadow: none !important;
+  filter: none !important;
 }
 /* Remove gradient backgrounds on cards/containers */
 .lite-mode [class*="bg-gradient"] {

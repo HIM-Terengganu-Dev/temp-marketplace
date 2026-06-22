@@ -643,6 +643,12 @@ export default function Home() {
     }, [fetchData, activePreset]);
 
     useEffect(() => {
+        if (isLiteMode) {
+            setAutoRefresh(false);
+        }
+    }, [isLiteMode]);
+
+    useEffect(() => {
         fetchData();
     }, [fetchData]);
 
@@ -728,7 +734,7 @@ export default function Home() {
                     </div>
 
                     {/* Live countdown (today only) */}
-                    {activePreset === "today" && (
+                    {activePreset === "today" && !isLiteMode && (
                         <LiveCountdownTimer
                             autoRefresh={autoRefresh}
                             onToggleAutoRefresh={() => setAutoRefresh(!autoRefresh)}
