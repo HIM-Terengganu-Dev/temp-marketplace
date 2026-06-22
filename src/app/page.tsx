@@ -1022,6 +1022,94 @@ export default function Home() {
             />
             )}
 
+            {/* ── Row 2: Platform-Specific Performance Breakdown ────────── */}
+            <div className="grid gap-4 md:grid-cols-2">
+                {/* 1. TikTok Shop Card */}
+                <Card className="border-purple-500/20 bg-purple-500/5 hover:border-purple-500/40 transition-all duration-300 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/30">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🎵</span>
+                            <div>
+                                <CardTitle className="text-sm font-bold text-foreground">TikTok Shop</CardTitle>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Performance across TikTok shops</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
+                            <Badge className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20">TikTok</Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">Total Sales</span>
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
+                                RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">Total Cost</span>
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
+                                RM {ttsSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-[9px] text-purple-400 font-medium">
+                                RM {ttsSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
+                            </div>
+                        </div>
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">ROAS</span>
+                            <div className="text-base sm:text-lg font-extrabold text-green-400">
+                                {ttsRoas.toFixed(2)}x
+                            </div>
+                            <div className="text-[9px] text-emerald-400 font-medium">
+                                {ttsRoasAfterTax.toFixed(2)}x (Net)
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* 2. Shopee Card */}
+                <Card className="border-orange-500/20 bg-orange-500/5 hover:border-orange-500/40 transition-all duration-300 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border/30">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🛍️</span>
+                            <div>
+                                <CardTitle className="text-sm font-bold text-foreground">Shopee Shop</CardTitle>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Performance across Shopee shops</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
+                            <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30">Shopee</Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">Total Sales</span>
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
+                                RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">Total Cost</span>
+                            <div className="text-base sm:text-lg font-extrabold text-foreground">
+                                RM {shpSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="text-[9px] text-purple-400 font-medium">
+                                RM {shpSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (Net)
+                            </div>
+                        </div>
+                        <div className="space-y-1 bg-background/50 p-3 rounded-lg border border-border/30 sm:border-none sm:bg-transparent sm:p-0">
+                            <span className="text-[10px] uppercase font-bold text-muted-foreground">ROAS</span>
+                            <div className="text-base sm:text-lg font-extrabold text-green-400">
+                                {shpRoas.toFixed(2)}x
+                            </div>
+                            <div className="text-[9px] text-emerald-400 font-medium">
+                                {shpRoasAfterTax.toFixed(2)}x (Net)
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* ── Row 3: % Contribution by Platform & Store (hidden in Lite Mode) ── */}
             {totalRevenue > 0 && !isLiteMode && (
@@ -1381,37 +1469,7 @@ export default function Home() {
 
 
 
-            {/* ── Connected Accounts ───────────────────────────────────── */}
-            <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                        <h2 className="text-base sm:text-lg font-bold tracking-tight truncate">Connected Accounts</h2>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">Tap any shop to view detailed analytics</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        {isLoading && (
-                            <span className="text-[10px] text-muted-foreground animate-pulse hidden sm:block">
-                                Fetching data...
-                            </span>
-                        )}
-                        <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
-                            {shopData.length} Sources
-                        </Badge>
-                    </div>
-                </div>
 
-                {/* 1-col mobile → 2-col sm → 3-col lg → 4-col xl */}
-                <div className="grid gap-3 md:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {shopData.map((shop) => (
-                        <ShopCard
-                            key={shop.id}
-                            data={shop}
-                            onClick={() => setSelectedShop(shop)}
-                            isLoading={isLoading}
-                        />
-                    ))}
-                </div>
-            </div>
 
             {/* Shop Detail Modal */}
             {selectedShop && (
