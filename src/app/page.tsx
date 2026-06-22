@@ -19,6 +19,7 @@ import { LiveCountdownTimer } from "@/components/dashboard/LiveCountdownTimer";
 import { APP_VERSION } from "@/lib/changelog";
 import { Sparkles } from "lucide-react";
 import { FeatureTour } from "@/components/dashboard/FeatureTour";
+import { AiAnalysis } from "@/components/dashboard/AiAnalysis";
 
 /* ── helpers ────────────────────────────────────────────────────────────── */
 
@@ -978,6 +979,27 @@ export default function Home() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* ── AI Analysis Card ────────────────────────────────────────── */}
+            <AiAnalysis
+                startDate={startDate}
+                endDate={endDate}
+                activePreset={activePreset}
+                totals={{
+                    revenue: totalRevenue,
+                    spend: totalSpend,
+                    roas: totalRoas,
+                    cogs: totalCogs,
+                    profit: nettProfit,
+                    margin: nettMarginPct,
+                }}
+                shops={shopData}
+                comparison={{
+                    gmv: gmvPct,
+                    spend: spendPct,
+                    roas: roasPct,
+                }}
+            />
 
             {/* ── Row 2: Platform-Specific Performance Breakdown ────────── */}
             <div className="grid gap-4 md:grid-cols-2">
