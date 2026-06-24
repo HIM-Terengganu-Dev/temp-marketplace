@@ -18,7 +18,6 @@ import { WhatsNewModal } from "@/components/dashboard/WhatsNewModal";
 import { LiveCountdownTimer } from "@/components/dashboard/LiveCountdownTimer";
 import { APP_VERSION } from "@/lib/changelog";
 import { Sparkles } from "lucide-react";
-import { FeatureTour } from "@/components/dashboard/FeatureTour";
 import { AiAnalysis } from "@/components/dashboard/AiAnalysis";
 import { useLiteMode } from "@/context/LiteModeContext";
 
@@ -221,15 +220,13 @@ export default function Home() {
     // What's New modal — auto-show when user hasn't seen current version
     const [whatsNewOpen, setWhatsNewOpen] = useState(false);
     const [whatsNewDot, setWhatsNewDot] = useState(false); // red dot on button
-    const [autoStartTour, setAutoStartTour] = useState(false);
     useEffect(() => {
         const STORAGE_KEY = 'him_dashboard_seen_version';
         const seenVersion = localStorage.getItem(STORAGE_KEY);
         if (seenVersion !== APP_VERSION) {
-            // New version — show popup, mark as seen, and queue tour auto-start
+            // New version — show popup, mark as seen
             setWhatsNewOpen(true);
             setWhatsNewDot(true);
-            setAutoStartTour(true);
             localStorage.setItem(STORAGE_KEY, APP_VERSION);
         }
     }, []);
@@ -769,9 +766,6 @@ export default function Home() {
                         {isRechecking ? 'Rechecking...' : 'Recheck Data'}
                     </Button>
 
-                    {/* Feature Tour — 'How to use' trigger */}
-                    <FeatureTour autoStart={autoStartTour} />
-
                     {/* What's New button */}
                     <button
                         onClick={openWhatsNew}
@@ -829,14 +823,14 @@ export default function Home() {
                         <div className="flex items-center gap-2">
                             <ShieldCheck className="h-4 w-4 text-amber-400" />
                             <span className="text-sm font-bold text-amber-300">Recheck Results</span>
-                            <span className="text-[10px] text-slate-400">{recheckLog.startDate} → {recheckLog.endDate}</span>
+                            <span className="text-[10px] text-muted-foreground">{recheckLog.startDate} → {recheckLog.endDate}</span>
                         </div>
                         <div className="flex items-center gap-3">
                             {/* Summary badges */}
                             <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                                 <CheckCircle2 className="h-3 w-3" /> {recheckLog.synced} Synced
                             </span>
-                            <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded-full border border-slate-500/20">
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground bg-muted/20 px-2 py-0.5 rounded-full border border-border/40">
                                 <SkipForward className="h-3 w-3" /> {recheckLog.skipped} OK
                             </span>
                             {recheckLog.failed > 0 && (
@@ -846,7 +840,7 @@ export default function Home() {
                             )}
                             <button
                                 onClick={() => setRecheckLog(prev => prev ? { ...prev, visible: false } : null)}
-                                className="text-slate-500 hover:text-slate-200 transition-colors p-1 rounded"
+                                className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
                                 aria-label="Dismiss recheck log"
                             >
                                 <X className="h-3.5 w-3.5" />
@@ -856,8 +850,8 @@ export default function Home() {
                     {/* Results table */}
                     <div className="overflow-x-auto max-h-[240px] overflow-y-auto">
                         <table className="w-full min-w-[520px] text-left text-xs border-collapse">
-                            <thead className="sticky top-0 bg-slate-950/90 backdrop-blur-sm">
-                                <tr className="text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-800/60">
+                            <thead className="sticky top-0 bg-muted/90 backdrop-blur-sm">
+                                <tr className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest border-b border-border/60">
                                     <th className="px-4 py-2">Date</th>
                                     <th className="px-4 py-2">Shop</th>
                                     <th className="px-4 py-2 text-center">Status</th>
@@ -869,9 +863,9 @@ export default function Home() {
                             </thead>
                             <tbody>
                                 {recheckLog.results.map((r, i) => (
-                                    <tr key={i} className="border-b border-slate-800/30 hover:bg-slate-800/20 transition-colors">
-                                        <td className="px-4 py-2 font-mono text-slate-400">{r.date}</td>
-                                        <td className="px-4 py-2 text-slate-300 font-medium">{r.shopName}</td>
+                                    <tr key={i} className="border-b border-border/30 hover:bg-muted/20 transition-colors">
+                                        <td className="px-4 py-2 font-mono text-muted-foreground">{r.date}</td>
+                                        <td className="px-4 py-2 text-foreground font-medium">{r.shopName}</td>
                                         <td className="px-4 py-2 text-center">
                                             {r.status === 'synced' && (
                                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -879,7 +873,7 @@ export default function Home() {
                                                 </span>
                                             )}
                                             {r.status === 'skipped' && (
-                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-700/30 px-2 py-0.5 rounded-full">
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-muted-foreground bg-muted/30 px-2 py-0.5 rounded-full">
                                                     <SkipForward className="h-2.5 w-2.5" /> OK
                                                 </span>
                                             )}
@@ -892,18 +886,18 @@ export default function Home() {
                                         <td className="px-4 py-2 text-center">
                                             <span className={cn(
                                                 "text-[10px] font-semibold",
-                                                r.wasPresent ? "text-slate-400" : "text-amber-400"
+                                                r.wasPresent ? "text-muted-foreground" : "text-amber-400"
                                             )}>
                                                 {r.wasPresent ? 'Yes' : '⚠ No'}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-2 text-right font-mono text-slate-300">
+                                        <td className="px-4 py-2 text-right font-mono text-foreground">
                                             {r.gmv !== undefined ? `RM ${r.gmv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
                                         </td>
-                                        <td className="px-4 py-2 text-right text-slate-300">
+                                        <td className="px-4 py-2 text-right text-foreground">
                                             {r.orders !== undefined ? r.orders.toLocaleString() : '—'}
                                         </td>
-                                        <td className="px-4 py-2 text-slate-500 text-[10px] max-w-[180px] truncate" title={r.error}>
+                                        <td className="px-4 py-2 text-muted-foreground text-[10px] max-w-[180px] truncate" title={r.error}>
                                             {r.error ? r.error : r.status === 'synced' && !r.wasPresent ? 'Was missing — now fixed' : r.status === 'synced' ? 'Re-synced (had zero data)' : ''}
                                         </td>
                                     </tr>
@@ -1353,7 +1347,7 @@ export default function Home() {
                             </CardTitle>
                             <p className="text-xs text-muted-foreground mt-0.5">Rankings based on sales volume and total order counts generated from active live sessions</p>
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-slate-300">
+                        <div className="flex items-center gap-4 text-xs text-foreground">
                             <span className="flex items-center gap-1 bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20"><Tv className="h-3 w-5" /> {livestreams.length} Sessions</span>
                             <span className="flex items-center gap-1 bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20"><Users className="h-3.5 w-3.5" /> {livestreams.reduce((sum, s) => sum + parseInt(s.viewer_count || 0, 10), 0).toLocaleString()} Peak Viewers</span>
                             <span className="flex items-center gap-1 bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20"><ShoppingBag className="h-3.5 w-3.5" /> {livestreams.reduce((sum, s) => sum + parseInt(s.order_count || 0, 10), 0).toLocaleString()} Total Orders</span>
@@ -1364,8 +1358,8 @@ export default function Home() {
                     {livestreams.length > 0 ? (
                         <div className="overflow-x-auto overflow-y-auto max-h-[520px] scrollbar-thin -webkit-overflow-scrolling-touch">
                             <table className="w-full min-w-[720px] text-left text-sm border-collapse">
-                                <thead className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur-sm shadow-[0_1px_0_rgba(255,255,255,0.05)]">
-                                    <tr className="border-b border-border/30 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur-sm shadow-[0_1px_0_rgba(255,255,255,0.05)]">
+                                    <tr className="border-b border-border/30 text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
                                         <th className="py-3 px-3 text-center w-14">Rank</th>
                                         <th className="py-3 px-3">Account</th>
                                         <th className="py-3 px-3 text-center">Date</th>
@@ -1381,10 +1375,10 @@ export default function Home() {
                                 <tbody>
                                     {livestreams.map((stream, idx) => {
                                         const rankSymbol = idx === 0 ? "🏆" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `${idx + 1}`;
-                                        const rankClass = idx === 0 ? "text-lg font-bold" : idx === 1 || idx === 2 ? "text-base font-bold" : "text-slate-400 font-medium";
+                                        const rankClass = idx === 0 ? "text-lg font-bold" : idx === 1 || idx === 2 ? "text-base font-bold" : "text-muted-foreground font-medium";
                                         
                                         const shopName = SHOP_NAMES[stream.shop_number] || `Shop ${stream.shop_number}`;
-                                        const themeColor = SHOP_THEME_COLORS[stream.shop_number] || "border-slate-500/30 text-slate-400 bg-slate-500/10";
+                                        const themeColor = SHOP_THEME_COLORS[stream.shop_number] || "border-border/50 text-muted-foreground bg-muted/20";
                                         
                                         const ordersCount = parseInt(stream.order_count || 0, 10);
                                         const gmvAmount = parseFloat(stream.gmv || 0);
@@ -1428,28 +1422,28 @@ export default function Home() {
                                                         {shopName}
                                                     </Badge>
                                                 </td>
-                                                <td className="py-3 px-3 text-center text-slate-300 text-xs font-medium whitespace-nowrap">
+                                                <td className="py-3 px-3 text-center text-foreground text-xs font-medium whitespace-nowrap">
                                                     {dateStr}
                                                 </td>
-                                                <td className="py-3 px-3 text-center text-slate-400 text-xs whitespace-nowrap">
+                                                <td className="py-3 px-3 text-center text-muted-foreground text-xs whitespace-nowrap">
                                                     {durationStr}
                                                 </td>
-                                                <td className="py-3 px-3 font-medium text-slate-300 group-hover:text-blue-400 transition-colors max-w-[240px] truncate" title={stream.live_title}>
+                                                <td className="py-3 px-3 font-medium text-foreground group-hover:text-blue-400 transition-colors max-w-[240px] truncate" title={stream.live_title}>
                                                     {stream.live_title}
                                                 </td>
-                                                <td className="py-3 px-3 text-center text-slate-300 text-xs">
+                                                <td className="py-3 px-3 text-center text-foreground text-xs">
                                                     {parseInt(stream.viewer_count || 0, 10).toLocaleString()}
                                                 </td>
-                                                <td className="py-3 px-3 text-center font-bold text-slate-200">
+                                                <td className="py-3 px-3 text-center font-bold text-foreground">
                                                     {ordersCount.toLocaleString()}
                                                 </td>
                                                 <td className="py-3 px-3 text-right font-bold text-emerald-400 whitespace-nowrap">
                                                     RM {gmvAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
-                                                <td className="py-3 px-3 text-center text-slate-300 text-xs font-mono">
+                                                <td className="py-3 px-3 text-center text-foreground text-xs font-mono">
                                                     {startTimeStr}
                                                 </td>
-                                                <td className="py-3 px-3 text-center text-slate-300 text-xs font-mono">
+                                                <td className="py-3 px-3 text-center text-foreground text-xs font-mono">
                                                     {endTimeStr}
                                                 </td>
                                             </tr>
@@ -1489,7 +1483,7 @@ export default function Home() {
                     <div
                         key={n.id}
                         className={cn(
-                            "pointer-events-auto flex items-start gap-3 p-4 rounded-xl border bg-slate-950/95 backdrop-blur shadow-2xl transition-all duration-300",
+                            "pointer-events-auto flex items-start gap-3 p-4 rounded-xl border bg-muted/95 backdrop-blur shadow-2xl transition-all duration-300",
                             n.platform === "TikTok" ? "border-purple-500/30 shadow-purple-500/5 shadow-[0_0_10px_rgba(168,85,247,0.15)]" : "border-orange-500/30 shadow-orange-500/5 shadow-[0_0_10px_rgba(249,115,22,0.15)]",
                             "animate-in slide-in-from-bottom duration-300"
                         )}
@@ -1501,19 +1495,19 @@ export default function Home() {
                             <ShoppingBag className="h-4 w-4" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-100">
+                            <p className="text-xs font-bold text-foreground">
                                 New Sale! 🎉
                             </p>
-                            <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">
-                                <span className="font-semibold text-slate-100">{n.shopName}</span> ({n.platform}) just received <span className="font-bold text-emerald-400">{n.ordersCount} new order{n.ordersCount > 1 ? 's' : ''}</span> totaling <span className="font-bold text-emerald-400">RM {n.gmvAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <p className="text-[11px] text-foreground mt-0.5 leading-snug">
+                                <span className="font-semibold text-foreground">{n.shopName}</span> ({n.platform}) just received <span className="font-bold text-emerald-400">{n.ordersCount} new order{n.ordersCount > 1 ? 's' : ''}</span> totaling <span className="font-bold text-emerald-400">RM {n.gmvAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </p>
-                            <span className="text-[9px] text-slate-500 mt-1 block">
+                            <span className="text-[9px] text-muted-foreground mt-1 block">
                                 Just now
                             </span>
                         </div>
                         <button
                             onClick={() => setNotifications((prev) => prev.filter((item) => item.id !== n.id))}
-                            className="text-slate-400 hover:text-slate-200 transition-colors p-0.5 self-start cursor-pointer text-lg leading-none"
+                            className="text-muted-foreground hover:text-foreground transition-colors p-0.5 self-start cursor-pointer text-lg leading-none"
                         >
                             &times;
                         </button>

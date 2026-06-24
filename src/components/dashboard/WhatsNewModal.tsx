@@ -38,7 +38,7 @@ function VersionCard({ entry, isLatest, defaultOpen }: { entry: ChangelogEntry; 
             "rounded-xl border transition-all duration-200",
             isLatest
                 ? "border-primary/30 bg-primary/5"
-                : "border-slate-700/50 bg-slate-900/40"
+                : "border-border/50 bg-muted/30"
         )}>
             {/* Header */}
             <button
@@ -49,20 +49,20 @@ function VersionCard({ entry, isLatest, defaultOpen }: { entry: ChangelogEntry; 
                     <span className="text-2xl leading-none mt-0.5 flex-shrink-0">{entry.emoji}</span>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-sm text-slate-100">{entry.title}</span>
+                            <span className="font-bold text-sm text-foreground">{entry.title}</span>
                             {isLatest && (
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30 uppercase tracking-wider">
                                     Latest
                                 </span>
                             )}
                         </div>
-                        <p className="text-[11px] text-slate-400 mt-0.5">{entry.date} · v{entry.version}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{entry.date} · v{entry.version}</p>
                         {!open && (
-                            <p className="text-xs text-slate-300/70 mt-1 leading-relaxed line-clamp-1">{entry.summary}</p>
+                            <p className="text-xs text-foreground/70 mt-1 leading-relaxed line-clamp-1">{entry.summary}</p>
                         )}
                     </div>
                 </div>
-                <div className="flex-shrink-0 mt-1 text-slate-500">
+                <div className="flex-shrink-0 mt-1 text-muted-foreground">
                     {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
             </button>
@@ -70,7 +70,7 @@ function VersionCard({ entry, isLatest, defaultOpen }: { entry: ChangelogEntry; 
             {/* Body */}
             {open && (
                 <div className="px-4 pb-4 space-y-2">
-                    <p className="text-xs text-slate-300/80 leading-relaxed mb-3">{entry.summary}</p>
+                    <p className="text-xs text-foreground/80 leading-relaxed mb-3">{entry.summary}</p>
                     {entry.changes.map((change, i) => {
                         const cfg = TYPE_CONFIG[change.type];
                         return (
@@ -82,7 +82,7 @@ function VersionCard({ entry, isLatest, defaultOpen }: { entry: ChangelogEntry; 
                                     {cfg.icon}
                                     {cfg.label}
                                 </span>
-                                <span className="text-xs text-slate-300 leading-relaxed">{change.text}</span>
+                                <span className="text-xs text-foreground leading-relaxed">{change.text}</span>
                             </div>
                         );
                     })}
@@ -115,7 +115,7 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                 <div
                     className={cn(
                         "pointer-events-auto w-full max-w-lg max-h-[85vh] flex flex-col",
-                        "rounded-2xl border border-slate-700/60 bg-slate-950 shadow-2xl shadow-black/50",
+                        "rounded-2xl border border-border/50 bg-card shadow-2xl shadow-black/50",
                         "animate-in fade-in slide-in-from-bottom-4 duration-300"
                     )}
                     role="dialog"
@@ -123,19 +123,19 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                     aria-label="What's New"
                 >
                     {/* Header */}
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800/60 flex-shrink-0">
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-border/60 flex-shrink-0">
                         <div>
-                            <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
+                            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
                                 <Sparkles className="h-4 w-4 text-primary" />
                                 What&apos;s New
                             </h2>
-                            <p className="text-[11px] text-slate-400 mt-0.5">
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
                                 Here&apos;s what&apos;s been updated in this dashboard
                             </p>
                         </div>
                         <button
                             onClick={onClose}
-                            className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+                            className="h-8 w-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                             aria-label="Close"
                         >
                             <X className="h-4 w-4" />
@@ -143,7 +143,7 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                     </div>
 
                     {/* Scrollable content */}
-                    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-thin scrollbar-thumb-foreground scrollbar-track-transparent">
                         {CHANGELOG.map((entry, i) => (
                             <VersionCard
                                 key={entry.version}
@@ -155,8 +155,8 @@ export function WhatsNewModal({ isOpen, onClose }: WhatsNewModalProps) {
                     </div>
 
                     {/* Footer */}
-                    <div className="px-5 py-3 border-t border-slate-800/60 flex-shrink-0 flex items-center justify-between">
-                        <span className="text-[10px] text-slate-500">v{APP_VERSION} · HIM Marketplace Dashboard</span>
+                    <div className="px-5 py-3 border-t border-border/60 flex-shrink-0 flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground">v{APP_VERSION} · HIM Marketplace Dashboard</span>
                         <button
                             onClick={onClose}
                             className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 transition-colors"

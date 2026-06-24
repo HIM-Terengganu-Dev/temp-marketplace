@@ -27,7 +27,7 @@ function TrendArrow({ pct }: { pct?: number }) {
             </span>
         );
     return (
-        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-500 dark:text-muted-foreground ml-1 tabular-nums">
+        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-muted-foreground ml-1 tabular-nums">
             <Minus className="h-2.5 w-2.5" />{abs}%
         </span>
     );
@@ -40,7 +40,7 @@ const PLATFORM_CONFIG: Record<string, {
     activeGlow: string;
 }> = {
     TikTok: {
-        dot:         "bg-slate-950 dark:bg-white",
+        dot:         "bg-foreground",
         topGradient: "from-purple-600/30 via-pink-500/10 to-transparent",
         badgeClass:  "border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400 bg-purple-50/50 dark:bg-purple-500/10",
         activeGlow:  "hover:shadow-purple-500/10",
@@ -69,10 +69,10 @@ export function ShopCard({ data, onClick, isLoading = false }: ShopCardProps) {
         <Card
             className={cn(
                 "overflow-hidden transition-all duration-250 ease-in-out group relative",
-                "border-slate-200 dark:border-border/40 bg-card dark:bg-card/60 backdrop-blur-sm",
+                "border-border/50 bg-card backdrop-blur-sm",
                 isClickable && [
                     "cursor-pointer",
-                    "hover:-translate-y-1 hover:shadow-xl hover:border-slate-300 dark:hover:border-border/70",
+                    "hover:-translate-y-1 hover:shadow-xl hover:border-border",
                     cfg.activeGlow,
                 ],
                 !isConnected && "opacity-75 border-dashed bg-muted/10",
@@ -103,7 +103,7 @@ export function ShopCard({ data, onClick, isLoading = false }: ShopCardProps) {
                                 "text-[9px] px-1.5 py-0.5 h-5 font-semibold",
                                 isConnected
                                     ? "border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-500/8"
-                                    : "text-muted-foreground border-slate-200 dark:border-border/50"
+                                    : "text-muted-foreground border-border/50"
                             )}
                         >
                             {isConnected ? "Active" : "Pending"}
@@ -140,14 +140,14 @@ export function ShopCard({ data, onClick, isLoading = false }: ShopCardProps) {
                         </div>
 
                         {/* Ad Spend */}
-                        <div className="space-y-1.5 pt-3 border-t border-slate-100 dark:border-border/30">
-                            <span className="text-[9px] font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-widest block">
+                        <div className="space-y-1.5 pt-3 border-t border-border/30">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">
                                 Ad Spend
                             </span>
                             <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-500 dark:text-muted-foreground">Before Tax</span>
+                                <span className="text-muted-foreground">Before Tax</span>
                                 <div className="flex items-center">
-                                    <span className="font-semibold tabular-nums text-slate-900 dark:text-foreground text-sm">
+                                    <span className="font-semibold tabular-nums text-foreground text-sm">
                                         RM {data.spend?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </span>
                                     <TrendArrow pct={data.change?.spend} />
@@ -156,8 +156,8 @@ export function ShopCard({ data, onClick, isLoading = false }: ShopCardProps) {
 
                             {/* Shopee sub-breakdown */}
                             {data.cpasSpend !== undefined && data.cpasSpend > 0 && (
-                                <div className="pl-3 border-l-2 border-slate-200 dark:border-slate-700/50 space-y-1 py-1">
-                                    <div className="flex justify-between items-center text-[10px] text-slate-500 dark:text-muted-foreground">
+                                <div className="pl-3 border-l-2 border-border/50 space-y-1 py-1">
+                                    <div className="flex justify-between items-center text-[10px] text-muted-foreground">
                                         <span>Shopee CPC</span>
                                         <span className="tabular-nums font-medium">
                                             RM {data.shopeeCpcSpend?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -172,7 +172,7 @@ export function ShopCard({ data, onClick, isLoading = false }: ShopCardProps) {
                                 </div>
                             )}
 
-                            <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-100 dark:border-border/20">
+                            <div className="flex justify-between items-center text-xs pt-1 border-t border-border/20">
                                 <span className="text-purple-600 dark:text-purple-400 font-medium text-[10px]">After Tax (SST+WHT)</span>
                                 <span className="font-semibold text-purple-700 dark:text-purple-400 tabular-nums text-sm">
                                     RM {data.spendAfterTax?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -181,12 +181,12 @@ export function ShopCard({ data, onClick, isLoading = false }: ShopCardProps) {
                         </div>
 
                         {/* ROAS */}
-                        <div className="space-y-1.5 pt-3 border-t border-slate-100 dark:border-border/30">
-                            <span className="text-[9px] font-bold text-slate-500 dark:text-muted-foreground uppercase tracking-widest block">
+                        <div className="space-y-1.5 pt-3 border-t border-border/30">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">
                                 ROAS
                             </span>
                             <div className="flex justify-between items-baseline">
-                                <span className="text-[10px] text-slate-500 dark:text-muted-foreground">Before Tax</span>
+                                <span className="text-[10px] text-muted-foreground">Before Tax</span>
                                 <div className="flex items-baseline gap-1">
                                     <span className={cn(
                                         "text-lg font-extrabold tabular-nums tracking-tight",
@@ -199,7 +199,7 @@ export function ShopCard({ data, onClick, isLoading = false }: ShopCardProps) {
                                     <TrendArrow pct={data.change?.roas} />
                                 </div>
                             </div>
-                            <div className="flex justify-between items-baseline border-t border-slate-100 dark:border-border/20 pt-1">
+                            <div className="flex justify-between items-baseline border-t border-border/20 pt-1">
                                 <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">After Tax</span>
                                 <span className={cn(
                                     "text-lg font-extrabold tabular-nums tracking-tight",

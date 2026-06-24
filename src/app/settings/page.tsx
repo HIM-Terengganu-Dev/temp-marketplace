@@ -740,12 +740,12 @@ export default function SettingsPage() {
                                                             </div>
                                                         </td>
                                                         <td className="p-3">
-                                                            <div className="font-mono text-xs text-slate-300">ID: {sku.sku_id}</div>
+                                                            <div className="font-mono text-xs text-foreground">ID: {sku.sku_id}</div>
                                                             {sku.seller_sku && (
                                                                 <div className="text-[10px] text-muted-foreground mt-1">Seller SKU: "{sku.seller_sku}"</div>
                                                             )}
                                                         </td>
-                                                        <td className="p-3 font-medium text-slate-300">
+                                                        <td className="p-3 font-medium text-foreground">
                                                             RM {parseFloat(sku.price || '0').toFixed(2)}
                                                         </td>
                                                         <td className="p-3">

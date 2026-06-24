@@ -57,7 +57,7 @@ export function LiveCountdownTimer({
     };
 
     return (
-        <div className="flex items-center gap-2 bg-slate-900/70 border border-slate-700/50 rounded-xl px-3 py-1.5 backdrop-blur-sm select-none">
+        <div className="flex items-center gap-2 bg-muted/30 border border-border/50 rounded-xl px-3 py-1.5 backdrop-blur-sm select-none">
             <span
                 className={cn(
                     "h-2 w-2 rounded-full flex-shrink-0",
@@ -66,12 +66,12 @@ export function LiveCountdownTimer({
                         : "bg-amber-500"
                 )}
             />
-            <span className="text-[11px] font-semibold text-slate-300 whitespace-nowrap">
+            <span className="text-[11px] font-semibold text-foreground whitespace-nowrap">
                 {autoRefresh ? `Live · ${formatTime(secondsLeft)}` : "Paused"}
             </span>
             <button
                 onClick={onToggleAutoRefresh}
-                className="text-[10px] font-bold text-slate-400 hover:text-white transition-colors px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700/50 cursor-pointer"
+                className="text-[10px] font-bold text-muted-foreground hover:text-white transition-colors px-2 py-0.5 rounded-md bg-muted hover:bg-muted-foreground border border-border/50 cursor-pointer"
             >
                 {autoRefresh ? "Pause" : "Resume"}
             </button>

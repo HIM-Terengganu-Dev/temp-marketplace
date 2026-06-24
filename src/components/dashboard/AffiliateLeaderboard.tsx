@@ -72,7 +72,7 @@ export function AffiliateLeaderboard({ creators, isLoading }: AffiliateLeaderboa
                             placeholder="Search creators..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-slate-950 border border-border/40 rounded-lg pl-9 pr-4 py-2 text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-red-500/50 focus:border-red-500/50 transition-all"
+                            className="w-full bg-card border border-border/40 rounded-lg pl-9 pr-4 py-2 text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-red-500/50 focus:border-red-500/50 transition-all"
                         />
                     </div>
                 </div>
@@ -105,11 +105,11 @@ export function AffiliateLeaderboard({ creators, isLoading }: AffiliateLeaderboa
                                     const rankColor = index === 0 
                                         ? 'from-amber-400/20 to-yellow-500/5 border-amber-500/30' // Gold
                                         : index === 1 
-                                        ? 'from-slate-300/20 to-slate-400/5 border-slate-400/30' // Silver
+                                        ? 'from-muted/20 to-muted/5 border-border/30' // Silver
                                         : 'from-amber-700/20 to-orange-950/5 border-amber-800/30'; // Bronze
 
                                     const rankBadge = index === 0 ? '👑 Gold Creator' : index === 1 ? '🥈 Silver Creator' : '🥉 Bronze Creator';
-                                    const rankText = index === 0 ? 'text-amber-400' : index === 1 ? 'text-slate-300' : 'text-amber-600';
+                                    const rankText = index === 0 ? 'text-amber-400' : index === 1 ? 'text-foreground' : 'text-amber-600';
 
                                     return (
                                         <div 
@@ -161,11 +161,11 @@ export function AffiliateLeaderboard({ creators, isLoading }: AffiliateLeaderboa
                         )}
 
                         {/* 2. Full Performance Table */}
-                        <div className="border border-border/30 rounded-xl overflow-hidden bg-slate-950/20">
+                        <div className="border border-border/30 rounded-xl overflow-hidden bg-muted/20">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
-                                        <tr className="bg-muted/15 border-b border-border/30 text-[10px] uppercase font-bold text-slate-300 tracking-wider">
+                                        <tr className="bg-muted/15 border-b border-border/30 text-[10px] uppercase font-bold text-foreground tracking-wider">
                                             <th className="py-3 px-4 w-12 text-center">Rank</th>
                                             <th className="py-3 px-4">Creator / Username</th>
                                             <th 
@@ -214,7 +214,7 @@ export function AffiliateLeaderboard({ creators, isLoading }: AffiliateLeaderboa
                                                             <span className={cn(
                                                                 "inline-flex items-center justify-center h-5 w-5 rounded-full font-bold text-[10px] border",
                                                                 rank === 1 ? "bg-amber-400/10 text-amber-400 border-amber-500/20" :
-                                                                rank === 2 ? "bg-slate-300/10 text-slate-300 border-slate-400/20" :
+                                                                rank === 2 ? "bg-muted/20 text-foreground border-border/20" :
                                                                 "bg-amber-700/10 text-amber-600 border-amber-800/20"
                                                             )}>
                                                                 {rank}

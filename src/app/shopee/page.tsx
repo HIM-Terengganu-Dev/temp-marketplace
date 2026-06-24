@@ -235,7 +235,7 @@ function ShopeeShopsContent() {
                         size="sm"
                         onClick={() => { fetchShops(); fetchPerformance(); }}
                         disabled={isLoading || isPerfLoading}
-                        className="h-9 gap-2 text-xs font-semibold border-orange-500/20 hover:border-orange-500/40 text-slate-300 hover:text-white"
+                        className="h-9 gap-2 text-xs font-semibold border-orange-500/20 hover:border-orange-500/40 text-foreground hover:text-white"
                     >
                         <RefreshCw className={cn("h-3.5 w-3.5", (isLoading || isPerfLoading) && "animate-spin")} />
                         Refresh

@@ -140,20 +140,20 @@ export function SimpleDatePicker({
                         "w-full sm:w-auto sm:min-w-[200px]",
                         "flex items-center justify-between gap-2",
                         "h-10 rounded-xl px-3.5",
-                        "text-xs font-semibold text-slate-700 dark:text-slate-200",
-                        "bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60",
-                        "hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600/80 hover:text-slate-900 dark:hover:text-white",
+                        "text-xs font-semibold text-foreground/70 dark:text-foreground",
+                        "bg-white dark:bg-muted/30 border border-border dark:border-border/50",
+                        "hover:bg-muted/20 dark:hover:bg-muted hover:border-border dark:hover:border-border hover:text-foreground dark:hover:text-white",
                         "transition-all duration-200 shadow-sm select-none",
-                        isOpen && "border-primary/60 ring-2 ring-primary/20 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                        isOpen && "border-primary/60 ring-2 ring-primary/20 bg-muted/20 dark:bg-muted text-foreground dark:text-white"
                     )}
                 >
                     <span className="flex items-center gap-2 min-w-0">
-                        <CalendarIcon className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                        <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                         <span className="truncate">{shortLabel}</span>
                     </span>
                     <ChevronDown
                         className={cn(
-                            "h-3.5 w-3.5 text-slate-400 flex-shrink-0 transition-transform duration-200",
+                            "h-3.5 w-3.5 text-muted-foreground flex-shrink-0 transition-transform duration-200",
                             isOpen && "rotate-180"
                         )}
                     />
@@ -163,17 +163,17 @@ export function SimpleDatePicker({
             <PopoverContent
                 className={cn(
                     "w-[calc(100vw-2rem)] sm:w-auto p-0 max-w-[680px]",
-                    "border border-slate-200 dark:border-slate-800 bg-card dark:bg-slate-950/95 backdrop-blur-xl",
+                    "border border-border dark:border-border bg-card dark:bg-muted/95 backdrop-blur-xl",
                     "shadow-2xl rounded-2xl overflow-hidden",
-                    "flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800/80",
+                    "flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border/50 dark:divide-border/80",
                     "animate-in fade-in-0 zoom-in-95 duration-150"
                 )}
                 align="end"
                 sideOffset={8}
             >
                 {/* Presets column */}
-                <div className="w-full md:w-[152px] p-2 bg-slate-50 dark:bg-slate-900/50 flex flex-col gap-0.5">
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest px-2.5 pt-1.5 pb-1 select-none">
+                <div className="w-full md:w-[152px] p-2 bg-muted/20 dark:bg-muted/30 flex flex-col gap-0.5">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest px-2.5 pt-1.5 pb-1 select-none">
                         Quick Select
                     </span>
                     {/* Mobile: horizontal scrolling pill row */}
@@ -191,7 +191,7 @@ export function SimpleDatePicker({
                                         "text-left cursor-pointer w-full",
                                         isActive
                                             ? "bg-primary/15 text-primary"
-                                            : "text-slate-650 dark:text-slate-400 hover:text-slate-950 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/60"
+                                            : "text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-foreground hover:bg-muted/50 dark:hover:bg-muted/60"
                                     )}
                                 >
                                     <span>{p.label}</span>
@@ -217,8 +217,8 @@ export function SimpleDatePicker({
                     </div>
 
                     {/* Footer */}
-                    <div className="p-3 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-between gap-4 flex-wrap">
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 select-none min-w-0">
+                    <div className="p-3 border-t border-border dark:border-border/80 bg-muted/50 dark:bg-muted/30 flex items-center justify-between gap-4 flex-wrap">
+                        <span className="text-[10px] text-muted-foreground dark:text-muted-foreground select-none min-w-0">
                             {selectedRange?.from ? (
                                 <>
                                     {format(selectedRange.from, "MMM d, yyyy")}
@@ -230,7 +230,7 @@ export function SimpleDatePicker({
                             <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-9 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                                className="h-9 text-xs font-semibold text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-foreground"
                                 onClick={() => setIsOpen(false)}
                             >
                                 Cancel

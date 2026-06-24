@@ -77,7 +77,7 @@ function TrendBadge({ pct, suffix = "" }: { pct: number; suffix?: string }) {
             </span>
         );
     return (
-        <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-slate-500 dark:text-muted-foreground">
+        <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-muted-foreground dark:text-muted-foreground">
             <Minus className="h-3 w-3" />
             {label}
         </span>
@@ -102,7 +102,7 @@ function MetricCard({
     iconColor: string;
 }) {
     return (
-        <div className="bg-card dark:bg-card/40 border border-slate-200 dark:border-border/50 rounded-xl p-4 space-y-2 backdrop-blur-sm">
+        <div className="bg-card dark:bg-card/40 border border-border dark:border-border/50 rounded-xl p-4 space-y-2 backdrop-blur-sm">
             <div className="flex items-center justify-between">
                 <div className={cn("p-1.5 rounded-lg", iconColor)}>
                     <Icon className="h-3.5 w-3.5" />
@@ -110,10 +110,10 @@ function MetricCard({
                 <TrendBadge pct={pct} />
             </div>
             <div>
-                <p className="text-[10px] text-slate-500 dark:text-muted-foreground uppercase tracking-wider font-semibold">{label}</p>
-                <p className="text-lg font-bold tabular-nums mt-0.5 text-slate-900 dark:text-foreground">{value}</p>
+                <p className="text-[10px] text-muted-foreground dark:text-muted-foreground uppercase tracking-wider font-semibold">{label}</p>
+                <p className="text-lg font-bold tabular-nums mt-0.5 text-foreground dark:text-foreground">{value}</p>
                 {subValue && subLabel && (
-                    <p className="text-[11px] text-slate-600 dark:text-muted-foreground mt-1">
+                    <p className="text-[11px] text-muted-foreground dark:text-muted-foreground mt-1">
                         <span className="text-purple-600 dark:text-purple-400 font-medium">{subLabel}:</span> {subValue}
                     </p>
                 )}
@@ -254,15 +254,15 @@ export function ShopDetailModal({ shop, startDate, endDate, preset, onClose }: S
             />
 
             {/* Slide-in panel */}
-            <div className="fixed right-0 top-0 h-full w-full max-w-[520px] z-50 flex flex-col bg-background border-l border-slate-200 dark:border-border/60 shadow-2xl overflow-y-auto animate-slide-in-right">
+            <div className="fixed right-0 top-0 h-full w-full max-w-[520px] z-50 flex flex-col bg-background border-l border-border dark:border-border/60 shadow-2xl overflow-y-auto animate-slide-in-right">
                 {/* Header */}
-                <div className="flex items-start justify-between p-5 border-b border-slate-200 dark:border-border/50 bg-card dark:bg-card/30 backdrop-blur-sm sticky top-0 z-10">
+                <div className="flex items-start justify-between p-5 border-b border-border dark:border-border/50 bg-card dark:bg-card/30 backdrop-blur-sm sticky top-0 z-10">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
                             <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-foreground">{shop.name}</h2>
+                            <h2 className="text-lg font-bold tracking-tight text-foreground dark:text-foreground">{shop.name}</h2>
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                        <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                             {shop.platform} • {startDate === endDate ? startDate : `${startDate} → ${endDate}`}
                         </p>
                         <Badge
@@ -274,7 +274,7 @@ export function ShopDetailModal({ shop, startDate, endDate, preset, onClose }: S
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-muted/60 transition-colors text-slate-400 hover:text-slate-900 dark:text-muted-foreground dark:hover:text-foreground cursor-pointer"
+                        className="p-2 rounded-lg hover:bg-muted/50 dark:hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground cursor-pointer"
                         aria-label="Close panel"
                     >
                         <X className="h-4 w-4" />
@@ -327,17 +327,17 @@ export function ShopDetailModal({ shop, startDate, endDate, preset, onClose }: S
                             </div>
 
                             {/* Chart */}
-                            <div className="bg-card dark:bg-card/40 border border-slate-200 dark:border-border/50 rounded-xl p-4 backdrop-blur-sm">
+                            <div className="bg-card dark:bg-card/40 border border-border dark:border-border/50 rounded-xl p-4 backdrop-blur-sm">
                                 <div className="flex items-center justify-between mb-3">
                                     <div>
-                                        <p className="text-sm font-semibold text-slate-800 dark:text-foreground">Performance Trend</p>
-                                        <p className="text-[11px] text-slate-500 dark:text-muted-foreground">
+                                        <p className="text-sm font-semibold text-foreground/80 dark:text-foreground">Performance Trend</p>
+                                        <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">
                                             {chartMode === 'hourly' ? 'Hourly GMV breakdown (GMT+8)' : 'Daily GMV, Spend & ROAS'}
                                         </p>
                                     </div>
                                     <Badge
                                         variant="outline"
-                                        className="text-[10px] border-slate-200 dark:border-border/50 text-slate-500 dark:text-muted-foreground"
+                                        className="text-[10px] border-border dark:border-border/50 text-muted-foreground dark:text-muted-foreground"
                                     >
                                         {chartMode === 'hourly' ? '⏰ Hourly' : '📅 Daily'}
                                     </Badge>

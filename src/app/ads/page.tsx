@@ -84,7 +84,7 @@ function TrendBadge({ pct }: { pct: number }) {
             </span>
         );
     return (
-        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-muted-foreground bg-slate-500/5 px-2 py-0.5 rounded-full border border-slate-700">
+        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-muted-foreground bg-muted/10 px-2 py-0.5 rounded-full border border-border">
             <Minus className="h-3 w-3" />{abs}%
         </span>
     );
@@ -361,9 +361,9 @@ export default function AdAccountsPage() {
                         size="sm"
                         onClick={fetchAdCosts}
                         disabled={loading}
-                        className="h-9 px-3 border-slate-700 bg-slate-900/50 hover:bg-slate-800 text-slate-300 font-medium transition-all text-xs"
+                        className="h-9 px-3 border-border bg-muted/30 hover:bg-muted text-foreground font-medium transition-all text-xs"
                     >
-                        <RefreshCw className={`h-3.5 w-3.5 mr-2 text-slate-400 ${loading ? "animate-spin" : ""}`} />
+                        <RefreshCw className={`h-3.5 w-3.5 mr-2 text-muted-foreground ${loading ? "animate-spin" : ""}`} />
                         Refresh
                     </Button>
                     <div className="w-full sm:w-auto flex-1 sm:flex-none">
@@ -386,10 +386,10 @@ export default function AdAccountsPage() {
             )}
 
             {/* Store Selection Switcher Toolbar */}
-            <div className="flex flex-col gap-2 bg-slate-900/40 border border-border/50 rounded-xl p-3 backdrop-blur-sm shadow-sm select-none">
+            <div className="flex flex-col gap-2 bg-muted/30 border border-border/50 rounded-xl p-3 backdrop-blur-sm shadow-sm select-none">
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 px-1 mr-1">
-                        <Store className="h-3.5 w-3.5 text-slate-500" />
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 px-1 mr-1">
+                        <Store className="h-3.5 w-3.5 text-muted-foreground" />
                         Select Store View:
                     </span>
                     
@@ -400,10 +400,10 @@ export default function AdAccountsPage() {
                             "text-xs font-semibold px-3.5 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5",
                             selectedShopId === "all"
                                 ? "bg-primary border-primary text-white shadow-md shadow-primary/20"
-                                : "bg-slate-900/50 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                                : "bg-muted/30 border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted"
                         )}
                     >
-                        <span className={cn("h-1.5 w-1.5 rounded-full", selectedShopId === "all" ? "bg-white" : "bg-slate-500")} />
+                        <span className={cn("h-1.5 w-1.5 rounded-full", selectedShopId === "all" ? "bg-white" : "bg-muted-foreground")} />
                         All Shops (Consolidated)
                     </button>
 
@@ -411,7 +411,7 @@ export default function AdAccountsPage() {
                     {allowedTiktokShops.map((shopNumber) => {
                         const isSelected = selectedShopId === shopNumber;
                         const shopName = SHOP_NAMES[shopNumber] || `Shop ${shopNumber}`;
-                        const themeColor = SHOP_THEME_COLORS[shopNumber] || "border-slate-500/30 text-slate-400 bg-slate-500/10";
+                        const themeColor = SHOP_THEME_COLORS[shopNumber] || "border-border/50 text-muted-foreground bg-muted/10";
                         
                         return (
                             <button
@@ -420,13 +420,13 @@ export default function AdAccountsPage() {
                                 className={cn(
                                     "text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5",
                                     isSelected
-                                        ? "bg-slate-850 text-white shadow-md border-slate-600 ring-1 ring-white/10"
-                                        : "bg-slate-900/50 border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                                        ? "bg-card text-foreground shadow-md border-border ring-1 ring-border/20"
+                                        : "bg-muted/30 border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted"
                                 )}
                             >
                                 <span className={cn(
                                     "h-1.5 w-1.5 rounded-full transition-transform", 
-                                    isSelected ? "bg-emerald-400 scale-125" : "bg-slate-600"
+                                    isSelected ? "bg-emerald-400 scale-125" : "bg-muted-foreground"
                                 )} />
                                 <span className={cn("px-1.5 py-0.5 rounded text-[10px] uppercase font-bold border", themeColor)}>
                                     {shopName}
@@ -450,12 +450,12 @@ export default function AdAccountsPage() {
             {/* Aggregated KPI Cards */}
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                 {/* 1. Total Ad Spend (Before Tax) */}
-                <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-sm relative overflow-hidden group hover:border-slate-700 transition-all duration-300">
+                <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-sm relative overflow-hidden group hover:border-border transition-all duration-300">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Ad Spend (Before Tax)</CardTitle>
                         <div className="flex items-center gap-1.5">
                             {!loading && <TrendBadge pct={spendChange} />}
-                            <Coins className="h-5 w-5 text-slate-400 group-hover:text-primary transition-colors" />
+                            <Coins className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -463,7 +463,7 @@ export default function AdAccountsPage() {
                             RM {totalSpendBeforeTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
-                            <Info className="h-3 w-3 text-slate-500" />
+                            <Info className="h-3 w-3 text-muted-foreground" />
                             Blended gross advertiser spend
                         </p>
                     </CardContent>
@@ -490,12 +490,12 @@ export default function AdAccountsPage() {
                 </Card>
 
                 {/* 3. Blended ROAS (Before Tax) */}
-                <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-sm relative overflow-hidden group hover:border-slate-700 transition-all duration-300">
+                <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-sm relative overflow-hidden group hover:border-border transition-all duration-300">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Blended ROAS</CardTitle>
                         <div className="flex items-center gap-1.5">
                             {!loading && <TrendBadge pct={roasChange} />}
-                            <TrendingUp className="h-5 w-5 text-slate-400 group-hover:text-green-400 transition-colors" />
+                            <TrendingUp className="h-5 w-5 text-muted-foreground group-hover:text-green-400 transition-colors" />
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -529,7 +529,7 @@ export default function AdAccountsPage() {
                 </Card>
 
                 {/* 5. Total Store Visitors */}
-                <Card className="border-blue-500/20 bg-gradient-to-br from-blue-950/10 to-slate-900/5 backdrop-blur-sm shadow-sm relative overflow-hidden group hover:border-blue-500/40 transition-all duration-300">
+                <Card className="border-blue-500/20 bg-gradient-to-br from-blue-950/10 to-muted/5 backdrop-blur-sm shadow-sm relative overflow-hidden group hover:border-blue-500/40 transition-all duration-300">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-xs font-semibold text-blue-300 uppercase tracking-wider">Total Store Visitors</CardTitle>
                         <div className="flex items-center gap-1.5">
@@ -609,14 +609,14 @@ export default function AdAccountsPage() {
                                                 <div className="flex items-center justify-between text-xs font-semibold">
                                                     <div className="flex items-center gap-2">
                                                         <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
-                                                        <span className="text-slate-300">{item.name}</span>
+                                                        <span className="text-foreground">{item.name}</span>
                                                     </div>
-                                                    <span className="font-mono text-slate-200">{percentage.toFixed(1)}%</span>
+                                                    <span className="font-mono text-foreground">{percentage.toFixed(1)}%</span>
                                                 </div>
                                                 <div className="text-[11px] font-mono text-muted-foreground flex justify-between pl-5">
                                                     <span>RM {item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                 </div>
-                                                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden pl-5">
+                                                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden pl-5">
                                                     <div className="h-full rounded-full" style={{ backgroundColor: item.color, width: `${percentage}%` }} />
                                                 </div>
                                             </div>
@@ -649,14 +649,14 @@ export default function AdAccountsPage() {
                     </CardHeader>
                     <CardContent className="pt-6 space-y-5 flex-1">
                         <div className="flex justify-between items-center pb-3 border-b border-border/30">
-                            <span className="text-xs text-slate-400 font-medium">Gross Ad Spend</span>
-                            <span className="text-sm font-mono font-bold text-slate-200">
+                            <span className="text-xs text-muted-foreground font-medium">Gross Ad Spend</span>
+                            <span className="text-sm font-mono font-bold text-foreground">
                                 RM {totalSpendBeforeTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </span>
                         </div>
                         <div className="flex justify-between items-center pb-3 border-b border-border/30">
                             <div className="flex flex-col">
-                                <span className="text-xs text-slate-300 font-semibold">Service Tax (SST 8%)</span>
+                                <span className="text-xs text-foreground font-semibold">Service Tax (SST 8%)</span>
                                 <span className="text-[10px] text-muted-foreground">Standard digital service tax</span>
                             </div>
                             <span className="text-sm font-mono font-bold text-purple-400">
@@ -665,7 +665,7 @@ export default function AdAccountsPage() {
                         </div>
                         <div className="flex justify-between items-center pb-3 border-b border-border/30">
                             <div className="flex flex-col">
-                                <span className="text-xs text-slate-300 font-semibold">Withholding Tax (WHT 8%)</span>
+                                <span className="text-xs text-foreground font-semibold">Withholding Tax (WHT 8%)</span>
                                 <span className="text-[10px] text-muted-foreground">Cross-border advertisement tax</span>
                             </div>
                             <span className="text-sm font-mono font-bold text-purple-400">
@@ -673,7 +673,7 @@ export default function AdAccountsPage() {
                             </span>
                         </div>
                         <div className="pt-1 flex justify-between items-center">
-                            <span className="text-xs text-slate-300 font-bold">Total Post-Tax Cost</span>
+                            <span className="text-xs text-foreground font-bold">Total Post-Tax Cost</span>
                             <span className="text-base font-mono font-extrabold text-purple-400">
                                 RM {totalSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                             </span>
@@ -697,7 +697,7 @@ export default function AdAccountsPage() {
                     <div className="overflow-x-auto scrollbar-thin -webkit-overflow-scrolling-touch">
                         <table className="w-full min-w-[1000px] text-left text-sm border-collapse">
                             <thead>
-                                <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                     <th className="py-3 px-4">Shop</th>
                                     <th className="py-3 px-4 text-right">LIVE GMV MAX</th>
                                     <th className="py-3 px-4 text-right">PRODUCT GMV MAX</th>
@@ -714,7 +714,7 @@ export default function AdAccountsPage() {
                             <tbody>
                                 {shopData.length > 0 ? (
                                     shopData.map((shop, idx) => {
-                                        const themeColor = SHOP_THEME_COLORS[shop.shopNumber] || "border-slate-500/30 text-slate-400 bg-slate-500/10";
+                                        const themeColor = SHOP_THEME_COLORS[shop.shopNumber] || "border-border/50 text-muted-foreground bg-muted/10";
                                         const isSelected = selectedShopId === shop.shopNumber;
                                         return (
                                             <tr 
@@ -726,8 +726,8 @@ export default function AdAccountsPage() {
                                                 className={cn(
                                                     "border-b border-border/10 transition-all cursor-pointer duration-200",
                                                     isSelected 
-                                                        ? "bg-slate-800/40 border-l-2 border-l-primary hover:bg-slate-800/50 shadow-inner" 
-                                                        : "hover:bg-slate-800/20"
+                                                        ? "bg-muted/40 border-l-2 border-l-primary hover:bg-muted/50 shadow-inner" 
+                                                        : "hover:bg-muted/20"
                                                 )}
                                                 title="Click to view overview for this store"
                                             >
@@ -743,16 +743,16 @@ export default function AdAccountsPage() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-slate-300">
+                                                <td className="py-3.5 px-4 text-right font-mono text-foreground">
                                                     RM {shop.liveGMVMaxCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-slate-300">
+                                                <td className="py-3.5 px-4 text-right font-mono text-foreground">
                                                     RM {shop.productGMVMaxCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-slate-300">
+                                                <td className="py-3.5 px-4 text-right font-mono text-foreground">
                                                     RM {shop.manualCampaignSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
-                                                <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-200">
+                                                <td className="py-3.5 px-4 text-right font-mono font-bold text-foreground">
                                                     RM {shop.totalAdsSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
                                                 <td className="py-3.5 px-4 text-right font-mono text-purple-400">
@@ -767,7 +767,7 @@ export default function AdAccountsPage() {
                                                 <td className="py-3.5 px-4 text-center font-mono font-bold text-blue-300">
                                                     {(shop.visitors || 0).toLocaleString()}
                                                 </td>
-                                                <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-300">
+                                                <td className="py-3.5 px-4 text-center font-mono font-bold text-foreground">
                                                     {shop.roas.toFixed(2)}x
                                                 </td>
                                                 <td className="py-3.5 px-4 text-center font-mono font-extrabold text-emerald-400 bg-emerald-500/5">
@@ -814,12 +814,12 @@ export default function AdAccountsPage() {
                                 placeholder="Search campaigns by name or ID..."
                                 value={campaignSearch}
                                 onChange={(e) => setCampaignSearch(e.target.value)}
-                                className="w-full pl-9 pr-8 py-2 rounded-lg bg-slate-950/60 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all"
+                                className="w-full pl-9 pr-8 py-2 rounded-lg bg-muted/60 border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent transition-all"
                             />
                             {campaignSearch && (
                                 <button
                                     onClick={() => setCampaignSearch("")}
-                                    className="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 bg-transparent border-0 p-0 cursor-pointer"
+                                    className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground bg-transparent border-0 p-0 cursor-pointer"
                                 >
                                     <X className="h-4 w-4" />
                                 </button>
@@ -831,7 +831,7 @@ export default function AdAccountsPage() {
                         {campaignLoading ? (
                             <div className="py-12 flex flex-col items-center justify-center gap-3">
                                 <RefreshCw className="h-8 w-8 text-primary animate-spin" />
-                                <span className="text-sm font-medium text-slate-400">Loading campaign audits...</span>
+                                <span className="text-sm font-medium text-muted-foreground">Loading campaign audits...</span>
                             </div>
                         ) : (() => {
                             const filterCampaigns = (list: any[]) => {
@@ -856,7 +856,7 @@ export default function AdAccountsPage() {
                                     <div className="py-12 border border-dashed border-border/50 rounded-xl flex flex-col items-center justify-center gap-2.5 text-center px-4">
                                         <AlertCircle className="h-8 w-8 text-amber-500/80" />
                                         <div className="space-y-1">
-                                            <h4 className="text-sm font-semibold text-slate-300">No campaigns found</h4>
+                                            <h4 className="text-sm font-semibold text-foreground">No campaigns found</h4>
                                             <p className="text-xs text-muted-foreground max-w-sm">
                                                 No active campaign spend recorded in this date range{campaignSearch ? " matching your search criteria" : ""}.
                                             </p>
@@ -866,7 +866,7 @@ export default function AdAccountsPage() {
                                                 variant="outline" 
                                                 size="sm" 
                                                 onClick={() => setCampaignSearch("")}
-                                                className="h-8 mt-2 text-xs border-slate-700 bg-slate-900/50 hover:bg-slate-800 text-slate-300 font-medium"
+                                                className="h-8 mt-2 text-xs border-border bg-muted/30 hover:bg-muted text-foreground font-medium"
                                             >
                                                 Clear Search Filter
                                             </Button>
@@ -887,11 +887,11 @@ export default function AdAccountsPage() {
                                 <div className={cn("grid gap-6 items-start", gridColsClass)}>
                                     {/* Group 1: LIVE GMV MAX */}
                                     {hasLiveData && (
-                                        <div className="space-y-3 bg-slate-950/20 border border-slate-800/40 rounded-xl p-4 flex flex-col h-full min-h-[300px]">
+                                        <div className="space-y-3 bg-card/60 border border-border/40 rounded-xl p-4 flex flex-col h-full min-h-[300px]">
                                             <div className="flex items-center justify-between border-b border-border/20 pb-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-base">🔴</span>
-                                                    <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">LIVE GMV MAX</span>
+                                                    <div className="text-xs font-bold text-foreground uppercase tracking-wider">LIVE GMV MAX</span>
                                                 </div>
                                                 <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-full">
                                                     {filteredLive.length} Active
@@ -899,29 +899,29 @@ export default function AdAccountsPage() {
                                             </div>
                                             <div className="space-y-2.5 overflow-y-auto max-h-[420px] pr-1 scrollbar-thin">
                                                 {filteredLive.map((c) => (
-                                                    <div key={c.campaignId} className="p-3 bg-slate-900/30 border border-slate-800/60 rounded-lg hover:border-slate-700 transition-all space-y-2">
+                                                    <div key={c.campaignId} className="p-3 bg-muted/30 border border-border/50 rounded-lg hover:border-border transition-all space-y-2">
                                                         <div className="space-y-0.5">
-                                                            <h5 className="text-xs font-bold text-slate-300 line-clamp-2 leading-snug" title={c.campaignName}>
+                                                            <h5 className="text-xs font-bold text-foreground line-clamp-2 leading-snug" title={c.campaignName}>
                                                                 {c.campaignName}
                                                             </h5>
                                                             <p className="text-[10px] font-mono text-muted-foreground">ID: {c.campaignId}</p>
                                                         </div>
-                                                        <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-800/60 text-[11px]">
+                                                        <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-border/30 text-[11px]">
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">Ad Spend</span>
-                                                                <span className="font-bold text-slate-200 font-mono">
+                                                                <span className="font-bold text-foreground font-mono">
                                                                     RM {c.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                                </span>
+                                                                </div>
                                                             </div>
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">GMV (Ikram)</span>
                                                                 <span className="font-bold text-blue-400 font-mono">
                                                                     RM {c.gmv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                                </span>
+                                                                </div>
                                                             </div>
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">Orders</span>
-                                                                <span className="font-semibold text-slate-300 font-mono">{c.orders}</span>
+                                                                <span className="font-semibold text-foreground font-mono">{c.orders}</span>
                                                             </div>
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">ROAS</span>
@@ -936,11 +936,11 @@ export default function AdAccountsPage() {
 
                                     {/* Group 2: PRODUCT GMV MAX */}
                                     {hasProductData && (
-                                        <div className="space-y-3 bg-slate-950/20 border border-slate-800/40 rounded-xl p-4 flex flex-col h-full min-h-[300px]">
+                                        <div className="space-y-3 bg-card/60 border border-border/40 rounded-xl p-4 flex flex-col h-full min-h-[300px]">
                                             <div className="flex items-center justify-between border-b border-border/20 pb-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-base">🛍️</span>
-                                                    <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">PRODUCT GMV MAX</span>
+                                                    <div className="text-xs font-bold text-foreground uppercase tracking-wider">PRODUCT GMV MAX</span>
                                                 </div>
                                                 <Badge className="bg-pink-500/20 text-pink-400 border border-pink-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-full">
                                                     {filteredProduct.length} Active
@@ -948,29 +948,29 @@ export default function AdAccountsPage() {
                                             </div>
                                             <div className="space-y-2.5 overflow-y-auto max-h-[420px] pr-1 scrollbar-thin">
                                                 {filteredProduct.map((c) => (
-                                                    <div key={c.campaignId} className="p-3 bg-slate-900/30 border border-slate-800/60 rounded-lg hover:border-slate-700 transition-all space-y-2">
+                                                    <div key={c.campaignId} className="p-3 bg-muted/30 border border-border/50 rounded-lg hover:border-border transition-all space-y-2">
                                                         <div className="space-y-0.5">
-                                                            <h5 className="text-xs font-bold text-slate-300 line-clamp-2 leading-snug" title={c.campaignName}>
+                                                            <h5 className="text-xs font-bold text-foreground line-clamp-2 leading-snug" title={c.campaignName}>
                                                                 {c.campaignName}
                                                             </h5>
                                                             <p className="text-[10px] font-mono text-muted-foreground">ID: {c.campaignId}</p>
                                                         </div>
-                                                        <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-800/60 text-[11px]">
+                                                        <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-border/30 text-[11px]">
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">Ad Spend</span>
-                                                                <span className="font-bold text-slate-200 font-mono">
+                                                                <span className="font-bold text-foreground font-mono">
                                                                     RM {c.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                                </span>
+                                                                </div>
                                                             </div>
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">GMV (Ikram)</span>
                                                                 <span className="font-bold text-blue-400 font-mono">
                                                                     RM {c.gmv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                                </span>
+                                                                </div>
                                                             </div>
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">Orders</span>
-                                                                <span className="font-semibold text-slate-300 font-mono">{c.orders}</span>
+                                                                <span className="font-semibold text-foreground font-mono">{c.orders}</span>
                                                             </div>
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">ROAS</span>
@@ -985,11 +985,11 @@ export default function AdAccountsPage() {
 
                                     {/* Group 3: TTAM (Manual Ads) */}
                                     {hasManualData && (
-                                        <div className="space-y-3 bg-slate-950/20 border border-slate-800/40 rounded-xl p-4 flex flex-col h-full min-h-[300px]">
+                                        <div className="space-y-3 bg-card/60 border border-border/40 rounded-xl p-4 flex flex-col h-full min-h-[300px]">
                                             <div className="flex items-center justify-between border-b border-border/20 pb-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-base">⚙️</span>
-                                                    <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">TTAM (Manual Ads)</span>
+                                                    <div className="text-xs font-bold text-foreground uppercase tracking-wider">TTAM (Manual Ads)</span>
                                                 </div>
                                                 <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-full">
                                                     {filteredManual.length} Active
@@ -997,17 +997,17 @@ export default function AdAccountsPage() {
                                             </div>
                                             <div className="space-y-2.5 overflow-y-auto max-h-[420px] pr-1 scrollbar-thin">
                                                 {filteredManual.map((c) => (
-                                                    <div key={c.campaignId} className="p-3 bg-slate-900/30 border border-slate-800/60 rounded-lg hover:border-slate-700 transition-all space-y-2">
+                                                    <div key={c.campaignId} className="p-3 bg-muted/30 border border-border/50 rounded-lg hover:border-border transition-all space-y-2">
                                                         <div className="space-y-0.5">
-                                                            <h5 className="text-xs font-bold text-slate-300 line-clamp-2 leading-snug" title={c.campaignName}>
+                                                            <h5 className="text-xs font-bold text-foreground line-clamp-2 leading-snug" title={c.campaignName}>
                                                                 {c.campaignName}
                                                             </h5>
                                                             <p className="text-[10px] font-mono text-muted-foreground">ID: {c.campaignId}</p>
                                                         </div>
-                                                        <div className="pt-1.5 border-t border-slate-800/60 text-[11px] flex justify-between items-center">
+                                                        <div className="pt-1.5 border-t border-border/30 text-[11px] flex justify-between items-center">
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">Ad Spend (Gross)</span>
-                                                                <span className="font-bold text-slate-200 font-mono text-xs">
+                                                                <span className="font-bold text-foreground font-mono text-xs">
                                                                     RM {c.spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                                 </span>
                                                             </div>

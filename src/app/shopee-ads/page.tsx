@@ -122,7 +122,7 @@ function TrendBadge({ pct }: { pct: number }) {
             </span>
         );
     return (
-        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-slate-400 bg-slate-500/5 px-2 py-0.5 rounded-full border border-slate-700">
+        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-muted-foreground bg-muted/10 px-2 py-0.5 rounded-full border border-border">
             <Minus className="h-3 w-3" />{abs}%
         </span>
     );
@@ -374,10 +374,10 @@ export default function ShopeeAdsPage() {
                         <Megaphone className="h-6 w-6 text-orange-500" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black tracking-tight text-slate-100 flex items-center gap-2">
+                        <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
                             Shopee Ads <Badge className="bg-orange-500/15 text-orange-400 border-orange-500/30">Partner Open API</Badge>
                         </h1>
-                        <p className="text-sm text-slate-400 font-medium">Verify exact marketing ROI, budgets, and tax charges directly from Shopee platform</p>
+                        <p className="text-sm text-muted-foreground font-medium">Verify exact marketing ROI, budgets, and tax charges directly from Shopee platform</p>
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
@@ -386,7 +386,7 @@ export default function ShopeeAdsPage() {
                         size="sm" 
                         onClick={fetchAdData} 
                         disabled={loading}
-                        className="h-9 gap-2 text-xs font-semibold border-slate-700 bg-slate-800/30 text-slate-300 hover:bg-slate-800"
+                        className="h-9 gap-2 text-xs font-semibold border-border bg-muted/30 text-foreground hover:bg-muted"
                     >
                         <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
                         Refresh Data
@@ -405,7 +405,7 @@ export default function ShopeeAdsPage() {
             </div>
 
             {/* Shop Filters Tabs */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/50 p-1.5 rounded-xl border border-border/30 backdrop-blur-md">
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/30 p-1.5 rounded-xl border border-border/30 backdrop-blur-md">
                 <div className="flex flex-wrap items-center gap-1">
                     <Button 
                         variant="ghost" 
@@ -415,7 +415,7 @@ export default function ShopeeAdsPage() {
                             "h-8 px-3.5 text-xs font-bold transition-all duration-200 rounded-lg",
                             selectedShopId === "all" 
                                 ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md shadow-orange-500/20" 
-                                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                         )}
                     >
                         All Shops
@@ -432,7 +432,7 @@ export default function ShopeeAdsPage() {
                                     "h-8 px-3.5 text-xs font-bold transition-all duration-200 rounded-lg",
                                     isSelected 
                                         ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md" 
-                                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                                 )}
                             >
                                 {shop.shop_name}
@@ -458,11 +458,11 @@ export default function ShopeeAdsPage() {
                                     "py-3 px-5 text-sm font-bold border-b-2 transition-all duration-150 relative whitespace-nowrap flex flex-col items-start gap-0.5",
                                     isTabActive 
                                         ? "border-orange-500 text-orange-500" 
-                                        : "border-transparent text-slate-400 hover:text-slate-200"
+                                        : "border-transparent text-muted-foreground hover:text-foreground"
                                 )}
                             >
                                 <span>{tab.label}</span>
-                                <span className={cn("text-[10px] font-medium", isTabActive ? "text-orange-400/70" : "text-slate-600")}>{tab.desc}</span>
+                                <span className={cn("text-[10px] font-medium", isTabActive ? "text-orange-400/70" : "text-muted-foreground")}>{tab.desc}</span>
                                 {isTabActive && (
                                     <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-orange-500 shadow-lg shadow-orange-500/50 rounded-full" />
                                 )}
@@ -484,10 +484,10 @@ export default function ShopeeAdsPage() {
             </div>
             {/* Per-type API limitation info banner (CPC tab only) */}
             {activeAdTab === "cpc" && (
-                <div className="flex items-start gap-3 px-4 py-3 bg-slate-800/40 border border-slate-700/40 rounded-xl">
-                    <Info className="h-4 w-4 text-slate-400 mt-0.5 shrink-0" />
-                    <div className="text-xs text-slate-400 leading-relaxed">
-                        <strong className="text-slate-300">Combined CPC spend (Product Ads + Shop Ads + Live Ads)</strong> — 
+                <div className="flex items-start gap-3 px-4 py-3 bg-muted/40 border border-border/50 rounded-xl">
+                    <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div className="text-xs text-muted-foreground leading-relaxed">
+                        <strong className="text-foreground">Combined CPC spend (Product Ads + Shop Ads + Live Ads)</strong> — 
                         fetched directly from Shopee Open API (Ads Manager total). 
                         Shopee&apos;s Open API does not expose per-type breakdown via any available endpoint.
                         To see per-type spend, open{" "}
@@ -503,13 +503,13 @@ export default function ShopeeAdsPage() {
                 {/* Spend card */}
                 <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-md hover:border-orange-500/20 transition-all">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                             {activeAdTab === "cpas" ? "Meta CPAS Spend" : "Shopee CPC Spend"}
                         </CardTitle>
                         <Coins className="h-4 w-4 text-orange-500" />
                     </CardHeader>
                     <CardContent className="space-y-1">
-                        <div className="text-2xl font-black text-slate-100 font-mono">
+                        <div className="text-2xl font-black text-foreground font-mono">
                             RM {aggregatedMetrics.totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </div>
                         <div className="flex items-center gap-1.5 pt-1">
@@ -524,7 +524,7 @@ export default function ShopeeAdsPage() {
                 {/* Post tax spend card */}
                 <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-md hover:border-orange-500/20 transition-all">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Tax-Adjusted Spend</CardTitle>
+                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Tax-Adjusted Spend</CardTitle>
                         <Receipt className="h-4 w-4 text-orange-500" />
                     </CardHeader>
                     <CardContent className="space-y-1">
@@ -538,11 +538,11 @@ export default function ShopeeAdsPage() {
                 {/* Sales/GMV card */}
                 <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-md hover:border-orange-500/20 transition-all">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Ad Sales (GMV)</CardTitle>
+                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total Ad Sales (GMV)</CardTitle>
                         <DollarSign className="h-4 w-4 text-orange-500" />
                     </CardHeader>
                     <CardContent className="space-y-1">
-                        <div className="text-2xl font-black text-slate-100 font-mono">
+                        <div className="text-2xl font-black text-foreground font-mono">
                             RM {aggregatedMetrics.totalGmv.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </div>
                         <div className="flex items-center gap-1.5 pt-1">
@@ -555,13 +555,13 @@ export default function ShopeeAdsPage() {
                 {/* ROAS card */}
                 <Card className="border-border/50 bg-card/40 backdrop-blur-sm shadow-md hover:border-orange-500/20 transition-all">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Return on Ad Spend (ROAS)</CardTitle>
+                        <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Return on Ad Spend (ROAS)</CardTitle>
                         <Percent className="h-4 w-4 text-orange-500" />
                     </CardHeader>
                     <CardContent className="space-y-1">
                         <div className="flex items-baseline gap-2">
                             <span className="text-2xl font-black text-emerald-400 font-mono">{aggregatedMetrics.roas.toFixed(2)}x</span>
-                            <span className="text-xs text-slate-500 font-medium font-mono">Post-Tax: {aggregatedMetrics.actualRoas.toFixed(2)}x</span>
+                            <span className="text-xs text-muted-foreground font-medium font-mono">Post-Tax: {aggregatedMetrics.actualRoas.toFixed(2)}x</span>
                         </div>
                         <p className="text-[10px] text-muted-foreground font-semibold pt-1">Broad-match ad attribution</p>
                     </CardContent>
@@ -574,11 +574,11 @@ export default function ShopeeAdsPage() {
                     {/* Impressions Card */}
                     <Card className="border-border/50 bg-card/25 backdrop-blur-sm shadow-sm hover:border-orange-500/20 transition-all">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Ad Impressions</CardTitle>
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ad Impressions</CardTitle>
                             <Eye className="h-4 w-4 text-orange-500" />
                         </CardHeader>
                         <CardContent className="space-y-1">
-                            <div className="text-2xl font-black text-slate-100 font-mono">
+                            <div className="text-2xl font-black text-foreground font-mono">
                                 {aggregatedMetrics.totalImpressions >= 1000 
                                     ? `${(aggregatedMetrics.totalImpressions / 1000).toFixed(1)}k` 
                                     : aggregatedMetrics.totalImpressions.toLocaleString()}
@@ -590,11 +590,11 @@ export default function ShopeeAdsPage() {
                     {/* Clicks Card */}
                     <Card className="border-border/50 bg-card/25 backdrop-blur-sm shadow-sm hover:border-orange-500/20 transition-all">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Ad Clicks</CardTitle>
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ad Clicks</CardTitle>
                             <Users className="h-4 w-4 text-orange-500" />
                         </CardHeader>
                         <CardContent className="space-y-1">
-                            <div className="text-2xl font-black text-slate-100 font-mono">
+                            <div className="text-2xl font-black text-foreground font-mono">
                                 {aggregatedMetrics.totalClicks.toLocaleString()}
                             </div>
                             <p className="text-[10px] text-muted-foreground font-semibold">Total click-through traffic volume</p>
@@ -604,7 +604,7 @@ export default function ShopeeAdsPage() {
                     {/* CTR Card */}
                     <Card className="border-border/50 bg-card/25 backdrop-blur-sm shadow-sm hover:border-orange-500/20 transition-all">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Click-Through Rate (CTR)</CardTitle>
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Click-Through Rate (CTR)</CardTitle>
                             <ArrowUpRight className="h-4 w-4 text-orange-500" />
                         </CardHeader>
                         <CardContent className="space-y-1">
@@ -621,7 +621,7 @@ export default function ShopeeAdsPage() {
                     {/* Orders Card */}
                     <Card className="border-border/50 bg-card/25 backdrop-blur-sm shadow-sm hover:border-orange-500/20 transition-all">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-400">Ad-Attributed Orders</CardTitle>
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ad-Attributed Orders</CardTitle>
                             <FolderOpen className="h-4 w-4 text-orange-500" />
                         </CardHeader>
                         <CardContent className="space-y-1">
@@ -644,31 +644,31 @@ export default function ShopeeAdsPage() {
                     <CardTitle className="text-base font-bold flex items-center gap-2">
                         Tax Surcharge Details
                     </CardTitle>
-                    <p className="text-xs text-slate-400">Detailed tax charges computed dynamically based on the verified 8% SST + 8% WHT formula applied directly to ad spend.</p>
+                    <p className="text-xs text-muted-foreground">Detailed tax charges computed dynamically based on the verified 8% SST + 8% WHT formula applied directly to ad spend.</p>
                 </CardHeader>
                 <CardContent className="pt-6">
                     <div className="grid md:grid-cols-2 gap-8 items-center">
                         {/* Visual Breakdown Column */}
-                        <div className="space-y-4 bg-slate-950/20 p-5 rounded-xl border border-slate-800/40">
+                        <div className="space-y-4 bg-muted/20 p-5 rounded-xl border border-border/40">
                             <div className="space-y-1.5">
                                 <div className="flex justify-between text-xs font-semibold">
-                                    <span className="text-slate-300">Total Post-Tax Cost Breakdown</span>
+                                    <span className="text-foreground">Total Post-Tax Cost Breakdown</span>
                                     <span className="text-purple-400 font-mono">116% of Gross</span>
                                 </div>
                                 {/* Compound Progress Bar */}
-                                <div className="h-4 rounded-full bg-slate-800 overflow-hidden flex">
+                                <div className="h-4 rounded-full bg-muted overflow-hidden flex">
                                     <div 
                                         className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500" 
                                         style={{ width: '86.2%' }} 
                                         title="Gross Spend: 86.2%"
                                     />
                                     <div 
-                                        className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 border-l border-slate-950 transition-all duration-500" 
+                                        className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 border-l border-border transition-all duration-500" 
                                         style={{ width: '6.9%' }} 
                                         title="SST Tax: 6.9%"
                                     />
                                     <div 
-                                        className="h-full bg-gradient-to-r from-pink-500 to-rose-500 border-l border-slate-950 transition-all duration-500" 
+                                        className="h-full bg-gradient-to-r from-pink-500 to-rose-500 border-l border-border transition-all duration-500" 
                                         style={{ width: '6.9%' }} 
                                         title="WHT Tax: 6.9%"
                                     />
@@ -678,29 +678,29 @@ export default function ShopeeAdsPage() {
                             {/* Legend Details */}
                             <div className="grid grid-cols-3 gap-2.5 pt-2 text-[10px]">
                                 <div className="space-y-1">
-                                    <div className="flex items-center gap-1.5 font-bold text-slate-300">
+                                    <div className="flex items-center gap-1.5 font-bold text-foreground">
                                         <span className="h-2 w-2 rounded bg-orange-500 shrink-0" />
                                         Gross Spend
                                     </div>
-                                    <p className="text-slate-500 pl-3.5 font-medium">86.2% share</p>
+                                    <p className="text-muted-foreground pl-3.5 font-medium">86.2% share</p>
                                 </div>
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-1.5 font-bold text-purple-400">
                                         <span className="h-2 w-2 rounded bg-purple-500 shrink-0" />
                                         SST (8%)
                                     </div>
-                                    <p className="text-slate-500 pl-3.5 font-medium">6.9% share</p>
+                                    <p className="text-muted-foreground pl-3.5 font-medium">6.9% share</p>
                                 </div>
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-1.5 font-bold text-pink-400">
                                         <span className="h-2 w-2 rounded bg-pink-500 shrink-0" />
                                         WHT (8%)
                                     </div>
-                                    <p className="text-slate-500 pl-3.5 font-medium">6.9% share</p>
+                                    <p className="text-muted-foreground pl-3.5 font-medium">6.9% share</p>
                                 </div>
                             </div>
                             
-                            <p className="text-[10px] text-slate-400 leading-relaxed bg-purple-500/5 p-3 rounded border border-purple-500/10 mt-1 font-medium">
+                            <p className="text-[10px] text-muted-foreground leading-relaxed bg-purple-500/5 p-3 rounded border border-purple-500/10 mt-1 font-medium">
                                 <strong>Note:</strong> Keeping sourcing costs and digital taxes completely aligned ensures highly accurate profit margin reporting.
                             </p>
                         </div>
@@ -708,15 +708,15 @@ export default function ShopeeAdsPage() {
                         {/* Numeric Lines Column */}
                         <div className="space-y-4 pr-2">
                             <div className="flex justify-between items-center pb-2.5 border-b border-border/30">
-                                <span className="text-xs text-slate-400 font-medium">Gross Ad Spend</span>
-                                <span className="text-sm font-mono font-bold text-slate-200">
+                                <span className="text-xs text-muted-foreground font-medium">Gross Ad Spend</span>
+                                <span className="text-sm font-mono font-bold text-foreground">
                                     RM {aggregatedMetrics.totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center pb-2.5 border-b border-border/30">
                                 <div className="flex flex-col">
-                                    <span className="text-xs text-slate-300 font-semibold">Service Tax (SST 8%)</span>
-                                    <span className="text-[10px] text-slate-500">Standard digital service tax</span>
+                                    <span className="text-xs text-foreground font-semibold">Service Tax (SST 8%)</span>
+                                    <span className="text-[10px] text-muted-foreground">Standard digital service tax</span>
                                 </div>
                                 <span className="text-sm font-mono font-bold text-orange-400">
                                     + RM {aggregatedMetrics.sst.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -724,15 +724,15 @@ export default function ShopeeAdsPage() {
                             </div>
                             <div className="flex justify-between items-center pb-2.5 border-b border-border/30">
                                 <div className="flex flex-col">
-                                    <span className="text-xs text-slate-300 font-semibold">Withholding Tax (WHT 8%)</span>
-                                    <span className="text-[10px] text-slate-500">Cross-border advertisement tax</span>
+                                    <span className="text-xs text-foreground font-semibold">Withholding Tax (WHT 8%)</span>
+                                    <span className="text-[10px] text-muted-foreground">Cross-border advertisement tax</span>
                                 </div>
                                 <span className="text-sm font-mono font-bold text-orange-400">
                                     + RM {aggregatedMetrics.wht.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
                             <div className="pt-1.5 flex justify-between items-center">
-                                <span className="text-xs text-slate-300 font-bold">Total Post-Tax Cost</span>
+                                <span className="text-xs text-foreground font-bold">Total Post-Tax Cost</span>
                                 <span className="text-base font-mono font-extrabold text-purple-400">
                                     RM {aggregatedMetrics.totalSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                 </span>
@@ -748,13 +748,13 @@ export default function ShopeeAdsPage() {
                     <CardTitle className="text-base font-bold flex items-center gap-2">
                         Shop Performance & Cost Matrix
                     </CardTitle>
-                    <p className="text-xs text-slate-400 font-semibold">Detailed comparison of ad spend, taxes, and corresponding ROAS values per Shopee store.</p>
+                    <p className="text-xs text-muted-foreground font-semibold">Detailed comparison of ad spend, taxes, and corresponding ROAS values per Shopee store.</p>
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="overflow-x-auto scrollbar-thin">
                         <table className="w-full min-w-[1000px] text-left text-sm border-collapse">
                             <thead>
-                                <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                     <th className="py-3 px-4">Shop</th>
                                     <th className="py-3 px-4 text-right">CPC AD SPEND</th>
                                     <th className="py-3 px-4 text-right">META CPAS SPEND</th>
@@ -770,7 +770,7 @@ export default function ShopeeAdsPage() {
                             <tbody>
                                 {adSummaries.length > 0 ? (
                                     adSummaries.map((shop, idx) => {
-                                        const themeColor = SHOPEE_THEME_COLORS[shop.shopName] || "border-slate-500/30 text-slate-400 bg-slate-500/10";
+                                        const themeColor = SHOPEE_THEME_COLORS[shop.shopName] || "border-border/50 text-muted-foreground bg-muted/10";
                                         const isSelected = selectedShopId === shop.shopId;
                                         return (
                                             <tr 
@@ -782,8 +782,8 @@ export default function ShopeeAdsPage() {
                                                 className={cn(
                                                     "border-b border-border/10 transition-all cursor-pointer duration-200",
                                                     isSelected 
-                                                        ? "bg-slate-800/40 border-l-2 border-l-orange-500 hover:bg-slate-800/50 shadow-inner" 
-                                                        : "hover:bg-slate-800/20"
+                                                        ? "bg-muted/40 border-l-2 border-l-orange-500 hover:bg-muted/50 shadow-inner" 
+                                                        : "hover:bg-muted/20"
                                                 )}
                                                 title="Click to view overview for this store"
                                             >
@@ -799,13 +799,13 @@ export default function ShopeeAdsPage() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-slate-300">
+                                                <td className="py-3.5 px-4 text-right font-mono text-foreground">
                                                     RM {shop.shopeeCpcSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-slate-300">
+                                                <td className="py-3.5 px-4 text-right font-mono text-foreground">
                                                     RM {shop.cpasSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-slate-300 font-bold">
+                                                <td className="py-3.5 px-4 text-right font-mono text-foreground font-bold">
                                                     RM {shop.spendBeforeTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
                                                 <td className="py-3.5 px-4 text-right font-mono text-purple-400">
@@ -814,13 +814,13 @@ export default function ShopeeAdsPage() {
                                                 <td className="py-3.5 px-4 text-right font-mono text-purple-300 font-bold">
                                                     RM {shop.spendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-slate-200 bg-orange-500/5 font-extrabold">
+                                                <td className="py-3.5 px-4 text-right font-mono text-foreground bg-orange-500/5 font-extrabold">
                                                     RM {shop.gmv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </td>
-                                                <td className="py-3.5 px-4 text-center font-mono text-slate-300 font-semibold">
+                                                <td className="py-3.5 px-4 text-center font-mono text-foreground font-semibold">
                                                     {shop.visitors.toLocaleString()}
                                                 </td>
-                                                <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-300">
+                                                <td className="py-3.5 px-4 text-center font-mono font-bold text-foreground">
                                                     {shop.roasBeforeTax.toFixed(2)}x
                                                 </td>
                                                 <td className="py-3.5 px-4 text-center font-mono font-extrabold text-emerald-400 bg-emerald-500/5">
