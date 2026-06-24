@@ -1367,6 +1367,17 @@ function MtdReportGraphic({
     const gap = actualSales - estCumulative;
     const progressPct = monthlyTarget > 0 ? (actualSales / monthlyTarget) * 100 : 0;
 
+    // Estimated Total Month Sales = avg daily sales × actual days in month
+    const daysInTargetMonth = (() => {
+        try {
+            const [yearStr, monthStr] = targetMonth.split('-');
+            return new Date(parseInt(yearStr), parseInt(monthStr), 0).getDate();
+        } catch { return 30; }
+    })();
+    const avgDailySales = dayRangeEnd > 0 ? actualSales / dayRangeEnd : 0;
+    const estTotalSales = avgDailySales * daysInTargetMonth;
+    const estTotalVsTarget = monthlyTarget > 0 ? (estTotalSales / monthlyTarget) * 100 : 0;
+
     const tkMonthlyTarget = tiktokTargetVal;
     const spMonthlyTarget = Math.max(0, monthlyTarget - tiktokTargetVal);
     const tkEstCumulative = (tkMonthlyTarget / 30) * dayRangeEnd;
@@ -1446,14 +1457,14 @@ function MtdReportGraphic({
                     <span className="text-xs font-extrabold uppercase tracking-widest text-slate-400 dark:text-slate-400">Target Pacing Analysis</span>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-cols-4 gap-5">
                     <div className="flex flex-col gap-1">
                         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Target Bulanan</span>
                         <span className="text-2xl font-black font-mono text-slate-800 dark:text-slate-100">RM {monthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                         <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 font-mono">Est. Daily Target: RM {estDaily.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                     </div>
                     
-                    <div className="flex flex-col gap-1 border-x border-slate-200 dark:border-slate-800/60 px-6">
+                    <div className="flex flex-col gap-1 border-x border-slate-200 dark:border-slate-800/60 px-5">
                         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Actual MTD Sales</span>
                         <div className="flex items-baseline gap-2">
                             <span className="text-2xl font-black font-mono text-slate-800 dark:text-slate-100">RM {actualSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
@@ -1463,8 +1474,20 @@ function MtdReportGraphic({
                             <div className="h-full bg-indigo-600 dark:bg-indigo-500 rounded-full" style={{ width: `${progressPct}%` }} />
                         </div>
                     </div>
+
+                    <div className="flex flex-col gap-1 border-r border-slate-200 dark:border-slate-800/60 pr-5">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Est. Total Month Sales</span>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-2xl font-black font-mono text-slate-800 dark:text-slate-100">RM {estTotalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            <span className={cn(
+                                "text-xs font-extrabold font-mono",
+                                estTotalVsTarget >= 100 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-500 dark:text-amber-400"
+                            )}>({estTotalVsTarget.toFixed(1)}%)</span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 font-mono">Avg daily: RM {avgDailySales.toLocaleString(undefined, { maximumFractionDigits: 0 })} × {daysInTargetMonth}d</span>
+                    </div>
                     
-                    <div className="flex flex-col gap-1 pl-6">
+                    <div className="flex flex-col gap-1 pl-0">
                         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Gap vs Est. Cumulative</span>
                         <span className={cn(
                             "text-2xl font-black font-mono",
@@ -1530,7 +1553,18 @@ function MtdReportGraphic({
                             <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">ROAS</span>
                             <span className="text-lg font-black font-mono text-pink-700 dark:text-pink-450">{tkRoas.toFixed(2)}x</span>
                         </div>
-                        <div className="flex flex-col border-t border-pink-500/10 pt-2.5" />
+                        <div className="flex flex-col border-t border-pink-500/10 pt-2.5">
+                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Est. Total Month</span>
+                            <div className="flex items-baseline gap-1.5">
+                                <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {(tkSales / dayRangeEnd * daysInTargetMonth).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                <span className={cn(
+                                    "text-[9px] font-extrabold font-mono",
+                                    (tkMonthlyTarget > 0 ? (tkSales / dayRangeEnd * daysInTargetMonth) / tkMonthlyTarget * 100 : 0) >= 100
+                                        ? "text-emerald-600 dark:text-emerald-400"
+                                        : "text-amber-500 dark:text-amber-400"
+                                )}>({tkMonthlyTarget > 0 ? ((tkSales / dayRangeEnd * daysInTargetMonth) / tkMonthlyTarget * 100).toFixed(0) : 0}%)</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1583,7 +1617,18 @@ function MtdReportGraphic({
                             <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">ROAS</span>
                             <span className="text-lg font-black font-mono text-orange-700 dark:text-orange-450">{spRoas.toFixed(2)}x</span>
                         </div>
-                        <div className="flex flex-col border-t border-orange-500/10 pt-2.5" />
+                        <div className="flex flex-col border-t border-orange-500/10 pt-2.5">
+                            <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Est. Total Month</span>
+                            <div className="flex items-baseline gap-1.5">
+                                <span className="text-lg font-black font-mono text-slate-800 dark:text-slate-100">RM {(spSales / dayRangeEnd * daysInTargetMonth).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                <span className={cn(
+                                    "text-[9px] font-extrabold font-mono",
+                                    (spMonthlyTarget > 0 ? (spSales / dayRangeEnd * daysInTargetMonth) / spMonthlyTarget * 100 : 0) >= 100
+                                        ? "text-emerald-600 dark:text-emerald-400"
+                                        : "text-amber-500 dark:text-amber-400"
+                                )}>({spMonthlyTarget > 0 ? ((spSales / dayRangeEnd * daysInTargetMonth) / spMonthlyTarget * 100).toFixed(0) : 0}%)</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
