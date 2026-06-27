@@ -891,7 +891,7 @@ export default function AdAccountsPage() {
                                             <div className="flex items-center justify-between border-b border-border/20 pb-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-base">🔴</span>
-                                                    <div className="text-xs font-bold text-foreground uppercase tracking-wider">LIVE GMV MAX</span>
+                                                    <div className="text-xs font-bold text-foreground uppercase tracking-wider">LIVE GMV MAX</div>
                                                 </div>
                                                 <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-full">
                                                     {filteredLive.length} Active
@@ -911,13 +911,13 @@ export default function AdAccountsPage() {
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">Ad Spend</span>
                                                                 <span className="font-bold text-foreground font-mono">
                                                                     RM {c.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                                </div>
+                                                                </span>
                                                             </div>
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">GMV (Ikram)</span>
                                                                 <span className="font-bold text-blue-400 font-mono">
                                                                     RM {c.gmv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                                </div>
+                                                                </span>
                                                             </div>
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">Orders</span>
@@ -940,7 +940,7 @@ export default function AdAccountsPage() {
                                             <div className="flex items-center justify-between border-b border-border/20 pb-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-base">🛍️</span>
-                                                    <div className="text-xs font-bold text-foreground uppercase tracking-wider">PRODUCT GMV MAX</span>
+                                                    <div className="text-xs font-bold text-foreground uppercase tracking-wider">PRODUCT GMV MAX</div>
                                                 </div>
                                                 <Badge className="bg-pink-500/20 text-pink-400 border border-pink-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-full">
                                                     {filteredProduct.length} Active
@@ -960,13 +960,13 @@ export default function AdAccountsPage() {
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">Ad Spend</span>
                                                                 <span className="font-bold text-foreground font-mono">
                                                                     RM {c.cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                                </div>
+                                                                </span>
                                                             </div>
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">GMV (Ikram)</span>
                                                                 <span className="font-bold text-blue-400 font-mono">
                                                                     RM {c.gmv.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                                </div>
+                                                                </span>
                                                             </div>
                                                             <div>
                                                                 <span className="text-muted-foreground block text-[9px] uppercase font-semibold">Orders</span>
@@ -989,7 +989,7 @@ export default function AdAccountsPage() {
                                             <div className="flex items-center justify-between border-b border-border/20 pb-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-base">⚙️</span>
-                                                    <div className="text-xs font-bold text-foreground uppercase tracking-wider">TTAM (Manual Ads)</span>
+                                                    <div className="text-xs font-bold text-foreground uppercase tracking-wider">TTAM (Manual Ads)</div>
                                                 </div>
                                                 <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] font-semibold px-2 py-0.5 rounded-full">
                                                     {filteredManual.length} Active

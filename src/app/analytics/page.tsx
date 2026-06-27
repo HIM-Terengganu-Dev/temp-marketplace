@@ -584,6 +584,95 @@ export default function AnalyticsPage() {
                         </Card>
                     </div>
 
+                    {/* TikTok Shop Conversion Funnel View */}
+                    <Card className="border-border/50 bg-card/40 backdrop-blur-sm w-full">
+                        <CardHeader className="border-b border-border/30 pb-4">
+                            <CardTitle className="text-base font-bold flex items-center gap-2">
+                                <Activity className="h-5 w-5 text-primary" />
+                                TikTok Shop Conversion Funnel
+                            </CardTitle>
+                            <CardDescription>
+                                Customer journey progression from initial impression to completed order.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            {isLoading || !generatedData.funnelData ? (
+                                <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">
+                                    <RefreshCw className="h-5 w-5 mr-2 animate-spin" /> Loading funnel metrics...
+                                </div>
+                            ) : (() => {
+                                const fd = generatedData.funnelData;
+                                const stages = [
+                                    { label: "Total Impression", value: fd.totalImpression, pct: 100, drop: 0 },
+                                    { label: "Visitors (Clicks)", value: fd.visitors, pct: (fd.visitors / fd.totalImpression) * 100, drop: (fd.visitors / fd.totalImpression) * 100 },
+                                    { label: "Product Impression", value: fd.productImpression, pct: (fd.productImpression / fd.totalImpression) * 100, drop: (fd.productImpression / fd.visitors) * 100 },
+                                    { label: "Product Click", value: fd.productClick, pct: (fd.productClick / fd.totalImpression) * 100, drop: (fd.productClick / fd.productImpression) * 100 },
+                                    { label: "Orders", value: fd.orders, pct: (fd.orders / fd.totalImpression) * 100, drop: (fd.orders / fd.productClick) * 100 }
+                                ];
+
+                                return (
+                                    <div className="space-y-6">
+                                        <div className="grid gap-4 md:grid-cols-5">
+                                            {stages.map((stage, idx) => (
+                                                <div key={idx} className="relative flex flex-col justify-between p-4 bg-muted/20 dark:bg-muted/10 border border-border/50 rounded-xl hover:border-primary/30 transition-all">
+                                                    <div>
+                                                        <span className="text-[10px] uppercase font-bold text-muted-foreground block">{stage.label}</span>
+                                                        <span className="text-xl font-extrabold text-foreground block mt-1 font-mono">{stage.value.toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="mt-4 pt-2 border-t border-border/10 flex items-center justify-between text-xs">
+                                                        <span className="text-muted-foreground">Conv. Rate:</span>
+                                                        <span className="font-semibold text-primary">{stage.pct === 100 ? "100%" : `${stage.pct.toFixed(2)}%`}</span>
+                                                    </div>
+                                                    {idx > 0 && (
+                                                        <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                                                            <span>Conversion step:</span>
+                                                            <span className="font-medium text-emerald-400">{(stage.drop).toFixed(1)}%</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Visual Funnel Representation */}
+                                        <div className="space-y-3 pt-2">
+                                            {stages.map((stage, idx) => {
+                                                // Scaling width based on log/proportion to make visitors-to-impressions dropoff visible
+                                                const maxWidth = 100;
+                                                const minWidth = 10;
+                                                const scaleWidth = idx === 0 
+                                                    ? maxWidth 
+                                                    : minWidth + (stage.pct * (maxWidth - minWidth) / 100);
+                                                
+                                                return (
+                                                    <div key={idx} className="flex items-center gap-4">
+                                                        <div className="w-36 text-xs font-semibold text-foreground/80 dark:text-foreground text-right truncate">
+                                                            {stage.label}
+                                                        </div>
+                                                        <div className="flex-1 bg-muted/30 dark:bg-muted/10 h-7 rounded-lg overflow-hidden border border-border/10 flex items-center relative">
+                                                            <div 
+                                                                className="h-full bg-gradient-to-r from-primary/30 to-primary/80 transition-all duration-500 flex items-center pl-3"
+                                                                style={{ width: `${scaleWidth}%` }}
+                                                            >
+                                                                <span className="text-[10px] font-bold text-white whitespace-nowrap drop-shadow-md">
+                                                                    {stage.value.toLocaleString()} ({stage.pct === 100 ? "100%" : `${stage.pct.toFixed(2)}%`})
+                                                                </span>
+                                                            </div>
+                                                            {idx > 0 && (
+                                                                <div className="absolute right-3 text-[10px] font-semibold text-emerald-400">
+                                                                    ↓ {(stage.drop).toFixed(1)}% Step Conversion
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </CardContent>
+                    </Card>
+
                     {/* Conversion Matrix Heatmap Scheduler */}
                     <Card className="border-border/50 bg-card/40 backdrop-blur-sm w-full flex flex-col justify-between">
                         <CardHeader className="border-b border-border/30 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

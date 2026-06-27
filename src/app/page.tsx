@@ -10,7 +10,7 @@ import { PerformanceLineChart, PerformanceDataPoint } from "@/components/dashboa
 import { ShopDetailModal } from "@/components/dashboard/ShopDetailModal";
 import { ShopData } from "@/lib/mockData";
 import { useSession } from "next-auth/react";
-import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag, DollarSign, Percent, ShieldCheck, X, CheckCircle2, AlertCircle, SkipForward, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, ShoppingBag, DollarSign, Percent, ShieldCheck, X, CheckCircle2, AlertCircle, SkipForward, Zap, MessageCircle, Download, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SyncIndicator } from "@/components/dashboard/SyncIndicator";
@@ -148,6 +148,64 @@ export default function Home() {
     // Live Auto-Refresh controls
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [lastUpdated, setLastUpdated] = useState(Date.now());
+
+    // WhatsApp modal state
+    const [showWaModal, setShowWaModal] = useState(false);
+    const [waPreviewLoading, setWaPreviewLoading] = useState(false);
+    const [waPreviewUrl, setWaPreviewUrl] = useState<string | null>(null);
+    const [currentTheme, setCurrentTheme] = useState<"light" | "dark">("dark");
+
+    // Theme detector for WhatsApp preview styling
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const observer = new MutationObserver(() => {
+            const isDark = document.documentElement.classList.contains("dark");
+            setCurrentTheme(isDark ? "dark" : "light");
+        });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+        setCurrentTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
+        return () => observer.disconnect();
+    }, []);
+
+    // Generate/refresh WhatsApp preview image
+    useEffect(() => {
+        if (!showWaModal || shopData.length === 0) return;
+        let isMounted = true;
+        
+        const generatePreview = async () => {
+            setWaPreviewLoading(true);
+            setWaPreviewUrl(null);
+            try {
+                await new Promise(resolve => setTimeout(resolve, 350));
+                const { toPng } = await import("html-to-image");
+                await document.fonts.ready;
+                
+                const el = document.getElementById("dashboard-whatsapp-export-target");
+                if (el && isMounted) {
+                    const dataUrl = await toPng(el, {
+                        width: 1080,
+                        height: 680,
+                        pixelRatio: 1,
+                        quality: 0.95
+                    });
+                    if (isMounted) {
+                        setWaPreviewUrl(dataUrl);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to generate WhatsApp image preview:", err);
+            } finally {
+                if (isMounted) {
+                    setWaPreviewLoading(false);
+                }
+            }
+        };
+
+        generatePreview();
+        return () => {
+            isMounted = false;
+        };
+    }, [showWaModal, shopData, currentTheme, startDate, endDate, companyFilter]);
 
     // Recheck Data state
     const [isRechecking, setIsRechecking] = useState(false);
@@ -764,6 +822,19 @@ export default function Home() {
                     >
                         <ShieldCheck className={cn("h-3.5 w-3.5", isRechecking && "animate-pulse")} />
                         {isRechecking ? 'Rechecking...' : 'Recheck Data'}
+                    </Button>
+
+                    {/* WhatsApp share button */}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowWaModal(true)}
+                        disabled={isLoading || shopData.length === 0}
+                        className="h-9 px-3 rounded-xl border-emerald-200 dark:border-emerald-600/40 bg-emerald-50/50 dark:bg-emerald-500/8 hover:bg-emerald-100/70 dark:hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:text-emerald-850 dark:hover:text-emerald-300 font-semibold text-[11px] gap-1.5 transition-all duration-200 shadow-sm dark:shadow-none"
+                        title="Share performance report to WhatsApp"
+                    >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        WhatsApp
                     </Button>
 
                     {/* What's New button */}
@@ -1515,6 +1586,365 @@ export default function Home() {
                 ))}
             </div>
             )}
+
+            {/* WhatsApp Share Modal */}
+            {showWaModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowWaModal(false)}>
+                    <div className="relative bg-white dark:bg-muted border border-border dark:border-border rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4 flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => setShowWaModal(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-white cursor-pointer transition-colors">
+                            <X className="h-5 w-5" />
+                        </button>
+                        
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl">
+                                <MessageCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-bold text-foreground dark:text-white">Share Performance Report</h3>
+                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Preview the square performance graphic (1080x1080)</p>
+                            </div>
+                        </div>
+
+                        {/* Preview Area */}
+                        <div className="mb-6 flex flex-col items-center">
+                            {waPreviewLoading ? (
+                                <div className="w-full aspect-square max-w-[380px] rounded-xl border border-border dark:border-border bg-muted/20 dark:bg-muted/40 flex flex-col items-center justify-center text-muted-foreground dark:text-muted-foreground gap-3">
+                                    <RefreshCw className="h-6 w-6 text-indigo-500 animate-spin" />
+                                    <span className="text-xs font-semibold">Generating report preview…</span>
+                                </div>
+                            ) : waPreviewUrl ? (
+                                <div className="w-full max-w-[380px] rounded-xl border border-border dark:border-border bg-muted/5 dark:bg-muted/40 shadow-inner p-1 flex items-center justify-center">
+                                    <img 
+                                        src={waPreviewUrl} 
+                                        className="w-full aspect-square object-contain rounded-lg border border-border/50 dark:border-border/50" 
+                                        alt="WhatsApp Report Preview" 
+                                    />
+                                </div>
+                            ) : (
+                                <div className="w-full aspect-square max-w-[380px] rounded-xl border border-border dark:border-border bg-muted/20 dark:bg-muted/40 flex flex-col items-center justify-center text-muted-foreground dark:text-muted-foreground gap-2">
+                                    <AlertCircle className="h-6 w-6 text-rose-500" />
+                                    <span className="text-xs font-semibold">Failed to generate preview</span>
+                                </div>
+                            )}
+                            <p className="text-[10px] text-muted-foreground dark:text-muted-foreground text-center mt-2.5">
+                                💡 Tip: Long-press or right-click the preview image to copy/share directly.
+                            </p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    if (!waPreviewUrl) return;
+                                    const link = document.createElement('a');
+                                    link.download = `performance-report-${startDate}-${companyFilter.toLowerCase()}.png`;
+                                    link.href = waPreviewUrl;
+                                    link.click();
+                                    setShowWaModal(false);
+                                }}
+                                disabled={waPreviewLoading || !waPreviewUrl}
+                                className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-sm py-2.5 rounded-xl transition-colors cursor-pointer"
+                            >
+                                <Download className="h-4 w-4" />
+                                Download PNG
+                            </button>
+                            <button
+                                onClick={() => setShowWaModal(false)}
+                                className="px-4 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-white border border-border dark:border-border rounded-xl hover:border-border dark:hover:border-border transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Offscreen container for 1080x1080 Performance Report Graphic */}
+            {shopData.length > 0 && (
+                <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', pointerEvents: 'none' }}>
+                    <div id="dashboard-whatsapp-export-target" style={{ width: '1080px', height: '680px' }}>
+                        <DashboardReportGraphic 
+                            shopData={shopData}
+                            companyFilter={companyFilter}
+                            startDate={startDate}
+                            endDate={endDate}
+                            totalRevenue={totalRevenue}
+                            totalOrders={totalOrders}
+                            totalSpend={totalSpend}
+                            totalSpendAfterTax={totalSpendAfterTax}
+                            totalRoas={totalRoas}
+                            totalRoasAfterTax={totalRoasAfterTax}
+                            gmvPct={gmvPct}
+                            spendPct={spendPct}
+                            roasPct={roasPct}
+                            cmpLabel={cmpLabel}
+                            ttsRevenue={ttsRevenue}
+                            ttsSpend={ttsSpend}
+                            ttsSpendAfterTax={ttsSpendAfterTax}
+                            ttsRoas={ttsRoas}
+                            ttsRoasAfterTax={ttsRoasAfterTax}
+                            shpRevenue={shpRevenue}
+                            shpSpend={shpSpend}
+                            shpSpendAfterTax={shpSpendAfterTax}
+                            shpRoas={shpRoas}
+                            shpRoasAfterTax={shpRoasAfterTax}
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+interface DashboardReportGraphicProps {
+    shopData: ShopData[];
+    companyFilter: "ALL" | "HIMWELLNESS" | "WEROCA";
+    startDate: string;
+    endDate: string;
+    totalRevenue: number;
+    totalOrders: number;
+    totalSpend: number;
+    totalSpendAfterTax: number;
+    totalRoas: number;
+    totalRoasAfterTax: number;
+    gmvPct: number;
+    spendPct: number;
+    roasPct: number;
+    cmpLabel: string;
+    ttsRevenue: number;
+    ttsSpend: number;
+    ttsSpendAfterTax: number;
+    ttsRoas: number;
+    ttsRoasAfterTax: number;
+    shpRevenue: number;
+    shpSpend: number;
+    shpSpendAfterTax: number;
+    shpRoas: number;
+    shpRoasAfterTax: number;
+}
+
+function DashboardReportGraphic({
+    shopData,
+    companyFilter,
+    startDate,
+    endDate,
+    totalRevenue,
+    totalOrders,
+    totalSpend,
+    totalSpendAfterTax,
+    totalRoas,
+    totalRoasAfterTax,
+    gmvPct,
+    spendPct,
+    roasPct,
+    cmpLabel,
+    ttsRevenue,
+    ttsSpend,
+    ttsSpendAfterTax,
+    ttsRoas,
+    ttsRoasAfterTax,
+    shpRevenue,
+    shpSpend,
+    shpSpendAfterTax,
+    shpRoas,
+    shpRoasAfterTax
+}: DashboardReportGraphicProps) {
+    const streamLabel = companyFilter === 'ALL' ? 'ALL STREAMS' : companyFilter === 'HIMWELLNESS' ? 'HIM WELLNESS' : 'WEROCA';
+    
+    const dateLabel = (() => {
+        try {
+            if (startDate === endDate) {
+                return format(parseISO(startDate), "d MMMM yyyy").toUpperCase();
+            }
+            return `${format(parseISO(startDate), "d MMM yyyy").toUpperCase()} - ${format(parseISO(endDate), "d MMM yyyy").toUpperCase()}`;
+        } catch {
+            return startDate === endDate ? startDate : `${startDate} - ${endDate}`;
+        }
+    })();
+
+    return (
+        <div className="w-[1080px] h-[680px] p-12 bg-[#090d16] text-white font-sans flex flex-col justify-between select-none border border-slate-800">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-6">
+                <div className="flex flex-col gap-1">
+                    <span className="text-xs font-black tracking-widest text-indigo-400 uppercase">
+                        HIM & WEROCA ANALYTICS
+                    </span>
+                    <h1 className="text-3xl font-black uppercase tracking-wider text-white">
+                        Performance Report
+                    </h1>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                    <span className="text-xs font-mono font-bold px-3.5 py-1 rounded-lg bg-slate-800 text-slate-200">
+                        {dateLabel}
+                    </span>
+                    <span className={cn(
+                        "text-[10px] font-black px-2.5 py-0.5 rounded border uppercase tracking-wider",
+                        companyFilter === 'ALL' ? "bg-indigo-950/20 border-indigo-800 text-indigo-400"
+                        : companyFilter === 'HIMWELLNESS' ? "bg-blue-950/20 border-blue-800 text-blue-400"
+                        : "bg-purple-950/20 border-purple-800 text-purple-400"
+                    )}>
+                        {streamLabel}
+                    </span>
+                </div>
+            </div>
+
+            {/* Row 1: Summary Cards Grid */}
+            <div className="grid grid-cols-3 gap-5 my-2">
+                {/* 1. GMV Hero Card */}
+                <div className="bg-gradient-to-br from-indigo-950/40 to-slate-900/40 border border-indigo-500/20 rounded-2xl p-6 flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Total GMV</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Synced</span>
+                            <TrendBadge pct={gmvPct} />
+                        </div>
+                    </div>
+                    <div className="my-4">
+                        <span className="text-3xl font-black font-mono text-white">
+                            RM {totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium">
+                        {totalOrders.toLocaleString()} orders · {cmpLabel}
+                    </span>
+                </div>
+
+                {/* 2. Ad Spend Card */}
+                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ad Spend</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Synced</span>
+                            <TrendBadge pct={spendPct} />
+                        </div>
+                    </div>
+                    <div className="my-2 grid grid-cols-2 gap-2">
+                        <div>
+                            <span className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Before Tax</span>
+                            <div className="text-base font-extrabold font-mono text-white">
+                                RM {totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <div>
+                            <span className="text-[9px] text-purple-400 uppercase tracking-wider font-bold">After Tax</span>
+                            <div className="text-base font-extrabold font-mono text-purple-400">
+                                RM {totalSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium">{cmpLabel}</span>
+                </div>
+
+                {/* 3. ROAS Card */}
+                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">ROAS</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Synced</span>
+                            <TrendBadge pct={roasPct} />
+                        </div>
+                    </div>
+                    <div className="my-2 grid grid-cols-2 gap-2">
+                        <div>
+                            <span className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Before Tax</span>
+                            <div className="text-lg font-black font-mono text-white">
+                                {totalRoas.toFixed(2)}x
+                            </div>
+                        </div>
+                        <div>
+                            <span className="text-[9px] text-purple-400 uppercase tracking-wider font-bold">After Tax</span>
+                            <div className="text-lg font-black font-mono text-purple-400">
+                                {totalRoasAfterTax.toFixed(2)}x
+                            </div>
+                        </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium">{cmpLabel}</span>
+                </div>
+            </div>
+
+            {/* Row 2: Platforms Split */}
+            <div className="grid grid-cols-2 gap-6 my-2">
+                {/* TikTok Shop */}
+                <div className="bg-purple-950/10 border border-purple-500/20 rounded-2xl p-6">
+                    <div className="flex items-center justify-between border-b border-purple-500/10 pb-3 mb-4">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🎵</span>
+                            <span className="text-sm font-black text-purple-400 tracking-wide">TikTok Shop</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Synced</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Total Sales</span>
+                            <span className="text-base font-black font-mono text-white">
+                                RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Total Cost</span>
+                            <span className="text-base font-black font-mono text-white">
+                                RM {ttsSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-[9px] text-purple-400 font-mono mt-0.5">RM {ttsSpendAfterTax.toLocaleString(undefined, { maximumFractionDigits: 2 })} (Net)</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">ROAS</span>
+                            <span className="text-base font-black font-mono text-emerald-400">
+                                {ttsRoas.toFixed(2)}x
+                            </span>
+                            <span className="text-[9px] text-emerald-400 font-mono mt-0.5">{ttsRoasAfterTax.toFixed(2)}x (Net)</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Shopee Shop */}
+                <div className="bg-orange-950/10 border border-orange-500/20 rounded-2xl p-6">
+                    <div className="flex items-center justify-between border-b border-orange-500/10 pb-3 mb-4">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🛍️</span>
+                            <span className="text-sm font-black text-orange-400 tracking-wide">Shopee Shop</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Synced</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Total Sales</span>
+                            <span className="text-base font-black font-mono text-white">
+                                RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Total Cost</span>
+                            <span className="text-base font-black font-mono text-white">
+                                RM {shpSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-[9px] text-purple-400 font-mono mt-0.5">RM {shpSpendAfterTax.toLocaleString(undefined, { maximumFractionDigits: 2 })} (Net)</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">ROAS</span>
+                            <span className="text-base font-black font-mono text-emerald-400">
+                                {shpRoas.toFixed(2)}x
+                            </span>
+                            <span className="text-[9px] text-emerald-450 dark:text-emerald-400 font-mono mt-0.5">{shpRoasAfterTax.toFixed(2)}x (Net)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-slate-800 pt-6">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    HIMWELLNESS & WEROCA ECOMMERCE GROUP
+                </span>
+                <span className="text-[9px] font-mono text-slate-500">
+                    Generated on {new Date().toLocaleString('en-MY', {
+                        timeZone: 'Asia/Kuala_Lumpur',
+                        dateStyle: 'medium',
+                        timeStyle: 'short'
+                    })} (MYT)
+                </span>
+            </div>
         </div>
     );
 }
