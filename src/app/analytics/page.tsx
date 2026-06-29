@@ -192,8 +192,8 @@ export default function AnalyticsPage() {
                     const dataUrl = await toPng(el, {
                         width: 1080,
                         height: 1080,
-                        pixelRatio: 1,
-                        quality: 0.95
+                        pixelRatio: 2,
+                        quality: 1
                     });
                     if (isMounted) {
                         setWaPreviewUrl(dataUrl);
@@ -1517,7 +1517,7 @@ function MtdReportGraphic({
     const trendItems = mtdData.monthlyTrend ? mtdData.monthlyTrend.slice(-3).reverse() : [];
 
     return (
-        <div className="w-[1080px] h-[1080px] p-12 bg-muted/20 dark:bg-[#090d16] text-foreground dark:text-foreground font-sans flex flex-col justify-between select-none border border-border dark:border-border">
+        <div className="light w-[1080px] h-[1080px] p-12 bg-white text-black font-sans flex flex-col justify-between select-none border border-border">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-border dark:border-border pb-6">
                 <div className="flex flex-col gap-1">
@@ -1621,30 +1621,30 @@ function MtdReportGraphic({
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Target (MTD Pacing)</span>
                             <div className="flex flex-col">
-                                <span className="text-lg font-black font-mono text-foreground/80 dark:text-foreground">RM {tkEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                <span className="text-[9px] font-bold text-muted-foreground font-mono mt-0.5">({(tkEstCumulative > 0 ? (tkSales / tkEstCumulative) * 100 : 0).toFixed(0)}% met of RM {tkMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
+                                <span className="text-lg font-black font-mono text-black">RM {tkEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                <span className="text-[9px] font-bold text-gray-500 font-mono mt-0.5">({(tkEstCumulative > 0 ? (tkSales / tkEstCumulative) * 100 : 0).toFixed(0)}% met of RM {tkMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
                             </div>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Sales (GMV)</span>
-                            <span className="text-lg font-black font-mono text-foreground/80 dark:text-foreground">RM {tkSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            <span className="text-[10px] font-bold text-pink-700 uppercase">Sales (GMV)</span>
+                            <span className="text-lg font-black font-mono text-black">RM {tkSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Gap</span>
+                            <span className="text-[10px] font-bold text-pink-700 uppercase">Gap</span>
                             <span className={cn(
                                 "text-lg font-black font-mono",
-                                tkGap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-455"
+                                tkGap >= 0 ? "text-emerald-700" : "text-rose-700"
                             )}>
                                 {tkGap >= 0 ? '+' : '-'}RM {Math.abs(tkGap).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </span>
                         </div>
                         <div className="flex flex-col border-t border-pink-500/10 pt-2.5">
-                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Ad Spend</span>
-                            <span className="text-lg font-black font-mono text-foreground/80 dark:text-foreground">RM {tkSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            <span className="text-[10px] font-bold text-pink-700 uppercase">Ad Spend</span>
+                            <span className="text-lg font-black font-mono text-black">RM {tkSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                         </div>
                         <div className="flex flex-col border-t border-pink-500/10 pt-2.5">
-                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">ROAS</span>
-                            <span className="text-lg font-black font-mono text-pink-700 dark:text-pink-450">{tkRoas.toFixed(2)}x</span>
+                            <span className="text-[10px] font-bold text-pink-700 uppercase">ROAS</span>
+                            <span className="text-lg font-black font-mono text-pink-800">{tkRoas.toFixed(2)}x</span>
                         </div>
                         <div className="flex flex-col border-t border-pink-500/10 pt-2.5">
                             <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Est. Total Month</span>

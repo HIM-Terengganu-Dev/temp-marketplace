@@ -182,8 +182,8 @@ export default function Home() {
                     const dataUrl = await toPng(el, {
                         width: 1080,
                         height: 680,
-                        pixelRatio: 1,
-                        quality: 0.95
+                        pixelRatio: 2,
+                        quality: 1
                     });
                     if (isMounted) {
                         setWaPreviewUrl(dataUrl);
