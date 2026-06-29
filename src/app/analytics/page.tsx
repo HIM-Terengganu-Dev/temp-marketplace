@@ -838,18 +838,22 @@ export default function AnalyticsPage() {
                                 <Target className="h-4 w-4 text-primary" />
                                 <span className="text-sm font-semibold text-foreground/70 dark:text-foreground">Target:</span>
                                 <input
-                                    type="number"
-                                    step="100000"
-                                    value={targetInput !== null ? targetInput : monthlyTarget}
-                                    onChange={(e) => setTargetInput(Number(e.target.value))}
+                                    type="text"
+                                    value={(targetInput !== null ? targetInput : monthlyTarget).toLocaleString()}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/,/g, '');
+                                        if (/^\d*$/.test(val)) setTargetInput(Number(val));
+                                    }}
                                     className="w-32 bg-card dark:bg-card border border-border dark:border-border text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary text-right font-mono font-semibold"
                                 />
                                 <span className="text-sm font-semibold text-foreground/70 dark:text-foreground ml-1">TikTok Split:</span>
                                 <input
-                                    type="number"
-                                    step="100000"
-                                    value={tiktokTargetValInput !== null ? tiktokTargetValInput : tiktokTargetVal}
-                                    onChange={(e) => setTiktokTargetValInput(Number(e.target.value))}
+                                    type="text"
+                                    value={(tiktokTargetValInput !== null ? tiktokTargetValInput : tiktokTargetVal).toLocaleString()}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/,/g, '');
+                                        if (/^\d*$/.test(val)) setTiktokTargetValInput(Number(val));
+                                    }}
                                     className="w-32 bg-card dark:bg-card border border-border dark:border-border text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary text-right font-mono font-semibold"
                                 />
                                 <button

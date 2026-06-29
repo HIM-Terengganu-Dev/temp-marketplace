@@ -9,9 +9,9 @@ import { query } from '@/lib/db';
 // TikTok: HIM = shop_number 1 (Himclinic, DrSamhanWellness, HIM CLINIC)
 //         Weroca = shop_number 3, 4 (Vigomax HQ, VigomaxPlus HQ)
 
-const SHOPEE_HIM_IDS = [562396517, 1077500606, 1256177782, 1285322524, 1290223366, 1298030530];
-const SHOPEE_WEROCA_IDS = [793855746, 1245549673];
-const TIKTOK_HIM_NUMBERS = [1];
+const SHOPEE_HIM_IDS = [1077500606, 1256177782, 1285322524, 1290223366, 1298030530];
+const SHOPEE_WEROCA_IDS = [562396517, 793855746, 1245549673];
+const TIKTOK_HIM_NUMBERS = [1, 2];
 const TIKTOK_WEROCA_NUMBERS = [3, 4];
 
 function buildShopeeFilter(companyFilter: string): string {

@@ -14,10 +14,7 @@ import { TrendingUp, TrendingDown, Minus, RefreshCw, Trophy, Tv, Users, Shopping
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SyncIndicator } from "@/components/dashboard/SyncIndicator";
-import { WhatsNewModal } from "@/components/dashboard/WhatsNewModal";
 import { LiveCountdownTimer } from "@/components/dashboard/LiveCountdownTimer";
-import { APP_VERSION } from "@/lib/changelog";
-import { Sparkles } from "lucide-react";
 import { AiAnalysis } from "@/components/dashboard/AiAnalysis";
 import { useLiteMode } from "@/context/LiteModeContext";
 
@@ -275,24 +272,7 @@ export default function Home() {
         }
     }, [startDate, endDate]);
 
-    // What's New modal — auto-show when user hasn't seen current version
-    const [whatsNewOpen, setWhatsNewOpen] = useState(false);
-    const [whatsNewDot, setWhatsNewDot] = useState(false); // red dot on button
-    useEffect(() => {
-        const STORAGE_KEY = 'him_dashboard_seen_version';
-        const seenVersion = localStorage.getItem(STORAGE_KEY);
-        if (seenVersion !== APP_VERSION) {
-            // New version — show popup, mark as seen
-            setWhatsNewOpen(true);
-            setWhatsNewDot(true);
-            localStorage.setItem(STORAGE_KEY, APP_VERSION);
-        }
-    }, []);
 
-    const openWhatsNew = () => {
-        setWhatsNewOpen(true);
-        setWhatsNewDot(false);
-    };
 
     // Floating notifications state
     const [notifications, setNotifications] = useState<{
@@ -757,8 +737,7 @@ export default function Home() {
     return (
         <div className="space-y-4 md:space-y-6">
 
-            {/* ── What's New Modal ────────────────────────────────────────── */}
-            <WhatsNewModal isOpen={whatsNewOpen} onClose={() => setWhatsNewOpen(false)} />
+
 
             {/* ── Toolbar ────────────────────────────────────────────────── */}
             <div className="flex flex-col gap-3">
@@ -837,18 +816,7 @@ export default function Home() {
                         WhatsApp
                     </Button>
 
-                    {/* What's New button */}
-                    <button
-                        onClick={openWhatsNew}
-                        className="relative h-9 px-3 rounded-xl border border-border bg-card hover:bg-accent hover:text-primary text-foreground transition-colors duration-200 font-semibold text-[11px] flex items-center gap-1.5 shadow-sm dark:shadow-none"
-                        title="What's New"
-                    >
-                        <Sparkles className="h-3.5 w-3.5" />
-                        What&apos;s New
-                        {whatsNewDot && (
-                            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-primary border-2 border-background animate-pulse" />
-                        )}
-                    </button>
+
 
                     {/* Data source badge */}
                     {!isLoading && dataSource && (
