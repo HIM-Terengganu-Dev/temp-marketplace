@@ -34,7 +34,12 @@ export async function GET(request: Request) {
         }
 
         const { searchParams } = new URL(request.url);
-        const targetMonth = searchParams.get('targetMonth') || '2026-06'; // YYYY-MM
+        const todayKL = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+        const [curYStr, curMStr] = todayKL.split('-');
+        const currentYear = parseInt(curYStr, 10) || 2026;
+        const currentMonth = parseInt(curMStr, 10) || 7;
+        const defaultTargetMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+        const targetMonth = searchParams.get('targetMonth') || defaultTargetMonth; // YYYY-MM
         const dayRangeEndParam = searchParams.get('dayRangeEnd') || '10';
         const dayRangeEnd = parseInt(dayRangeEndParam, 10) || 10;
         const companyFilter = (searchParams.get('companyFilter') || 'ALL').toUpperCase();
@@ -71,15 +76,25 @@ export async function GET(request: Request) {
         `, [year, month, dayRangeEnd]);
 
         // Fetch preceding months' MTD data dynamically
-        const historicalMonths = [
-            { label: 'DEC 2025', year: 2025, month: 12 },
-            { label: 'JAN 2026', year: 2026, month: 1 },
-            { label: 'FEB 2026', year: 2026, month: 2 },
-            { label: 'MAC 2026', year: 2026, month: 3 },
-            { label: 'APR 2026', year: 2026, month: 4 },
-            { label: 'MEI 2026', year: 2026, month: 5 },
-            { label: 'JUN 2026', year: 2026, month: 6 }
-        ];
+        const startYear = 2025;
+        const startMonth = 12;
+        const monthLabels = ['JAN', 'FEB', 'MAC', 'APR', 'MEI', 'JUN', 'JUL', 'OGS', 'SEP', 'OKT', 'NOV', 'DEC'];
+        const historicalMonths = [];
+        let yIter = startYear;
+        let mIter = startMonth;
+
+        while (yIter < currentYear || (yIter === currentYear && mIter <= currentMonth)) {
+            historicalMonths.push({
+                label: `${monthLabels[mIter - 1]} ${yIter}`,
+                year: yIter,
+                month: mIter
+            });
+            mIter++;
+            if (mIter > 12) {
+                mIter = 1;
+                yIter++;
+            }
+        }
 
         const monthlyTrend = [];
 

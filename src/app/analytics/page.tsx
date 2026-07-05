@@ -102,7 +102,37 @@ export default function AnalyticsPage() {
     const [data, setData] = useState<any>(null);
 
     // MTD States
-    const [targetMonth, setTargetMonth] = useState("2026-06");
+    const [targetMonth, setTargetMonth] = useState(() => {
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+        const [y, m] = today.split('-');
+        return `${y}-${m}`;
+    });
+
+    const monthOptions = (() => {
+        const startYear = 2025;
+        const startMonth = 12;
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+        const [curYStr, curMStr] = today.split('-');
+        const currentYear = parseInt(curYStr, 10) || 2026;
+        const currentMonth = parseInt(curMStr, 10) || 7;
+
+        const options = [];
+        let yIter = startYear;
+        let mIter = startMonth;
+        const monthLabels = ['JAN', 'FEB', 'MAC', 'APR', 'MEI', 'JUN', 'JUL', 'OGS', 'SEP', 'OKT', 'NOV', 'DEC'];
+
+        while (yIter < currentYear || (yIter === currentYear && mIter <= currentMonth)) {
+            const val = `${yIter}-${String(mIter).padStart(2, '0')}`;
+            const label = `${monthLabels[mIter - 1]} ${yIter}`;
+            options.push({ val, label });
+            mIter++;
+            if (mIter > 12) {
+                mIter = 1;
+                yIter++;
+            }
+        }
+        return options;
+    })();
     const [dayRangeEnd, setDayRangeEnd] = useState(() => {
         const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
         return parseInt(today.split('-')[2], 10) || 10;
@@ -807,13 +837,9 @@ export default function AnalyticsPage() {
                                     onChange={(e) => setTargetMonth(e.target.value)}
                                     className="bg-card dark:bg-card border border-border dark:border-border text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary cursor-pointer font-semibold"
                                 >
-                                    <option value="2025-12">DEC 2025</option>
-                                    <option value="2026-01">JAN 2026</option>
-                                    <option value="2026-02">FEB 2026</option>
-                                    <option value="2026-03">MAC 2026</option>
-                                    <option value="2026-04">APR 2026</option>
-                                    <option value="2026-05">MEI 2026</option>
-                                    <option value="2026-06">JUN 2026</option>
+                                    {monthOptions.map(opt => (
+                                        <option key={opt.val} value={opt.val}>{opt.label}</option>
+                                    ))}
                                 </select>
                             </div>
 
