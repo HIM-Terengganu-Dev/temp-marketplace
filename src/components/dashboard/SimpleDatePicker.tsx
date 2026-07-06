@@ -72,6 +72,24 @@ export function SimpleDatePicker({
         to: parseKLDate(endDate),
     }));
 
+    const handleSelect = (range: DateRange | undefined, selectedDay: Date) => {
+        if (!selectedDay) {
+            setSelectedRange(undefined);
+            return;
+        }
+
+        if (!selectedRange || !selectedRange.from || !selectedRange.to || selectedRange.from.getTime() !== selectedRange.to.getTime()) {
+            setSelectedRange({ from: selectedDay, to: selectedDay });
+        } else {
+            const firstDate = selectedRange.from;
+            if (selectedDay < firstDate) {
+                setSelectedRange({ from: selectedDay, to: firstDate });
+            } else {
+                setSelectedRange({ from: firstDate, to: selectedDay });
+            }
+        }
+    };
+
     useEffect(() => {
         setSelectedRange({
             from: parseKLDate(startDate),
@@ -210,7 +228,7 @@ export function SimpleDatePicker({
                             mode="range"
                             defaultMonth={selectedRange?.from}
                             selected={selectedRange}
-                            onSelect={setSelectedRange}
+                            onSelect={handleSelect}
                             numberOfMonths={2}
                             className="bg-transparent"
                         />

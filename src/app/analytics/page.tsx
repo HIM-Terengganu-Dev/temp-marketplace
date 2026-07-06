@@ -406,6 +406,15 @@ export default function AnalyticsPage() {
                                     WEROCA
                                 </button>
                             </div>
+
+                            <SimpleDatePicker
+                                startDate={startDate}
+                                setStartDate={setStartDate}
+                                endDate={endDate}
+                                setEndDate={setEndDate}
+                                activePreset={activePreset}
+                                onPresetChange={setActivePreset}
+                            />
                         </div>
 
                         <Badge variant="outline" className="border-primary/20 text-primary bg-primary/5 font-semibold text-xs px-3 py-1 self-end sm:self-auto rounded-md shadow-[0_0_12px_rgba(59,130,246,0.05)]">

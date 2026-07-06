@@ -125,10 +125,10 @@ export default function LoginPage() {
 
                 {/* Overlapping Pop-up Card */}
                 <div className="absolute -bottom-4 -right-4 w-[60%] bg-background border border-border shadow-2xl rounded-xl p-5 transform -rotate-2 hover:rotate-0 transition-transform duration-500">
-                    <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <h2 className="font-semibold text-sm mb-3 flex items-center gap-2">
                         <Activity className="w-4 h-4 text-primary" />
                         Live Metrics
-                    </h3>
+                    </h2>
                     <div className="space-y-2 mb-4">
                         <div className="flex justify-between items-center text-xs">
                             <span className="text-muted-foreground">Revenue</span>
@@ -214,6 +214,7 @@ export default function LoginPage() {
                         <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                         >
                             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
