@@ -24,6 +24,8 @@ export interface ShopData {
     revenue?: number;
     gmv?: number;
     orders?: number;
+    cancelledOrderCount?: number;
+    cancelledGMV?: number;
     status: ConnectionStatus;
     dataSource?: string;
     change?: ShopChange;     // trend vs previous period (%)

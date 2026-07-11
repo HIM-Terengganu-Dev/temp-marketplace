@@ -419,6 +419,8 @@ export default function Home() {
                         gmv: d.gmv ?? 0,
                         revenue: d.gmv ?? 0,
                         orders: d.orderCount ?? 0,
+                        cancelledOrderCount: d.cancelledOrderCount ?? 0,
+                        cancelledGMV: d.cancelledGMV ?? 0,
                         spend: d.totalAdsSpend ?? 0,
                         spendAfterTax: d.totalCostWithTaxes ?? 0,
                         roas: curRoas,
@@ -471,6 +473,8 @@ export default function Home() {
                         gmv: d.gmv ?? 0,
                         revenue: d.gmv ?? 0,
                         orders: d.orderCount ?? 0,
+                        cancelledOrderCount: d.cancelledOrderCount ?? 0,
+                        cancelledGMV: d.cancelledGMV ?? 0,
                         spend: d.totalAdsSpend ?? 0,
                         spendAfterTax: d.totalCostWithTaxes ?? 0,
                         cpasSpend: d.cpasSpend ?? 0,
@@ -479,7 +483,6 @@ export default function Home() {
                         roasAfterTax: d.roasAfterTax ?? 0,
                         dataSource: d.dataSource ?? "live_api",
                         status: "connected",
-
                         change: {
                             gmv: pctChange(d.gmv ?? 0, p?.gmv ?? 0),
                             spend: pctChange(d.totalAdsSpend ?? 0, p?.totalAdsSpend ?? 0),
@@ -1230,6 +1233,107 @@ export default function Home() {
                         </CardContent>
                     </Card>
                 </div>
+            )}
+
+            {/* ── Cancelled Orders Summary ──────── */}
+            {totalRevenue > 0 && (
+                <Card className="border-border bg-gradient-to-br from-card/60 to-muted/80 backdrop-blur-sm overflow-hidden mb-6">
+                    <CardHeader className="pb-3 border-b border-border/50">
+                        <div>
+                            <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                <ShoppingBag className="h-4 w-4 text-red-400" />
+                                Cancelled Orders Summary
+                            </CardTitle>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">Summary of cancelled orders and lost revenue value across all stores</p>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+                            <div className="space-y-1.5 p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+                                <p className="text-[9px] uppercase font-bold text-red-400 tracking-wider">Total Cancelled GMV</p>
+                                <div className="text-xl font-extrabold text-red-400">
+                                    RM {shopData
+                                        .filter((s) => s.status === "connected")
+                                        .reduce((sum, s) => sum + (s.cancelledGMV ?? 0), 0)
+                                        .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                            </div>
+                            <div className="space-y-1.5 p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                                <p className="text-[9px] uppercase font-bold text-amber-400 tracking-wider">Total Cancelled Orders</p>
+                                <div className="text-xl font-extrabold text-amber-400">
+                                    {shopData
+                                        .filter((s) => s.status === "connected")
+                                        .reduce((sum, s) => sum + (s.cancelledOrderCount ?? 0), 0)}{" "}
+                                    <span className="text-xs font-normal text-muted-foreground">orders</span>
+                                </div>
+                            </div>
+                            <div className="space-y-1.5 p-3 rounded-lg bg-purple-500/5 border border-purple-500/10">
+                                <p className="text-[9px] uppercase font-bold text-purple-400 tracking-wider">TikTok Cancelled</p>
+                                <div className="text-xl font-extrabold text-purple-400">
+                                    RM {shopData
+                                        .filter((s) => s.status === "connected" && s.platform === "TikTok")
+                                        .reduce((sum, s) => sum + (s.cancelledGMV ?? 0), 0)
+                                        .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                    {shopData
+                                        .filter((s) => s.status === "connected" && s.platform === "TikTok")
+                                        .reduce((sum, s) => sum + (s.cancelledOrderCount ?? 0), 0)} orders
+                                </p>
+                            </div>
+                            <div className="space-y-1.5 p-3 rounded-lg bg-orange-500/5 border border-orange-500/10">
+                                <p className="text-[9px] uppercase font-bold text-orange-400 tracking-wider">Shopee Cancelled</p>
+                                <div className="text-xl font-extrabold text-orange-400">
+                                    RM {shopData
+                                        .filter((s) => s.status === "connected" && s.platform === "Shopee")
+                                        .reduce((sum, s) => sum + (s.cancelledGMV ?? 0), 0)
+                                        .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                    {shopData
+                                        .filter((s) => s.status === "connected" && s.platform === "Shopee")
+                                        .reduce((sum, s) => sum + (s.cancelledOrderCount ?? 0), 0)} orders
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <h4 className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-2">Store Breakdown</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                                {shopData
+                                    .filter((s) => s.status === "connected")
+                                    .map((shop) => {
+                                        const isTikTok = shop.platform === "TikTok";
+                                        return (
+                                            <div key={shop.id} className="p-3 rounded-lg border border-border bg-card/40 flex flex-col justify-between">
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-1.5">
+                                                        <span className="text-xs font-semibold truncate max-w-[130px]">{shop.name}</span>
+                                                        <span className={cn(
+                                                            "text-[9px] font-bold px-1.5 py-0.5 rounded",
+                                                            isTikTok ? "text-purple-400 bg-purple-500/10" : "text-orange-400 bg-orange-500/10"
+                                                        )}>
+                                                            {shop.platform}
+                                                        </span>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <div className="flex justify-between text-[11px]">
+                                                            <span className="text-muted-foreground">Cancelled Orders:</span>
+                                                            <span className="font-medium text-amber-400">{shop.cancelledOrderCount ?? 0}</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-[11px]">
+                                                            <span className="text-muted-foreground">Cancelled GMV:</span>
+                                                            <span className="font-semibold text-red-400">RM {(shop.cancelledGMV ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             )}
 
             {/* ── Profit & Cost Breakdown (hidden in Lite Mode) ──────── */}

@@ -56,6 +56,8 @@ interface ShopRecheckResult {
     gmv?: number;
     orders?: number;
     spend?: number;
+    cancelledOrderCount?: number;
+    cancelledGMV?: number;
     error?: string;
 }
 
@@ -110,12 +112,17 @@ async function recheckAndSyncShop(
         const roasBeforeTax     = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
         const roasAfterTax      = spendAfterTax  > 0 ? gmv / spendAfterTax  : 0;
 
+        const cancelledOrders = gmvData.orders.filter((o: any) => o.status === 'CANCELLED');
+        const cancelledOrderCount = cancelledOrders.length;
+        const cancelledGMV = cancelledOrders.reduce((sum: number, o: any) => sum + o.gmv, 0);
+
         await query(`
             INSERT INTO credentials.daily_shop_metrics (
                 shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax,
                 roas_before_tax, roas_after_tax, order_count,
-                live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend, updated_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, CURRENT_TIMESTAMP)
+                live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend,
+                cancelled_order_count, cancelled_gmv, updated_at
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_number, date) DO UPDATE SET
                 shop_name             = EXCLUDED.shop_name,
                 gmv                   = EXCLUDED.gmv,
@@ -127,10 +134,13 @@ async function recheckAndSyncShop(
                 live_gmv_max_cost     = EXCLUDED.live_gmv_max_cost,
                 product_gmv_max_cost  = EXCLUDED.product_gmv_max_cost,
                 manual_campaign_spend = EXCLUDED.manual_campaign_spend,
+                cancelled_order_count = EXCLUDED.cancelled_order_count,
+                cancelled_gmv         = EXCLUDED.cancelled_gmv,
                 updated_at            = CURRENT_TIMESTAMP
         `, [shopNumber, gmvData.shopName || shopName, date,
             gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax,
-            orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend]);
+            orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend,
+            cancelledOrderCount, cancelledGMV]);
 
         return {
             shopNumber,
@@ -141,6 +151,8 @@ async function recheckAndSyncShop(
             gmv,
             orders: orderCount,
             spend: spendBeforeTax,
+            cancelledOrderCount,
+            cancelledGMV
         };
     } catch (e: any) {
         console.error(`[cron/recheck] Shop ${shopNumber} on ${date} failed:`, e.message);
@@ -220,6 +232,7 @@ async function recheckAndSyncShopeeShop(
 
         let gmv = 0;
         let orderCount = 0;
+        let ordersList: any[] = [];
 
         if (hasCachedSpend) {
             // Spend is cached; only query Shopee Order API to get latest GMV / cancellations
@@ -228,6 +241,7 @@ async function recheckAndSyncShopeeShop(
             gmv = orderData.gmv || 0;
             orderCount = orderData.orderCount || 0;
             shopName = orderData.shopName || shopName;
+            ordersList = orderData.orders || [];
         } else {
             // Fetch everything dynamically
             const data = await fetchShopeeShopPerformance(shopId, date, date);
@@ -238,15 +252,20 @@ async function recheckAndSyncShopeeShop(
             cpasSpend = data.cpasSpend || 0;
             shopeeCpcSpend = data.shopeeCpcSpend || 0;
             shopName = data.shopName || shopName;
+            ordersList = data.orders || [];
         }
+
+        const cancelledOrders = ordersList.filter((o: any) => o.status === 'CANCELLED');
+        const cancelledOrderCount = cancelledOrders.length;
+        const cancelledGMV = cancelledOrders.reduce((sum: number, o: any) => sum + o.gmv, 0);
 
         const roasBeforeTax = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
         const roasAfterTax = spendAfterTax > 0 ? gmv / spendAfterTax : 0;
 
         await query(`
             INSERT INTO credentials.daily_shopee_metrics (
-                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend, cancelled_order_count, cancelled_gmv, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_id, date) DO UPDATE SET
                 gmv = EXCLUDED.gmv,
                 spend_before_tax = EXCLUDED.spend_before_tax,
@@ -256,8 +275,10 @@ async function recheckAndSyncShopeeShop(
                 order_count = EXCLUDED.order_count,
                 cpas_spend = EXCLUDED.cpas_spend,
                 shopee_cpc_spend = EXCLUDED.shopee_cpc_spend,
+                cancelled_order_count = EXCLUDED.cancelled_order_count,
+                cancelled_gmv = EXCLUDED.cancelled_gmv,
                 updated_at = CURRENT_TIMESTAMP
-        `, [shopId, shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend]);
+        `, [shopId, shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend, cancelledOrderCount, cancelledGMV]);
 
         return {
             shopNumber: shopId,
@@ -268,6 +289,8 @@ async function recheckAndSyncShopeeShop(
             gmv,
             orders: orderCount,
             spend: spendBeforeTax,
+            cancelledOrderCount,
+            cancelledGMV
         };
     } catch (e: any) {
         console.error(`[cron/recheck] Shopee Shop ${shopId} on ${date} failed:`, e.message);

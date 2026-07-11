@@ -58,12 +58,17 @@ async function syncTikTokShop(shopNumber: number, date: string) {
         const roasBeforeTax     = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
         const roasAfterTax      = spendAfterTax  > 0 ? gmv / spendAfterTax  : 0;
 
+        const cancelledOrders = gmvData.orders.filter((o: any) => o.status === 'CANCELLED');
+        const cancelledOrderCount = cancelledOrders.length;
+        const cancelledGMV = cancelledOrders.reduce((sum: number, o: any) => sum + o.gmv, 0);
+
         await query(`
             INSERT INTO credentials.daily_shop_metrics (
                 shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax,
                 roas_before_tax, roas_after_tax, order_count,
-                live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend, updated_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, CURRENT_TIMESTAMP)
+                live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend,
+                cancelled_order_count, cancelled_gmv, updated_at
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_number, date) DO UPDATE SET
                 shop_name             = EXCLUDED.shop_name,
                 gmv                   = EXCLUDED.gmv,
@@ -75,10 +80,13 @@ async function syncTikTokShop(shopNumber: number, date: string) {
                 live_gmv_max_cost     = EXCLUDED.live_gmv_max_cost,
                 product_gmv_max_cost  = EXCLUDED.product_gmv_max_cost,
                 manual_campaign_spend = EXCLUDED.manual_campaign_spend,
+                cancelled_order_count = EXCLUDED.cancelled_order_count,
+                cancelled_gmv         = EXCLUDED.cancelled_gmv,
                 updated_at            = CURRENT_TIMESTAMP
         `, [shopNumber, gmvData.shopName || shopConfig.name, date,
             gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax,
-            orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend]);
+            orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend,
+            cancelledOrderCount, cancelledGMV]);
 
         return { success: true, shopName: gmvData.shopName || shopConfig.name, gmv, orders: orderCount, spend: spendBeforeTax };
     } catch (e: any) {
@@ -105,12 +113,16 @@ async function syncShopeeShop(shopId: number, shopName: string, date: string) {
         const adOrders = data.adOrders || 0;
         const adSales = data.adSales || 0;
 
+        const cancelledOrders = data.orders.filter((o: any) => o.status === 'CANCELLED');
+        const cancelledOrderCount = cancelledOrders.length;
+        const cancelledGMV = cancelledOrders.reduce((sum: number, o: any) => sum + o.gmv, 0);
+
         await query(`
             INSERT INTO credentials.daily_shopee_metrics (
                 shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax,
                 roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend,
-                ad_impressions, ad_clicks, ad_orders, ad_sales, updated_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, CURRENT_TIMESTAMP)
+                ad_impressions, ad_clicks, ad_orders, ad_sales, cancelled_order_count, cancelled_gmv, updated_at
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_id, date) DO UPDATE SET
                 shop_name        = EXCLUDED.shop_name,
                 gmv              = EXCLUDED.gmv,
@@ -125,10 +137,13 @@ async function syncShopeeShop(shopId: number, shopName: string, date: string) {
                 ad_clicks        = EXCLUDED.ad_clicks,
                 ad_orders        = EXCLUDED.ad_orders,
                 ad_sales         = EXCLUDED.ad_sales,
+                cancelled_order_count = EXCLUDED.cancelled_order_count,
+                cancelled_gmv         = EXCLUDED.cancelled_gmv,
                 updated_at       = CURRENT_TIMESTAMP
         `, [shopId, data.shopName || shopName, date,
             gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax,
-            orderCount, cpasSpend, shopeeCpcSpend, adImpressions, adClicks, adOrders, adSales]);
+            orderCount, cpasSpend, shopeeCpcSpend, adImpressions, adClicks, adOrders, adSales,
+            cancelledOrderCount, cancelledGMV]);
 
         return { success: true, shopName: data.shopName || shopName, gmv, orders: orderCount, spend: spendBeforeTax };
     } catch (e: any) {

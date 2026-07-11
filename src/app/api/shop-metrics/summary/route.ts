@@ -97,6 +97,10 @@ async function fetchAndSaveTikTok(shopNumber: number, date: string) {
         const roasBeforeTax = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
         const roasAfterTax = spendAfterTax > 0 ? gmv / spendAfterTax : 0;
 
+        const cancelledOrders = gmvData.orders.filter((o: any) => o.status === 'CANCELLED');
+        const cancelledOrderCount = cancelledOrders.length;
+        const cancelledGMV = cancelledOrders.reduce((sum: number, o: any) => sum + o.gmv, 0);
+
         if (hasCachedSpend) {
             // For past dates with cached spend: ONLY update GMV, shop_name, orders, and ROAS.
             // Never overwrite spend columns — they are authoritative values written by the nightly sync.
@@ -104,22 +108,24 @@ async function fetchAndSaveTikTok(shopNumber: number, date: string) {
             // that prevents nightly sync corrections from ever sticking.
             await query(`
                 INSERT INTO credentials.daily_shop_metrics (
-                    shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
+                    shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend, cancelled_order_count, cancelled_gmv, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP)
                 ON CONFLICT (shop_number, date) DO UPDATE SET
                     shop_name = EXCLUDED.shop_name,
                     gmv = EXCLUDED.gmv,
                     roas_before_tax = EXCLUDED.roas_before_tax,
                     roas_after_tax = EXCLUDED.roas_after_tax,
                     order_count = EXCLUDED.order_count,
+                    cancelled_order_count = EXCLUDED.cancelled_order_count,
+                    cancelled_gmv = EXCLUDED.cancelled_gmv,
                     updated_at = CURRENT_TIMESTAMP
-            `, [shopNumber, gmvData.shopName || shopConfig.name, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend]);
+            `, [shopNumber, gmvData.shopName || shopConfig.name, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend, cancelledOrderCount, cancelledGMV]);
         } else {
             // For today or first-time sync (no cached spend): write all columns including spend
             await query(`
                 INSERT INTO credentials.daily_shop_metrics (
-                    shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
+                    shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend, cancelled_order_count, cancelled_gmv, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP)
                 ON CONFLICT (shop_number, date) DO UPDATE SET
                     shop_name = EXCLUDED.shop_name,
                     gmv = EXCLUDED.gmv,
@@ -131,11 +137,13 @@ async function fetchAndSaveTikTok(shopNumber: number, date: string) {
                     live_gmv_max_cost = EXCLUDED.live_gmv_max_cost,
                     product_gmv_max_cost = EXCLUDED.product_gmv_max_cost,
                     manual_campaign_spend = EXCLUDED.manual_campaign_spend,
+                    cancelled_order_count = EXCLUDED.cancelled_order_count,
+                    cancelled_gmv = EXCLUDED.cancelled_gmv,
                     updated_at = CURRENT_TIMESTAMP
-            `, [shopNumber, gmvData.shopName || shopConfig.name, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend]);
+            `, [shopNumber, gmvData.shopName || shopConfig.name, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend, cancelledOrderCount, cancelledGMV]);
         }
 
-        return { gmv, spend: spendBeforeTax, orders: orderCount, shopName: gmvData.shopName || shopConfig.name };
+        return { gmv, spend: spendBeforeTax, orders: orderCount, shopName: gmvData.shopName || shopConfig.name, cancelledOrderCount, cancelledGMV };
     } catch (e: any) {
         console.error(`[summary] TikTok Shop ${shopNumber} failed for ${date}:`, e.message);
         return { gmv: 0, spend: 0, orders: 0 };
@@ -181,6 +189,7 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
         let gmv = 0;
         let orderCount = 0;
         let shopName = `Shopee Shop ${shopId}`;
+        let ordersList: any[] = [];
 
         if (hasCachedSpend) {
             // Spend is cached; only query Shopee Order API to get latest GMV / cancellations
@@ -189,6 +198,7 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
             gmv = orderData.gmv || 0;
             orderCount = orderData.orderCount || 0;
             shopName = orderData.shopName;
+            ordersList = orderData.orders || [];
         } else {
             // Fetch everything dynamically
             const data = await fetchShopeeShopPerformance(shopId, date, date);
@@ -199,15 +209,20 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
             cpasSpend = data.cpasSpend || 0;
             shopeeCpcSpend = data.shopeeCpcSpend || 0;
             shopName = data.shopName;
+            ordersList = data.orders || [];
         }
+
+        const cancelledOrders = ordersList.filter((o: any) => o.status === 'CANCELLED');
+        const cancelledOrderCount = cancelledOrders.length;
+        const cancelledGMV = cancelledOrders.reduce((sum: number, o: any) => sum + o.gmv, 0);
 
         const roasBeforeTax = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
         const roasAfterTax = spendAfterTax > 0 ? gmv / spendAfterTax : 0;
 
         await query(`
             INSERT INTO credentials.daily_shopee_metrics (
-                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend, cancelled_order_count, cancelled_gmv, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_id, date) DO UPDATE SET
                 gmv = EXCLUDED.gmv,
                 spend_before_tax = EXCLUDED.spend_before_tax,
@@ -217,10 +232,12 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
                 order_count = EXCLUDED.order_count,
                 cpas_spend = EXCLUDED.cpas_spend,
                 shopee_cpc_spend = EXCLUDED.shopee_cpc_spend,
+                cancelled_order_count = EXCLUDED.cancelled_order_count,
+                cancelled_gmv = EXCLUDED.cancelled_gmv,
                 updated_at = CURRENT_TIMESTAMP
-        `, [shopId, shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend]);
+        `, [shopId, shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend, cancelledOrderCount, cancelledGMV]);
 
-        return { gmv, spend: spendBeforeTax, orders: orderCount, cpasSpend, shopeeCpcSpend, shopName };
+        return { gmv, spend: spendBeforeTax, orders: orderCount, cpasSpend, shopeeCpcSpend, shopName, cancelledOrderCount, cancelledGMV };
     } catch (e: any) {
         console.error(`[summary] Shopee Shop ${shopId} failed for ${date}:`, e.message);
         return { gmv: 0, spend: 0, orders: 0, cpasSpend: 0, shopeeCpcSpend: 0 };
@@ -239,7 +256,7 @@ async function fetchTikTokShopMetricsSWR(
     
     // 1. Fetch existing rows from DB for this shop and range
     const dbResult = await query(`
-        SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, shop_name, updated_at
+        SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, shop_name, updated_at, cancelled_order_count, cancelled_gmv
         FROM credentials.daily_shop_metrics
         WHERE shop_number = $1 AND date >= $2::date AND date <= $3::date
     `, [shopNumber, startDate, endDate]);
@@ -251,20 +268,24 @@ async function fetchTikTokShopMetricsSWR(
             spend: parseFloat(row.spend_before_tax),
             orders: parseInt(row.order_count, 10),
             shopName: row.shop_name,
-            updatedAt: row.updated_at
+            updatedAt: row.updated_at,
+            cancelledOrderCount: parseInt(row.cancelled_order_count || '0', 10),
+            cancelledGMV: parseFloat(row.cancelled_gmv || '0')
         };
     });
 
     let totalGMV = 0;
     let totalSpend = 0;
     let totalOrders = 0;
+    let totalCancelledOrders = 0;
+    let totalCancelledGMV = 0;
     const shopConfig = SHOPS[shopNumber.toString()];
     let shopName = shopConfig?.name || `Shop ${shopNumber}`;
     let loadedFromDbCount = 0;
     let loadedFromApiCount = 0;
     let loadedStaleCount = 0; // rows served from DB but written before day closed
 
-    const syncPromises: Promise<{ gmv: number; spend: number; orders: number; shopName?: string }>[] = [];
+    const syncPromises: Promise<{ gmv: number; spend: number; orders: number; shopName?: string; cancelledOrderCount?: number; cancelledGMV?: number }>[] = [];
 
     dates.forEach(date => {
         const isToday = date === today;
@@ -281,12 +302,16 @@ async function fetchTikTokShopMetricsSWR(
                 totalGMV += cached.gmv;
                 totalSpend += cached.spend;
                 totalOrders += cached.orders;
+                totalCancelledOrders += cached.cancelledOrderCount || 0;
+                totalCancelledGMV += cached.cancelledGMV || 0;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
             } else if (cached) {
                 totalGMV += cached.gmv;
                 totalSpend += cached.spend;
                 totalOrders += cached.orders;
+                totalCancelledOrders += cached.cancelledOrderCount || 0;
+                totalCancelledGMV += cached.cancelledGMV || 0;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
                 // Queue background revalidation
@@ -307,6 +332,8 @@ async function fetchTikTokShopMetricsSWR(
                     totalGMV += cached.gmv;
                     totalSpend += cached.spend;
                     totalOrders += cached.orders;
+                    totalCancelledOrders += cached.cancelledOrderCount || 0;
+                    totalCancelledGMV += cached.cancelledGMV || 0;
                     if (cached.shopName) shopName = cached.shopName;
                     loadedFromDbCount++;
                     // Still queue a light background refresh for refund/cancellation adjustments
@@ -333,6 +360,8 @@ async function fetchTikTokShopMetricsSWR(
                 totalGMV += cached.gmv;
                 totalSpend += cached.spend;
                 totalOrders += cached.orders;
+                totalCancelledOrders += cached.cancelledOrderCount || 0;
+                totalCancelledGMV += cached.cancelledGMV || 0;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
                 // SELF-HEALING: If historical cached data has exactly 0 gmv and 0 orders, it might be an incomplete transient cache.
@@ -357,6 +386,8 @@ async function fetchTikTokShopMetricsSWR(
             totalGMV += r.gmv;
             totalSpend += r.spend;
             totalOrders += r.orders;
+            totalCancelledOrders += r.cancelledOrderCount || 0;
+            totalCancelledGMV += r.cancelledGMV || 0;
             if (r.shopName) shopName = r.shopName;
         });
     }
@@ -391,7 +422,9 @@ async function fetchTikTokShopMetricsSWR(
         roasBeforeTax,
         roasAfterTax,
         dataSource,
-        dateRange: { start: startDate, end: endDate }
+        dateRange: { start: startDate, end: endDate },
+        cancelledOrderCount: totalCancelledOrders,
+        cancelledGMV: totalCancelledGMV
     };
 }
 
@@ -406,7 +439,7 @@ async function fetchShopeeShopMetricsSWR(
     
     // Fetch DB rows
     const dbResult = await query(`
-        SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, cpas_spend, shopee_cpc_spend, shop_name, updated_at
+        SELECT TO_CHAR(date, 'YYYY-MM-DD') AS date, gmv, spend_before_tax, spend_after_tax, order_count, cpas_spend, shopee_cpc_spend, shop_name, updated_at, cancelled_order_count, cancelled_gmv
         FROM credentials.daily_shopee_metrics
         WHERE shop_id = $1 AND date >= $2::date AND date <= $3::date
     `, [shopId, startDate, endDate]);
@@ -420,7 +453,9 @@ async function fetchShopeeShopMetricsSWR(
             cpasSpend: parseFloat(row.cpas_spend || 0),
             shopeeCpcSpend: parseFloat(row.shopee_cpc_spend || 0),
             shopName: row.shop_name,
-            updatedAt: row.updated_at
+            updatedAt: row.updated_at,
+            cancelledOrderCount: parseInt(row.cancelled_order_count || '0', 10),
+            cancelledGMV: parseFloat(row.cancelled_gmv || '0')
         };
     });
 
@@ -429,12 +464,14 @@ async function fetchShopeeShopMetricsSWR(
     let totalOrders = 0;
     let totalCpasSpend = 0;
     let totalShopeeCpcSpend = 0;
+    let totalCancelledOrders = 0;
+    let totalCancelledGMV = 0;
     let shopName = `Shopee Shop ${shopId}`;
     let loadedFromDbCount = 0;
     let loadedFromApiCount = 0;
     let loadedStaleCount = 0; // rows served from DB but written before day closed
 
-    const syncPromises: Promise<{ gmv: number; spend: number; orders: number; cpasSpend: number; shopeeCpcSpend: number; shopName?: string }>[] = [];
+    const syncPromises: Promise<{ gmv: number; spend: number; orders: number; cpasSpend: number; shopeeCpcSpend: number; shopName?: string; cancelledOrderCount?: number; cancelledGMV?: number }>[] = [];
 
     dates.forEach(date => {
         const isToday = date === today;
@@ -453,6 +490,8 @@ async function fetchShopeeShopMetricsSWR(
                 totalOrders += cached.orders;
                 totalCpasSpend += cached.cpasSpend;
                 totalShopeeCpcSpend += cached.shopeeCpcSpend;
+                totalCancelledOrders += cached.cancelledOrderCount || 0;
+                totalCancelledGMV += cached.cancelledGMV || 0;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
             } else if (cached) {
@@ -461,6 +500,8 @@ async function fetchShopeeShopMetricsSWR(
                 totalOrders += cached.orders;
                 totalCpasSpend += cached.cpasSpend;
                 totalShopeeCpcSpend += cached.shopeeCpcSpend;
+                totalCancelledOrders += cached.cancelledOrderCount || 0;
+                totalCancelledGMV += cached.cancelledGMV || 0;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
                 // Queue background revalidation
@@ -483,6 +524,8 @@ async function fetchShopeeShopMetricsSWR(
                     totalOrders += cached.orders;
                     totalCpasSpend += cached.cpasSpend;
                     totalShopeeCpcSpend += cached.shopeeCpcSpend;
+                    totalCancelledOrders += cached.cancelledOrderCount || 0;
+                    totalCancelledGMV += cached.cancelledGMV || 0;
                     if (cached.shopName) shopName = cached.shopName;
                     loadedFromDbCount++;
                     // Still queue a light background refresh for refund/cancellation adjustments
@@ -501,6 +544,8 @@ async function fetchShopeeShopMetricsSWR(
                     totalOrders += cached.orders;
                     totalCpasSpend += cached.cpasSpend;
                     totalShopeeCpcSpend += cached.shopeeCpcSpend;
+                    totalCancelledOrders += cached.cancelledOrderCount || 0;
+                    totalCancelledGMV += cached.cancelledGMV || 0;
                     if (cached.shopName) shopName = cached.shopName;
                     loadedFromDbCount++;
                     loadedStaleCount++;
@@ -522,6 +567,8 @@ async function fetchShopeeShopMetricsSWR(
                 totalOrders += cached.orders;
                 totalCpasSpend += cached.cpasSpend;
                 totalShopeeCpcSpend += cached.shopeeCpcSpend;
+                totalCancelledOrders += cached.cancelledOrderCount || 0;
+                totalCancelledGMV += cached.cancelledGMV || 0;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
                 // SELF-HEALING: If historical cached data has exactly 0 gmv and 0 orders, it might be an incomplete transient cache.
@@ -548,6 +595,8 @@ async function fetchShopeeShopMetricsSWR(
             totalOrders += r.orders;
             totalCpasSpend += r.cpasSpend || 0;
             totalShopeeCpcSpend += r.shopeeCpcSpend || 0;
+            totalCancelledOrders += r.cancelledOrderCount || 0;
+            totalCancelledGMV += r.cancelledGMV || 0;
             if (r.shopName) shopName = r.shopName;
         });
     }
@@ -582,9 +631,10 @@ async function fetchShopeeShopMetricsSWR(
         wht,
         roasBeforeTax,
         roasAfterTax,
-
         dataSource,
-        dateRange: { start: startDate, end: endDate }
+        dateRange: { start: startDate, end: endDate },
+        cancelledOrderCount: totalCancelledOrders,
+        cancelledGMV: totalCancelledGMV
     };
 }
 
