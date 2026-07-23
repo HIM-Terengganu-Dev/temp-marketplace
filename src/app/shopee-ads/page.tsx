@@ -29,7 +29,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SimpleDatePicker, DatePreset } from "@/components/dashboard/SimpleDatePicker";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import dynamic from "next/dynamic";
+
+const ResponsiveContainer = dynamic(() => import("recharts").then(m => m.ResponsiveContainer), { ssr: false });
+const AreaChart = dynamic(() => import("recharts").then(m => m.AreaChart), { ssr: false });
+const Area = dynamic(() => import("recharts").then(m => m.Area), { ssr: false });
+const XAxis = dynamic(() => import("recharts").then(m => m.XAxis), { ssr: false });
+const YAxis = dynamic(() => import("recharts").then(m => m.YAxis), { ssr: false });
+const Tooltip = dynamic(() => import("recharts").then(m => m.Tooltip), { ssr: false });
+const CartesianGrid = dynamic(() => import("recharts").then(m => m.CartesianGrid), { ssr: false });
 import { cn } from "@/lib/utils";
 
 interface ShopeeShop {

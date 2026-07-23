@@ -16,6 +16,7 @@ import {
     ChevronRight,
     X,
     Bug,
+    MessageSquarePlus,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -26,6 +27,7 @@ const navigation = [
     { name: "TikTok Ads",         href: "/ads",                 icon: Megaphone,       feature: "ads"           },
     { name: "Shopee Ads",         href: "/shopee-ads",          icon: Megaphone,       feature: "ads"           },
     { name: "Analytics",          href: "/analytics",           icon: BarChart3,       feature: "analytics"     },
+    { name: "Feedback",           href: "/feedback",            icon: MessageSquarePlus, feature: "feedback"    },
     { name: "Debug Table",        href: "/debug-table",         icon: Bug,             feature: "debug"         },
     { name: "Debug (Ikram)",      href: "/debug-table-ikram",   icon: Bug,             feature: "debug"         },
     { name: "Refresh Token",      href: "/refresh-token",       icon: RefreshCw,       feature: "refresh_token" },
@@ -52,10 +54,10 @@ export function Sidebar({
 
     const allowedFeatures =
         (session?.user as { allowed_features?: string[] } | undefined)
-            ?.allowed_features || ["overview", "tiktok", "shopee", "ads", "analytics"];
+            ?.allowed_features || ["overview", "tiktok", "shopee", "ads", "analytics", "feedback"];
 
     const filteredNavigation = navigation.filter(item =>
-        allowedFeatures.includes(item.feature)
+        item.feature === "feedback" || allowedFeatures.includes(item.feature)
     );
 
     return (

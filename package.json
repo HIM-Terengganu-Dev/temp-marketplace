@@ -8,12 +8,14 @@
     "start": "next start",
     "lint": "eslint",
     "db:setup": "tsx scripts/setup-database.ts",
+    "db:setup-feedback": "tsx scripts/setup-feedback-db.ts",
     "db:setup-metrics": "tsx scripts/setup-metrics-db.ts",
     "db:setup-livestream": "tsx scripts/setup-livestream-db.ts",
     "db:populate": "tsx scripts/populate-tokens.ts",
     "db:sync-daily": "tsx scripts/sync-daily-metrics.ts",
     "db:backfill-history": "tsx scripts/backfill-history.ts",
-    "db:nightly-sync": "tsx scripts/nightly-sync.ts"
+    "db:nightly-sync": "tsx scripts/nightly-sync.ts",
+    "db:setup-indexes": "tsx scripts/setup-performance-indexes.ts"
   },
   "dependencies": {
     "@google/genai": "^2.9.0",

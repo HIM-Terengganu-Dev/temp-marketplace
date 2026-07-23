@@ -27,7 +27,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SimpleDatePicker, DatePreset } from "@/components/dashboard/SimpleDatePicker";
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
+import dynamic from "next/dynamic";
+
+const ResponsiveContainer = dynamic(() => import("recharts").then(m => m.ResponsiveContainer), { ssr: false });
+const PieChart = dynamic(() => import("recharts").then(m => m.PieChart), { ssr: false });
+const Pie = dynamic(() => import("recharts").then(m => m.Pie), { ssr: false });
+const Cell = dynamic(() => import("recharts").then(m => m.Cell), { ssr: false });
+const Tooltip = dynamic(() => import("recharts").then(m => m.Tooltip), { ssr: false });
+const Legend = dynamic(() => import("recharts").then(m => m.Legend), { ssr: false });
 import { cn } from "@/lib/utils";
 
 /* ── helpers ────────────────────────────────────────────────────────────── */

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { FeedbackWidget } from "@/components/feedback/FeedbackWidget";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -81,6 +82,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* ── Floating Draggable Feedback Widget ───────────────────────────── */}
+      <FeedbackWidget />
 
       {/* ── Mobile: Bottom Navigation Bar ───────────────────────────────── */}
       <MobileBottomNav pathname={pathname} />

@@ -22,7 +22,11 @@ export async function GET(request: Request) {
         queryText += ` ORDER BY is_mapped ASC, created_at DESC`;
 
         const dbRes = await query(queryText, queryParams);
-        return NextResponse.json({ skus: dbRes.rows });
+        return NextResponse.json({ skus: dbRes.rows }, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+            }
+        });
     } catch (e: any) {
         console.error('[COGS API GET Error]:', e.message);
         return NextResponse.json({ error: e.message }, { status: 500 });

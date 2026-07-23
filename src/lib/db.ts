@@ -14,9 +14,12 @@ if (!connectionString) {
     throw new Error('HP_marketplace_db_ddl environment variable is not set');
 }
 
-// Create a connection pool
+// Create a connection pool with performance bounds
 export const pool = new Pool({
     connectionString,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 

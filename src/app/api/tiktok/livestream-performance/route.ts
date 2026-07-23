@@ -20,28 +20,7 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Missing start or end date' }, { status: 400 });
         }
 
-        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
-        const yesterdayStr = new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
-
-        const isToday = startDate <= todayStr && endDate >= todayStr;
-        const isYesterday = startDate <= yesterdayStr && endDate >= yesterdayStr;
-
-        if (isToday || isYesterday) {
-            console.log(`[API] Live-syncing livestream sessions for today/yesterday...`);
-            const shopNumbers = [1, 2, 3, 4];
-            await Promise.all(shopNumbers.map(num => 
-                Promise.all([
-                    isToday ? syncLivestreamMetricsForDate(num, todayStr).catch(() => {}) : Promise.resolve(),
-                    isYesterday ? syncLivestreamMetricsForDate(num, yesterdayStr).catch(() => {}) : Promise.resolve()
-                ])
-            ));
-        }
-
-        // The Postgres server runs in Asia/Kuala_Lumpur timezone, so pg.js stores
-        // timestamp-without-timezone values as KL local time. start_time::date therefore
-        // directly extracts the correct KL date — no AT TIME ZONE conversion needed.
-        // The previous double-conversion (AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/KL') was
-        // incorrectly shifting all times forward by +8h, pulling May 22 sessions into May 23 results.
+        // Query indexed PostgreSQL database table directly
         console.log(`[API] Querying livestream performance for KL dates ${startDate} to ${endDate}...`);
         const result = await query(`
             SELECT 
@@ -77,6 +56,10 @@ export async function GET(request: Request) {
                 totalViewers
             },
             leaderboard: result.rows
+        }, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+            }
         });
 
     } catch (error: any) {
