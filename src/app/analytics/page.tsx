@@ -33,6 +33,20 @@ function todayKL(): string {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
 }
 
+/** Returns date string YYYY-MM-DD for N days ago in Asia/Kuala_Lumpur timezone */
+function daysAgoKL(days: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+}
+
+/** Returns 1st day of current month YYYY-MM-01 in Asia/Kuala_Lumpur timezone */
+function startOfCurrentMonthKL(): string {
+    const today = todayKL();
+    const [y, m] = today.split('-');
+    return `${y}-${m}-01`;
+}
+
 export default function AnalyticsPage() {
     useSession();
 
@@ -40,8 +54,8 @@ export default function AnalyticsPage() {
     const [currentTab, setCurrentTab] = useState<"funnel" | "mtd">("funnel");
 
     // Toolbar / Date states (Funnel Overview)
-    const [activePreset, setActivePreset] = useState<DatePreset>("last30");
-    const [startDate, setStartDate] = useState("2026-04-26");
+    const [activePreset, setActivePreset] = useState<DatePreset>("monthly");
+    const [startDate, setStartDate] = useState(() => startOfCurrentMonthKL());
     const [endDate, setEndDate] = useState(todayKL());
     const [companyFilter, setCompanyFilter] = useState<"ALL" | "HIMWELLNESS" | "WEROCA">("ALL");
     const [isLoading, setIsLoading] = useState(false);
@@ -112,23 +126,42 @@ export default function AnalyticsPage() {
     const [mtdCompany, setMtdCompany] = useState<'ALL' | 'HIMWELLNESS' | 'WEROCA'>('ALL');
     const [mtdData, setMtdData] = useState<any>(null);
     const [isMtdLoading, setIsMtdLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [mtdError, setMtdError] = useState<string | null>(null);
+
+    // Refresh triggers
+    const [reloadKey, setReloadKey] = useState(0);
+    const [reloadMtdKey, setReloadMtdKey] = useState(0);
 
     // Load Funnel Overview Data
     useEffect(() => {
         let isMounted = true;
         const loadAnalyticsData = async () => {
             setIsLoading(true);
+            setError(null);
             try {
                 const response = await fetch(`/api/analytics?startDate=${startDate}&endDate=${endDate}&companyFilter=${companyFilter}`);
                 if (!response.ok) {
-                    throw new Error("Failed to fetch analytics data");
+                    const errData = await response.json().catch(() => ({}));
+                    const msg = errData.error || (
+                        response.status === 401 
+                            ? "Unauthorized: Please sign in to access analytics." 
+                            : response.status === 403 
+                                ? "Forbidden: Access denied to selected metrics." 
+                                : `Failed to fetch analytics data (HTTP ${response.status})`
+                    );
+                    if (isMounted) setError(msg);
+                    return;
                 }
                 const result = await response.json();
                 if (isMounted) {
                     setData(result);
                 }
-            } catch (error) {
-                console.error("Error loading analytics data:", error);
+            } catch (err: any) {
+                console.error("Error loading analytics data:", err);
+                if (isMounted) {
+                    setError(err.message || "Failed to fetch analytics data");
+                }
             } finally {
                 if (isMounted) {
                     setIsLoading(false);
@@ -140,7 +173,7 @@ export default function AnalyticsPage() {
         return () => {
             isMounted = false;
         };
-    }, [startDate, endDate, companyFilter]);
+    }, [startDate, endDate, companyFilter, reloadKey]);
 
     // Load MTD Data
     useEffect(() => {
@@ -148,17 +181,30 @@ export default function AnalyticsPage() {
         let isMounted = true;
         const loadMtdData = async () => {
             setIsMtdLoading(true);
+            setMtdError(null);
             try {
                 const response = await fetch(`/api/analytics/mtd-report?targetMonth=${targetMonth}&dayRangeEnd=${dayRangeEnd}&companyFilter=${mtdCompany}`);
                 if (!response.ok) {
-                    throw new Error("Failed to fetch MTD report data");
+                    const errData = await response.json().catch(() => ({}));
+                    const msg = errData.error || (
+                        response.status === 401 
+                            ? "Unauthorized: Please sign in to access MTD report." 
+                            : response.status === 403 
+                                ? "Forbidden: Access denied to selected MTD metrics." 
+                                : `Failed to fetch MTD report data (HTTP ${response.status})`
+                    );
+                    if (isMounted) setMtdError(msg);
+                    return;
                 }
                 const result = await response.json();
                 if (isMounted) {
                     setMtdData(result);
                 }
-            } catch (error) {
-                console.error("Error loading MTD report data:", error);
+            } catch (err: any) {
+                console.error("Error loading MTD report data:", err);
+                if (isMounted) {
+                    setMtdError(err.message || "Failed to fetch MTD report data");
+                }
             } finally {
                 if (isMounted) {
                     setIsMtdLoading(false);
@@ -170,7 +216,7 @@ export default function AnalyticsPage() {
         return () => {
             isMounted = false;
         };
-    }, [currentTab, targetMonth, dayRangeEnd, mtdCompany]);
+    }, [currentTab, targetMonth, dayRangeEnd, mtdCompany, reloadMtdKey]);
 
     return (
         <AnalyticsShell currentTab={currentTab} onTabChange={setCurrentTab}>
@@ -178,6 +224,8 @@ export default function AnalyticsPage() {
                 <FunnelOverviewTab
                     data={data}
                     isLoading={isLoading}
+                    error={error}
+                    onRetry={() => setReloadKey(prev => prev + 1)}
                     companyFilter={companyFilter}
                     setCompanyFilter={setCompanyFilter}
                     startDate={startDate}
@@ -202,6 +250,8 @@ export default function AnalyticsPage() {
                     setMtdCompany={setMtdCompany}
                     mtdData={mtdData}
                     isMtdLoading={isMtdLoading}
+                    mtdError={mtdError}
+                    onRetry={() => setReloadMtdKey(prev => prev + 1)}
                 />
             )}
             <p className="text-[11px] text-muted-foreground/80 mt-4 leading-normal">

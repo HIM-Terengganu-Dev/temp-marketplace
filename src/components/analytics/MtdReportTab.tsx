@@ -47,6 +47,8 @@ interface MtdReportTabProps {
     setMtdCompany: (c: 'ALL' | 'HIMWELLNESS' | 'WEROCA') => void;
     mtdData: any;
     isMtdLoading: boolean;
+    mtdError?: string | null;
+    onRetry?: () => void;
 }
 
 export function MtdReportTab({
@@ -62,7 +64,9 @@ export function MtdReportTab({
     mtdCompany,
     setMtdCompany,
     mtdData,
-    isMtdLoading
+    isMtdLoading,
+    mtdError,
+    onRetry
 }: MtdReportTabProps) {
     const [targetInput, setTargetInput] = useState<number | null>(null);
     const [tiktokTargetValInput, setTiktokTargetValInput] = useState<number | null>(null);
@@ -252,7 +256,24 @@ export function MtdReportTab({
                 </div>
             </div>
 
-            {isMtdLoading || !mtdData ? (
+            {mtdError && !mtdData ? (
+                <div className="h-[40vh] w-full flex flex-col items-center justify-center bg-card/20 backdrop-blur-md rounded-2xl border border-destructive/30 p-6 text-center gap-3">
+                    <AlertCircle className="h-8 w-8 text-destructive animate-bounce" />
+                    <div className="space-y-1">
+                        <p className="text-sm font-bold text-foreground">Failed to Load MTD Report Data</p>
+                        <p className="text-xs text-muted-foreground max-w-md">{mtdError}</p>
+                    </div>
+                    {onRetry && (
+                        <button
+                            onClick={onRetry}
+                            className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
+                        >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Retry
+                        </button>
+                    )}
+                </div>
+            ) : isMtdLoading || !mtdData ? (
                 <div className="h-[50vh] w-full flex flex-col items-center justify-center bg-background text-muted-foreground gap-4 border border-border/20 rounded-2xl bg-card/10 backdrop-blur-md">
                     <RefreshCw className="h-10 w-10 text-primary animate-spin" />
                     <div className="flex flex-col items-center gap-1">

@@ -567,6 +567,46 @@ async function fetchManualCampaignSpend(advertiserId: string, accessToken: strin
     return totalSpend;
 }
 
+async function fetchTikTokAdImpressionsAndClicks(advertiserId: string, accessToken: string, startDate: string, endDate: string) {
+    try {
+        const params = new URLSearchParams({
+            advertiser_id: advertiserId,
+            report_type: 'BASIC',
+            data_level: 'AUCTION_ADVERTISER',
+            dimensions: JSON.stringify(['stat_time_day']),
+            metrics: JSON.stringify(['impressions', 'video_watched_6s', 'anchor_clicks']),
+            start_date: startDate,
+            end_date: endDate
+        });
+
+        const url = `${BASE_URL_ADS}/open_api/${API_VERSION_ADS}/report/integrated/get/?${params.toString()}`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Access-Token': accessToken,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+        if (data.code === 0 && data.data?.list?.length > 0) {
+            let totalImp = 0;
+            let totalThruplay = 0;
+            let totalClicks = 0;
+            data.data.list.forEach((item: any) => {
+                totalImp += parseInt(item.metrics?.impressions || '0', 10);
+                totalThruplay += parseInt(item.metrics?.video_watched_6s || '0', 10);
+                totalClicks += parseInt(item.metrics?.anchor_clicks || '0', 10);
+            });
+            return { impressions: totalImp, thruplay: totalThruplay, clicks: totalClicks };
+        }
+    } catch (err) {
+        console.error('Error fetching TikTok ad impressions/clicks:', err);
+    }
+    return { impressions: 0, thruplay: 0, clicks: 0 };
+}
+
 export async function fetchShopROAS(shopNumber: number, startDateStr: string, endDateStr: string) {
     const shopConfig = SHOPS[shopNumber.toString()];
     if (!shopConfig) {
@@ -594,6 +634,9 @@ export async function fetchShopROAS(shopNumber: number, startDateStr: string, en
     // called but will return 0 because all campaign IDs are in the GMV Max exclusion set.
     manualCampaignSpend = await fetchManualCampaignSpend(shopConfig.advertiserId, accessToken, startDateStr, endDateStr, shopConfig.shopId);
 
+    // Fetch real ad impressions, thruplay, and clicks from Marketing API
+    const { impressions, thruplay, clicks } = await fetchTikTokAdImpressionsAndClicks(shopConfig.advertiserId, accessToken, startDateStr, endDateStr);
+
     // FIX: Sum live + product GMV Max costs (not Math.max which discards one type)
     const gmvMaxCost = liveGMVMaxCost + productGMVMaxCost;
     const totalAdsSpend = gmvMaxCost + manualCampaignSpend;
@@ -611,7 +654,10 @@ export async function fetchShopROAS(shopNumber: number, startDateStr: string, en
         totalAdsSpend,
         sst,
         wht,
-        totalCostWithTaxes
+        totalCostWithTaxes,
+        impressions,
+        thruplay,
+        clicks
     };
 }
 
@@ -701,10 +747,14 @@ export async function ensureDailyMetricsSynced() {
                                 const cancelledOrderCount = cancelledOrders.length;
                                 const cancelledGMV = cancelledOrders.reduce((sum: number, o: any) => sum + o.gmv, 0);
 
+                                const impressions = roasData.impressions || 0;
+                                const thruplay = roasData.thruplay || 0;
+                                const visitors = roasData.clicks || 0;
+
                                 await query(`
                                     INSERT INTO credentials.daily_shop_metrics (
-                                        shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend, cancelled_order_count, cancelled_gmv, updated_at
-                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, CURRENT_TIMESTAMP)
+                                        shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend, cancelled_order_count, cancelled_gmv, impressions, thruplay, visitors, updated_at
+                                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP)
                                     ON CONFLICT (shop_number, date) DO UPDATE SET
                                         shop_name = EXCLUDED.shop_name,
                                         gmv = EXCLUDED.gmv,
@@ -718,8 +768,11 @@ export async function ensureDailyMetricsSynced() {
                                         manual_campaign_spend = EXCLUDED.manual_campaign_spend,
                                         cancelled_order_count = EXCLUDED.cancelled_order_count,
                                         cancelled_gmv = EXCLUDED.cancelled_gmv,
+                                        impressions = EXCLUDED.impressions,
+                                        thruplay = EXCLUDED.thruplay,
+                                        visitors = EXCLUDED.visitors,
                                         updated_at = CURRENT_TIMESTAMP
-                                `, [shopNumber, gmvData.shopName || shopConfig.name, dateStr, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend, cancelledOrderCount, cancelledGMV]);
+                                `, [shopNumber, gmvData.shopName || shopConfig.name, dateStr, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend, cancelledOrderCount, cancelledGMV, impressions, thruplay, visitors]);
                                 
                                 console.log(`[Auto-Sync] Synced shop ${shopNumber} successfully for date ${dateStr}`);
                                 
