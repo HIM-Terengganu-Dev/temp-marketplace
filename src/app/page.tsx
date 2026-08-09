@@ -96,18 +96,18 @@ function TrendBadge({ pct }: { pct: number }) {
     const abs = Math.abs(pct).toFixed(1);
     if (pct > 0.5)
         return (
-            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-emerald-400">
+            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 <TrendingUp className="h-3 w-3" />{abs}%
             </span>
         );
     if (pct < -0.5)
         return (
-            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-red-400">
+            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-rose-600 dark:text-red-400">
                 <TrendingDown className="h-3 w-3" />{abs}%
             </span>
         );
     return (
-        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-muted-foreground">
+        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-slate-500 dark:text-muted-foreground">
             <Minus className="h-3 w-3" />{abs}%
         </span>
     );
@@ -1149,90 +1149,124 @@ export default function Home() {
 
             {/* ── Row 3: % Contribution by Platform & Store (hidden in Lite Mode) ── */}
             {totalRevenue > 0 && !isLiteMode && (
-                <div className="grid gap-4 md:grid-cols-2">
-                    {/* Platform Contribution */}
-                    <Card className="border-border bg-card/50 backdrop-blur-sm">
-                        <CardHeader className="pb-3 border-b border-border/40">
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <Percent className="h-4 w-4 text-primary" />
-                                Platform Contribution
-                            </CardTitle>
-                            <p className="text-[10px] text-muted-foreground">% of total GMV by marketplace</p>
-                        </CardHeader>
-                        <CardContent className="pt-4 space-y-3">
-                            {/* TikTok */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                                        <span className="text-sm">🎵</span> TikTok Shop
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-muted-foreground font-mono text-[10px]">RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                        <span className="font-bold text-purple-650 dark:text-purple-400">{ttsContrib.toFixed(1)}%</span>
-                                    </div>
-                                </div>
-                                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                                    <div className="h-full rounded-full bg-gradient-to-r from-purple-600 to-pink-500 transition-all duration-700" style={{ width: `${ttsContrib}%` }} />
-                                </div>
-                            </div>
-                            {/* Shopee */}
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                                        <span className="text-sm">🛍️</span> Shopee
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-muted-foreground font-mono text-[10px]">RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                        <span className="font-bold text-orange-400">{shpContrib.toFixed(1)}%</span>
-                                    </div>
-                                </div>
-                                <div className="h-2 rounded-full bg-muted overflow-hidden">
-                                    <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-700" style={{ width: `${shpContrib}%` }} />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Per-Store Contribution */}
-                    <Card className="border-border bg-card/50 backdrop-blur-sm">
-                        <CardHeader className="pb-3 border-b border-border/40">
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <Percent className="h-4 w-4 text-amber-400" />
-                                Store Contribution
-                            </CardTitle>
-                            <p className="text-[10px] text-muted-foreground">% of total GMV by individual store</p>
-                        </CardHeader>
-                        <CardContent className="pt-4 space-y-3 max-h-[220px] overflow-y-auto pr-1">
-                            {[...shopData]
-                                .filter(s => (s.revenue ?? 0) > 0)
-                                .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
-                                .map((shop, idx) => {
-                                    const contrib = totalRevenue > 0 ? ((shop.revenue ?? 0) / totalRevenue) * 100 : 0;
-                                    const isTikTok = shop.platform === 'TikTok';
-                                    return (
-                                        <div key={shop.id} className="space-y-1">
-                                            <div className="flex items-center justify-between text-xs">
-                                                <span className="flex items-center gap-1.5 font-medium text-foreground truncate max-w-[55%]">
-                                                    <span className="text-[10px]">{isTikTok ? '🎵' : '🛍️'}</span>
-                                                    <span className="truncate">{shop.name}</span>
-                                                </span>
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    <span className="text-muted-foreground font-mono text-[9px]">RM {(shop.revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                                    <span className={cn("font-bold text-xs", isTikTok ? "text-purple-600 dark:text-purple-400" : "text-orange-400")}>{contrib.toFixed(1)}%</span>
-                                                </div>
-                                            </div>
-                                            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                                                <div
-                                                    className={cn("h-full rounded-full transition-all duration-700", isTikTok ? "bg-gradient-to-r from-purple-600/80 to-pink-500/80" : "bg-gradient-to-r from-orange-500/80 to-amber-400/80")}
-                                                    style={{ width: `${contrib}%` }}
-                                                />
-                                            </div>
+                <Card className="border-border bg-card/50 backdrop-blur-sm">
+                    <CardHeader className="pb-3 border-b border-border/40">
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                            <Percent className="h-4 w-4 text-primary" />
+                            Platform & Store Contribution
+                        </CardTitle>
+                        <p className="text-[10px] text-muted-foreground">% of total GMV by platform and store contribution relative to each platform</p>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                        <div className="grid gap-6 md:grid-cols-2">
+                            {/* TikTok Shop Column */}
+                            <div className="space-y-3 bg-muted/10 dark:bg-muted/20 border border-border/30 p-3.5 rounded-xl">
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="flex items-center gap-1.5 font-bold text-foreground">
+                                            <span className="text-sm">🎵</span> TikTok Shop
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground font-mono text-[10px]">RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            <span className="font-bold text-purple-600 dark:text-purple-400">{ttsContrib.toFixed(1)}%</span>
                                         </div>
-                                    );
-                                })}
-                        </CardContent>
-                    </Card>
-                </div>
+                                    </div>
+                                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                        <div className="h-full rounded-full bg-gradient-to-r from-purple-600 to-pink-500 transition-all duration-700" style={{ width: `${ttsContrib}%` }} />
+                                    </div>
+                                </div>
+
+                                {/* Stores under TikTok Shop */}
+                                <div className="pt-2 border-t border-border/30 space-y-2.5">
+                                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Stores (TikTok Shop Contribution)</div>
+                                    {shopData.filter(s => s.platform === "TikTok" && (s.revenue ?? 0) > 0).length === 0 ? (
+                                        <p className="text-[11px] text-muted-foreground italic">No active stores with revenue</p>
+                                    ) : (
+                                        shopData
+                                            .filter(s => s.platform === "TikTok" && (s.revenue ?? 0) > 0)
+                                            .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
+                                            .map((shop) => {
+                                                const storeContrib = ttsRevenue > 0 ? ((shop.revenue ?? 0) / ttsRevenue) * 100 : 0;
+                                                return (
+                                                    <div key={shop.id} className="space-y-1 pl-1">
+                                                        <div className="flex items-center justify-between text-xs">
+                                                            <span className="font-medium text-foreground truncate max-w-[55%] flex items-center gap-1">
+                                                                <span className="text-[10px] text-purple-400">└</span>
+                                                                <span className="truncate">{shop.name}</span>
+                                                            </span>
+                                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                                <span className="text-muted-foreground font-mono text-[9px]">RM {(shop.revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                                                <span className="font-bold text-xs text-purple-600 dark:text-purple-400">{storeContrib.toFixed(1)}%</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                                            <div
+                                                                className="h-full rounded-full bg-gradient-to-r from-purple-600/80 to-pink-500/80 transition-all duration-700"
+                                                                style={{ width: `${storeContrib}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Shopee Column */}
+                            <div className="space-y-3 bg-muted/10 dark:bg-muted/20 border border-border/30 p-3.5 rounded-xl">
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="flex items-center gap-1.5 font-bold text-foreground">
+                                            <span className="text-sm">🛍️</span> Shopee
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground font-mono text-[10px]">RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                            <span className="font-bold text-orange-400">{shpContrib.toFixed(1)}%</span>
+                                        </div>
+                                    </div>
+                                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                                        <div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-700" style={{ width: `${shpContrib}%` }} />
+                                    </div>
+                                </div>
+
+                                {/* Stores under Shopee */}
+                                <div className="pt-2 border-t border-border/30 space-y-2.5">
+                                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Stores (Shopee Contribution)</div>
+                                    {shopData.filter(s => s.platform === "Shopee" && (s.revenue ?? 0) > 0).length === 0 ? (
+                                        <p className="text-[11px] text-muted-foreground italic">No active stores with revenue</p>
+                                    ) : (
+                                        shopData
+                                            .filter(s => s.platform === "Shopee" && (s.revenue ?? 0) > 0)
+                                            .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
+                                            .map((shop) => {
+                                                const storeContrib = shpRevenue > 0 ? ((shop.revenue ?? 0) / shpRevenue) * 100 : 0;
+                                                return (
+                                                    <div key={shop.id} className="space-y-1 pl-1">
+                                                        <div className="flex items-center justify-between text-xs">
+                                                            <span className="font-medium text-foreground truncate max-w-[55%] flex items-center gap-1">
+                                                                <span className="text-[10px] text-orange-400">└</span>
+                                                                <span className="truncate">{shop.name}</span>
+                                                            </span>
+                                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                                <span className="text-muted-foreground font-mono text-[9px]">RM {(shop.revenue ?? 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                                                <span className="font-bold text-xs text-orange-400">{storeContrib.toFixed(1)}%</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                                            <div
+                                                                className="h-full rounded-full bg-gradient-to-r from-orange-500/80 to-amber-400/80 transition-all duration-700"
+                                                                style={{ width: `${storeContrib}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
             )}
 
             {/* ── Cancelled Orders Summary ──────── */}
@@ -1835,26 +1869,26 @@ function DashboardReportGraphic({
     })();
 
     return (
-        <div className="w-[1080px] h-[680px] p-12 bg-[#090d16] text-white font-sans flex flex-col justify-between select-none border border-slate-800">
+        <div className="light w-[1080px] h-[680px] p-12 bg-white text-slate-900 font-sans flex flex-col justify-between select-none border border-slate-200 shadow-sm">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-6">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-6">
                 <div className="flex flex-col gap-1">
-                    <span className="text-xs font-black tracking-widest text-indigo-400 uppercase">
+                    <span className="text-xs font-black tracking-widest text-indigo-600 uppercase">
                         HIM & WEROCA ANALYTICS
                     </span>
-                    <h1 className="text-3xl font-black uppercase tracking-wider text-white">
+                    <h1 className="text-3xl font-black uppercase tracking-wider text-slate-900">
                         Performance Report
                     </h1>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                    <span className="text-xs font-mono font-bold px-3.5 py-1 rounded-lg bg-slate-800 text-slate-200">
+                    <span className="text-xs font-mono font-bold px-3.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
                         {dateLabel}
                     </span>
                     <span className={cn(
                         "text-[10px] font-black px-2.5 py-0.5 rounded border uppercase tracking-wider",
-                        companyFilter === 'ALL' ? "bg-indigo-950/20 border-indigo-800 text-indigo-400"
-                        : companyFilter === 'HIMWELLNESS' ? "bg-blue-950/20 border-blue-800 text-blue-400"
-                        : "bg-purple-950/20 border-purple-800 text-purple-400"
+                        companyFilter === 'ALL' ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                        : companyFilter === 'HIMWELLNESS' ? "bg-blue-50 border-blue-200 text-blue-700"
+                        : "bg-purple-50 border-purple-200 text-purple-700"
                     )}>
                         {streamLabel}
                     </span>
@@ -1864,152 +1898,152 @@ function DashboardReportGraphic({
             {/* Row 1: Summary Cards Grid */}
             <div className="grid grid-cols-3 gap-5 my-2">
                 {/* 1. GMV Hero Card */}
-                <div className="bg-gradient-to-br from-indigo-950/40 to-slate-900/40 border border-indigo-500/20 rounded-2xl p-6 flex flex-col justify-between">
+                <div className="bg-gradient-to-br from-indigo-50/80 via-white to-slate-50 border border-indigo-200/80 rounded-2xl p-6 flex flex-col justify-between shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Total GMV</span>
+                        <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">Total GMV</span>
                         <div className="flex items-center gap-1">
-                            <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Synced</span>
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">Synced</span>
                             <TrendBadge pct={gmvPct} />
                         </div>
                     </div>
                     <div className="my-4">
-                        <span className="text-3xl font-black font-mono text-white">
+                        <span className="text-3xl font-black font-mono text-slate-900">
                             RM {totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-medium">
+                    <span className="text-[10px] text-slate-500 font-medium">
                         {totalOrders.toLocaleString()} orders · {cmpLabel}
                     </span>
                 </div>
 
                 {/* 2. Ad Spend Card */}
-                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col justify-between shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ad Spend</span>
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Ad Spend</span>
                         <div className="flex items-center gap-1">
-                            <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Synced</span>
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">Synced</span>
                             <TrendBadge pct={spendPct} />
                         </div>
                     </div>
                     <div className="my-2 grid grid-cols-2 gap-2">
                         <div>
-                            <span className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Before Tax</span>
-                            <div className="text-base font-extrabold font-mono text-white">
+                            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold">Before Tax</span>
+                            <div className="text-base font-extrabold font-mono text-slate-900">
                                 RM {totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                         </div>
                         <div>
-                            <span className="text-[9px] text-purple-400 uppercase tracking-wider font-bold">After Tax</span>
-                            <div className="text-base font-extrabold font-mono text-purple-400">
+                            <span className="text-[9px] text-purple-700 uppercase tracking-wider font-bold">After Tax</span>
+                            <div className="text-base font-extrabold font-mono text-purple-700">
                                 RM {totalSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                         </div>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-medium">{cmpLabel}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">{cmpLabel}</span>
                 </div>
 
                 {/* 3. ROAS Card */}
-                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+                <div className="bg-white border border-slate-200 rounded-2xl p-6 flex flex-col justify-between shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">ROAS</span>
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">ROAS</span>
                         <div className="flex items-center gap-1">
-                            <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Synced</span>
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">Synced</span>
                             <TrendBadge pct={roasPct} />
                         </div>
                     </div>
                     <div className="my-2 grid grid-cols-2 gap-2">
                         <div>
-                            <span className="text-[9px] text-slate-400 uppercase tracking-wider font-semibold">Before Tax</span>
-                            <div className="text-lg font-black font-mono text-white">
+                            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold">Before Tax</span>
+                            <div className="text-lg font-black font-mono text-slate-900">
                                 {totalRoas.toFixed(2)}x
                             </div>
                         </div>
                         <div>
-                            <span className="text-[9px] text-purple-400 uppercase tracking-wider font-bold">After Tax</span>
-                            <div className="text-lg font-black font-mono text-purple-400">
+                            <span className="text-[9px] text-purple-700 uppercase tracking-wider font-bold">After Tax</span>
+                            <div className="text-lg font-black font-mono text-purple-700">
                                 {totalRoasAfterTax.toFixed(2)}x
                             </div>
                         </div>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-medium">{cmpLabel}</span>
+                    <span className="text-[10px] text-slate-500 font-medium">{cmpLabel}</span>
                 </div>
             </div>
 
             {/* Row 2: Platforms Split */}
             <div className="grid grid-cols-2 gap-6 my-2">
                 {/* TikTok Shop */}
-                <div className="bg-purple-950/10 border border-purple-500/20 rounded-2xl p-6">
-                    <div className="flex items-center justify-between border-b border-purple-500/10 pb-3 mb-4">
+                <div className="bg-purple-50/50 border border-purple-200/80 rounded-2xl p-6 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-purple-200/60 pb-3 mb-4">
                         <div className="flex items-center gap-2">
                             <span className="text-xl">🎵</span>
-                            <span className="text-sm font-black text-purple-400 tracking-wide">TikTok Shop</span>
+                            <span className="text-sm font-black text-purple-700 tracking-wide">TikTok Shop</span>
                         </div>
-                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Synced</span>
+                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">Synced</span>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Total Sales</span>
-                            <span className="text-base font-black font-mono text-white">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">Total Sales</span>
+                            <span className="text-base font-black font-mono text-slate-900">
                                 RM {ttsRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Total Cost</span>
-                            <span className="text-base font-black font-mono text-white">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">Total Cost</span>
+                            <span className="text-base font-black font-mono text-slate-900">
                                 RM {ttsSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
-                            <span className="text-[9px] text-purple-400 font-mono mt-0.5">RM {ttsSpendAfterTax.toLocaleString(undefined, { maximumFractionDigits: 2 })} (Net)</span>
+                            <span className="text-[9px] text-purple-700 font-mono mt-0.5">RM {ttsSpendAfterTax.toLocaleString(undefined, { maximumFractionDigits: 2 })} (Net)</span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">ROAS</span>
-                            <span className="text-base font-black font-mono text-emerald-400">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">ROAS</span>
+                            <span className="text-base font-black font-mono text-emerald-600">
                                 {ttsRoas.toFixed(2)}x
                             </span>
-                            <span className="text-[9px] text-emerald-400 font-mono mt-0.5">{ttsRoasAfterTax.toFixed(2)}x (Net)</span>
+                            <span className="text-[9px] text-emerald-600 font-mono mt-0.5">{ttsRoasAfterTax.toFixed(2)}x (Net)</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Shopee Shop */}
-                <div className="bg-orange-950/10 border border-orange-500/20 rounded-2xl p-6">
-                    <div className="flex items-center justify-between border-b border-orange-500/10 pb-3 mb-4">
+                <div className="bg-orange-50/50 border border-orange-200/80 rounded-2xl p-6 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-orange-200/60 pb-3 mb-4">
                         <div className="flex items-center gap-2">
                             <span className="text-xl">🛍️</span>
-                            <span className="text-sm font-black text-orange-400 tracking-wide">Shopee Shop</span>
+                            <span className="text-sm font-black text-orange-700 tracking-wide">Shopee Shop</span>
                         </div>
-                        <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Synced</span>
+                        <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">Synced</span>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Total Sales</span>
-                            <span className="text-base font-black font-mono text-white">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">Total Sales</span>
+                            <span className="text-base font-black font-mono text-slate-900">
                                 RM {shpRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Total Cost</span>
-                            <span className="text-base font-black font-mono text-white">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">Total Cost</span>
+                            <span className="text-base font-black font-mono text-slate-900">
                                 RM {shpSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
-                            <span className="text-[9px] text-purple-400 font-mono mt-0.5">RM {shpSpendAfterTax.toLocaleString(undefined, { maximumFractionDigits: 2 })} (Net)</span>
+                            <span className="text-[9px] text-purple-700 font-mono mt-0.5">RM {shpSpendAfterTax.toLocaleString(undefined, { maximumFractionDigits: 2 })} (Net)</span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">ROAS</span>
-                            <span className="text-base font-black font-mono text-emerald-400">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase">ROAS</span>
+                            <span className="text-base font-black font-mono text-emerald-600">
                                 {shpRoas.toFixed(2)}x
                             </span>
-                            <span className="text-[9px] text-emerald-450 dark:text-emerald-400 font-mono mt-0.5">{shpRoasAfterTax.toFixed(2)}x (Net)</span>
+                            <span className="text-[9px] text-emerald-600 font-mono mt-0.5">{shpRoasAfterTax.toFixed(2)}x (Net)</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between border-t border-slate-800 pt-6">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            <div className="flex items-center justify-between border-t border-slate-200 pt-6">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     HIMWELLNESS & WEROCA ECOMMERCE GROUP
                 </span>
-                <span className="text-[9px] font-mono text-slate-500">
+                <span className="text-[9px] font-mono text-slate-400">
                     Generated on {new Date().toLocaleString('en-MY', {
                         timeZone: 'Asia/Kuala_Lumpur',
                         dateStyle: 'medium',
