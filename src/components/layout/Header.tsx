@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useLiteMode } from "@/context/LiteModeContext";
+import { DataFreshnessBadge } from "./DataFreshnessBadge";
 
 interface HeaderProps {
     onMenuClick?: () => void;
@@ -89,6 +90,9 @@ export function Header({ onMenuClick }: HeaderProps) {
 
             {/* Right: actions */}
             <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+
+                {/* Data Freshness & Sync Status */}
+                <DataFreshnessBadge />
 
                 {/* Lite Mode Toggle */}
                 <button

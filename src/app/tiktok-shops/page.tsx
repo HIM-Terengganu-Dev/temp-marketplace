@@ -1,13 +1,74 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { format, differenceInDays, parseISO, subDays } from "date-fns";
 import { SimpleDatePicker, DatePreset } from "@/components/dashboard/SimpleDatePicker";
 import { ShopCard } from "@/components/dashboard/ShopCard";
+import { ShopDetailModal } from "@/components/dashboard/ShopDetailModal";
+import { PerformanceLineChart, PerformanceDataPoint } from "@/components/dashboard/Charts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Store, RefreshCw } from "lucide-react";
+import { Store, RefreshCw, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
+import { ShopData } from "@/lib/mockData";
+import { useLiteMode } from "@/context/LiteModeContext";
+import { SyncIndicator } from "@/components/dashboard/SyncIndicator";
+import { cn } from "@/lib/utils";
+
+const SHOP_NAMES: Record<number, string> = {
+    1: 'Him.DrSamhan',
+    2: 'HIM CLINIC',
+    3: 'Vigomax HQ',
+    4: 'VigomaxPlus HQ'
+};
+
+const SHOP_DOT_COLORS: Record<number, string> = {
+    1: 'bg-blue-400',
+    2: 'bg-purple-400',
+    3: 'bg-emerald-400',
+    4: 'bg-pink-400'
+};
+
+function todayKL(): string {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+}
+
+function pctChange(cur: number, prev: number) {
+    if (prev === 0) return cur > 0 ? 100 : 0;
+    return ((cur - prev) / prev) * 100;
+}
+
+function comparisonLabel(preset: DatePreset) {
+    switch (preset) {
+        case "today": return "vs yesterday";
+        case "yesterday": return "vs 2 days ago";
+        case "weekly": return "vs prior 7 days";
+        case "monthly": return "vs prior month";
+        default: return "vs previous period";
+    }
+}
+
+function TrendBadge({ pct }: { pct: number }) {
+    const abs = Math.abs(pct).toFixed(1);
+    if (pct > 0.5)
+        return (
+            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                <TrendingUp className="h-3 w-3" />{abs}%
+            </span>
+        );
+    if (pct < -0.5)
+        return (
+            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-rose-600 dark:text-red-400">
+                <TrendingDown className="h-3 w-3" />{abs}%
+            </span>
+        );
+    return (
+        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-slate-500 dark:text-muted-foreground">
+            <Minus className="h-3 w-3" />{abs}%
+        </span>
+    );
+}
 
 /** Computes the previous period date range of equal duration */
 function getPreviousPeriod(startStr: string, endStr: string) {
@@ -29,33 +90,55 @@ function getPreviousPeriod(startStr: string, endStr: string) {
 
 export default function TikTokShopsPage() {
     const { data: session } = useSession();
-    // Default to Today
-    const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
-    const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+    const { isLiteMode } = useLiteMode();
+
+    // Default to Today in KL timezone
+    const [startDate, setStartDate] = useState(todayKL());
+    const [endDate, setEndDate] = useState(todayKL());
     const [activePreset, setActivePreset] = useState<DatePreset>("today");
 
-    const [shopData, setShopData] = useState<any[]>([]);
+    const [shopData, setShopData] = useState<ShopData[]>([]);
+    const [prevTotals, setPrevTotals] = useState({ gmv: 0, spend: 0, spendAfterTax: 0, roas: 0, roasAfterTax: 0, orders: 0 });
+    const [selectedShop, setSelectedShop] = useState<ShopData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [dataSource, setDataSource] = useState<string>("");
 
-    const fetchData = async () => {
+    // Performance Chart state
+    const [chartData, setChartData] = useState<PerformanceDataPoint[]>([]);
+    const [chartShopFilter, setChartShopFilter] = useState<string>("ALL");
+    const [isChartLoading, setIsChartLoading] = useState(false);
+
+    const abortControllerRef = useRef<AbortController | null>(null);
+
+    const allowedShopIndices: number[] = (session?.user as any)?.allowed_tiktok_shops || [1, 2, 3, 4];
+
+    // Fetch Shop Cards data + Totals
+    const fetchShopCards = useCallback(async (signal?: AbortSignal) => {
         if (!startDate || !endDate) return;
 
         setIsLoading(true);
         const prevRange = getPreviousPeriod(startDate, endDate);
 
         try {
-            const shopIndices = (session?.user as any)?.allowed_tiktok_shops || [1, 2, 3, 4];
-            const results = await Promise.all(shopIndices.map(async (num: number) => {
+            let prevGmvSum = 0;
+            let prevSpendSum = 0;
+            let prevSpendAfterTaxSum = 0;
+            let prevOrdersSum = 0;
+            let ds = "";
+
+            const results = await Promise.all(allowedShopIndices.map(async (num: number) => {
                 try {
                     const [res, prevRes] = await Promise.all([
-                        fetch(`/api/tiktok/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopNumber=${num}`),
-                        fetch(`/api/tiktok/shop-metrics?startDate=${prevRange.start}&endDate=${prevRange.end}&shopNumber=${num}`)
+                        fetch(`/api/tiktok/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopNumber=${num}`, { signal }),
+                        fetch(`/api/tiktok/shop-metrics?startDate=${prevRange.start}&endDate=${prevRange.end}&shopNumber=${num}`, { signal })
                     ]);
 
                     if (!res.ok) return null;
 
                     const data = await res.json();
                     const prevData = prevRes.ok ? await prevRes.json() : null;
+
+                    if (data.dataSource) ds = data.dataSource;
 
                     const gmv = data.gmv || 0;
                     const prevGmv = prevData ? (prevData.gmv || 0) : 0;
@@ -65,51 +148,186 @@ export default function TikTokShopsPage() {
                     const prevSpend = prevData ? (prevData.totalAdsSpend || 0) : 0;
                     const spendChange = prevSpend > 0 ? ((spend - prevSpend) / prevSpend) * 100 : 0;
 
+                    const spendAfterTax = data.totalCostWithTaxes || 0;
+                    const prevSpendAfterTax = prevData ? (prevData.totalCostWithTaxes || 0) : 0;
+
                     const roas = data.roasBeforeTax || 0;
                     const prevRoas = prevData ? (prevData.roasBeforeTax || 0) : 0;
                     const roasChange = prevRoas > 0 ? ((roas - prevRoas) / prevRoas) * 100 : 0;
 
+                    const orders = data.orderCount || 0;
+                    const prevOrders = prevData ? (prevData.orderCount || 0) : 0;
+
+                    prevGmvSum += prevGmv;
+                    prevSpendSum += prevSpend;
+                    prevSpendAfterTaxSum += prevSpendAfterTax;
+                    prevOrdersSum += prevOrders;
+
                     return {
                         id: `tts_${num}`,
-                        name: data.shopName || `Shop ${num}`,
+                        name: data.shopName || SHOP_NAMES[num] || `Shop ${num}`,
                         platform: 'TikTok',
                         type: 'shop',
+                        shopNumber: num,
                         gmv,
                         revenue: gmv,
-                        orders: data.orderCount || 0,
+                        orders,
                         spend,
+                        spendAfterTax,
                         roas,
+                        roasAfterTax: data.roasAfterTax || 0,
+                        dataSource: data.dataSource,
                         status: 'connected',
                         change: {
                             gmv: gmvChange,
                             spend: spendChange,
-                            roas: roasChange
+                            roas: roasChange,
+                            orders: 0
                         }
-                    };
-                } catch (e) {
+                    } as ShopData;
+                } catch (e: any) {
+                    if (e.name === 'AbortError') return null;
                     console.error(`Error fetching shop ${num}:`, e);
                     return null;
                 }
             }));
 
-            setShopData(results.filter(r => r !== null));
-        } catch (error) {
-            console.error("Error fetching shop data:", error);
+            setDataSource(ds);
+            setShopData(results.filter((r): r is ShopData => r !== null));
+            setPrevTotals({
+                gmv: prevGmvSum,
+                spend: prevSpendSum,
+                spendAfterTax: prevSpendAfterTaxSum,
+                roas: prevSpendSum > 0 ? prevGmvSum / prevSpendSum : 0,
+                roasAfterTax: prevSpendAfterTaxSum > 0 ? prevGmvSum / prevSpendAfterTaxSum : 0,
+                orders: prevOrdersSum
+            });
+        } catch (error: any) {
+            if (error.name !== 'AbortError') {
+                console.error("Error fetching shop data:", error);
+            }
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [startDate, endDate, allowedShopIndices]);
+
+    // Fetch Performance Over Time chart data
+    const fetchChartData = useCallback(async (signal?: AbortSignal) => {
+        if (!startDate || !endDate) return;
+
+        setIsChartLoading(true);
+        try {
+            const isSingleDay = differenceInDays(parseISO(endDate), parseISO(startDate)) === 0;
+
+            if (isSingleDay) {
+                // Hourly breakdown for single day
+                const hourlyBuckets: Record<string, { gmv: number; orders: number; spend: number }> = {};
+                for (let i = 0; i < 24; i++) {
+                    const label = `${String(i).padStart(2, '0')}:00`;
+                    hourlyBuckets[label] = { gmv: 0, orders: 0, spend: 0 };
+                }
+
+                const targetShops = chartShopFilter === "ALL"
+                    ? allowedShopIndices
+                    : [parseInt(chartShopFilter, 10)];
+
+                await Promise.all(
+                    targetShops.map(async (num) => {
+                        try {
+                            const res = await fetch(
+                                `/api/tiktok/shop-metrics/hourly?date=${startDate}&shopNumber=${num}`,
+                                { signal }
+                            );
+                            if (!res.ok) return;
+                            const data = await res.json();
+                            (data.hourly as { hour: string; gmv: number; orders: number; spend?: number }[] || []).forEach((h) => {
+                                if (hourlyBuckets[h.hour]) {
+                                    hourlyBuckets[h.hour].gmv += h.gmv || 0;
+                                    hourlyBuckets[h.hour].orders += h.orders || 0;
+                                    hourlyBuckets[h.hour].spend += h.spend || 0;
+                                }
+                            });
+                        } catch (e: any) {
+                            if (e.name === 'AbortError') throw e;
+                        }
+                    })
+                );
+
+                const points: PerformanceDataPoint[] = Object.entries(hourlyBuckets).map(([hour, b]) => ({
+                    label: hour,
+                    gmv: b.gmv,
+                    spend: b.spend,
+                    roas: b.spend > 0 ? b.gmv / b.spend : 0,
+                    orders: b.orders,
+                }));
+
+                setChartData(points);
+            } else {
+                // Multi-day trend from daily-trend API
+                const url = `/api/shop-metrics/daily-trend?startDate=${startDate}&endDate=${endDate}&platform=TIKTOK${chartShopFilter !== 'ALL' ? `&shopNumber=${chartShopFilter}` : ''}`;
+                const res = await fetch(url, { signal });
+                if (res.ok) {
+                    const data = await res.json();
+                    setChartData(data);
+                } else {
+                    console.error("Failed to load daily trend metrics:", res.statusText);
+                }
+            }
+        } catch (error: any) {
+            if (error.name !== 'AbortError') {
+                console.error("Error fetching chart data:", error);
+            }
+        } finally {
+            setIsChartLoading(false);
+        }
+    }, [startDate, endDate, chartShopFilter, allowedShopIndices]);
 
     const handleRefreshAll = () => {
-        fetchData();
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        fetchShopCards(controller.signal);
+        fetchChartData(controller.signal);
     };
 
     useEffect(() => {
-        fetchData();
-    }, [startDate, endDate, session]);
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
+        fetchShopCards(controller.signal);
+        fetchChartData(controller.signal);
+
+        return () => {
+            controller.abort();
+        };
+    }, [startDate, endDate, session, chartShopFilter, fetchShopCards, fetchChartData]);
+
+    const isSingleDay = differenceInDays(parseISO(endDate), parseISO(startDate)) === 0;
+    const activeShopLabel = chartShopFilter === "ALL" 
+        ? "All TikTok Shops" 
+        : SHOP_NAMES[Number(chartShopFilter)] || `Shop ${chartShopFilter}`;
+
+    // Aggregates for Top KPI Cards
+    const totalGMV = shopData.reduce((sum, s) => sum + (s.revenue ?? 0), 0);
+    const totalSpend = shopData.reduce((sum, s) => sum + (s.spend ?? 0), 0);
+    const totalSpendAfterTax = shopData.reduce((sum, s) => sum + (s.spendAfterTax ?? 0), 0);
+    const totalOrders = shopData.reduce((sum, s) => sum + (s.orders ?? 0), 0);
+    const totalRoas = totalSpend > 0 ? totalGMV / totalSpend : 0;
+    const totalRoasAfterTax = totalSpendAfterTax > 0 ? totalGMV / totalSpendAfterTax : 0;
+
+    const gmvPct = pctChange(totalGMV, prevTotals.gmv);
+    const spendPct = pctChange(totalSpend, prevTotals.spend);
+    const roasPct = pctChange(totalRoas, prevTotals.roas);
+    const cmpLabel = comparisonLabel(activePreset);
 
     return (
         <div className="space-y-4 md:space-y-6">
+            {/* Header */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-lg">
@@ -125,10 +343,10 @@ export default function TikTokShopsPage() {
                         variant="outline" 
                         size="sm" 
                         onClick={handleRefreshAll} 
-                        disabled={isLoading}
+                        disabled={isLoading || isChartLoading}
                         className="h-9 gap-2 text-xs font-semibold"
                     >
-                        <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
+                        <RefreshCw className={cn("h-3.5 w-3.5", (isLoading || isChartLoading) && "animate-spin")} />
                         Refresh
                     </Button>
                     <div className="w-full sm:w-auto flex-1 sm:flex-none">
@@ -144,9 +362,152 @@ export default function TikTokShopsPage() {
                 </div>
             </div>
 
+            {/* ── Summary Overview KPI Cards (GMV, Ad Spend, ROAS) ── */}
+            <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+                {/* 1. GMV Hero Card */}
+                <Card className="col-span-2 lg:col-span-2 bg-gradient-to-br from-primary/15 to-purple-900/10 border-primary/25 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
+                        <div className="flex flex-col gap-1">
+                            <CardTitle className="text-2xl sm:text-3xl font-extrabold uppercase tracking-wider text-primary">Total TikTok GMV</CardTitle>
+                            <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
+                        </div>
+                        {!isLoading && <TrendBadge pct={gmvPct} />}
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 space-y-3">
+                        <div className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight tabular-nums leading-none pt-2">
+                            RM {totalGMV.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-2">
+                            {totalOrders.toLocaleString()} orders · {cmpLabel}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {/* 2. Ad Spend */}
+                <Card className="col-span-2 sm:col-span-1 border-border/40 bg-card/70 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
+                        <div className="flex flex-col gap-1">
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ad Spend</CardTitle>
+                            <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
+                        </div>
+                        {!isLoading && <TrendBadge pct={spendPct} />}
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 space-y-2">
+                        <div>
+                            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Before Tax</p>
+                            <div className="text-xl font-extrabold tabular-nums">
+                                RM {totalSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <div className="pt-1.5 border-t border-border/30">
+                            <p className="text-[9px] text-purple-400 font-bold uppercase tracking-wider">After Tax</p>
+                            <div className="text-xl font-extrabold text-purple-400 tabular-nums">
+                                RM {totalSpendAfterTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <p className="text-[9px] text-muted-foreground">{cmpLabel}</p>
+                    </CardContent>
+                </Card>
+
+                {/* 3. ROAS */}
+                <Card className="col-span-2 sm:col-span-1 border-border/40 bg-card/70 backdrop-blur-sm">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
+                        <div className="flex flex-col gap-1">
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">ROAS</CardTitle>
+                            <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
+                        </div>
+                        {!isLoading && <TrendBadge pct={roasPct} />}
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 space-y-2">
+                        <div>
+                            <p className="text-[9px] text-muted-foreground uppercase tracking-wider">Before Tax</p>
+                            <div className="text-xl font-extrabold tabular-nums">
+                                {totalRoas.toFixed(2)}x
+                            </div>
+                        </div>
+                        <div className="pt-1.5 border-t border-border/30">
+                            <p className="text-[9px] text-purple-400 font-bold uppercase tracking-wider">After Tax</p>
+                            <div className="text-xl font-extrabold text-purple-400 tabular-nums">
+                                {totalRoasAfterTax.toFixed(2)}x
+                            </div>
+                        </div>
+                        <p className="text-[9px] text-muted-foreground">{cmpLabel}</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Performance Over Time Chart (hidden in Lite Mode) */}
+            {!isLiteMode && (
+                <Card className="border-border/50 bg-card/40 backdrop-blur-sm">
+                    <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 gap-3">
+                        <div>
+                            <CardTitle className="text-sm font-medium">Performance Over Time</CardTitle>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                                {isSingleDay
+                                    ? `Hourly GMV, Ad Spend & ROAS breakdown (${activeShopLabel}, GMT+8)`
+                                    : `Daily GMV, Ad Spend & ROAS (${activeShopLabel})`}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {isChartLoading && (
+                                <span className="text-[11px] text-muted-foreground animate-pulse mr-1">Loading...</span>
+                            )}
+                            <div className="flex items-center bg-muted/60 dark:bg-muted/40 p-0.5 rounded-lg border border-border/50 text-xs flex-wrap gap-0.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setChartShopFilter("ALL")}
+                                    className={cn(
+                                        "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
+                                        chartShopFilter === "ALL"
+                                            ? "bg-background text-foreground shadow-sm font-semibold"
+                                            : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    All Shops
+                                </button>
+                                {allowedShopIndices.map((num) => (
+                                    <button
+                                        key={num}
+                                        type="button"
+                                        onClick={() => setChartShopFilter(num.toString())}
+                                        className={cn(
+                                            "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1.5",
+                                            chartShopFilter === num.toString()
+                                                ? "bg-background text-foreground shadow-sm font-semibold"
+                                                : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                    >
+                                        <span className={cn("h-1.5 w-1.5 rounded-full", SHOP_DOT_COLORS[num] || "bg-cyan-400")} />
+                                        {SHOP_NAMES[num] || `Shop ${num}`}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-0 pb-4">
+                        {chartData.length > 0 ? (
+                            <PerformanceLineChart data={chartData} height={260} />
+                        ) : (
+                            <div className={cn(
+                                "flex items-center justify-center h-48 text-muted-foreground text-sm rounded-lg border border-dashed border-border/50",
+                                isChartLoading && "animate-pulse"
+                            )}>
+                                {isChartLoading ? "Fetching chart data..." : "No data available for this period"}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Shop Cards Grid */}
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2">
                 {shopData.map((shop) => (
-                    <ShopCard key={shop.id} data={shop} />
+                    <ShopCard 
+                        key={shop.id} 
+                        data={shop} 
+                        onClick={() => setSelectedShop(shop)}
+                        isLoading={isLoading}
+                    />
                 ))}
             </div>
 
@@ -156,12 +517,16 @@ export default function TikTokShopsPage() {
                 </div>
             )}
 
-
+            {/* Detail Modal */}
+            {selectedShop && (
+                <ShopDetailModal
+                    shop={selectedShop}
+                    startDate={startDate}
+                    endDate={endDate}
+                    preset={activePreset}
+                    onClose={() => setSelectedShop(null)}
+                />
+            )}
         </div>
     );
-}
-
-// Helper for class names
-function cn(...classes: any[]) {
-    return classes.filter(Boolean).join(' ');
 }

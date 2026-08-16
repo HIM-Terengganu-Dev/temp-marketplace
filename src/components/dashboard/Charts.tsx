@@ -5,6 +5,7 @@ import {
     ComposedChart,
     Area,
     Line,
+    Bar,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -74,7 +75,7 @@ export function ImpressionsPieChart({ data }: { data: { name: string; value: num
     );
 }
 
-/* ─── Performance Chart (GMV Area + ROAS Line) ──────────────────────────────── */
+/* ─── Performance Chart (GMV Bar + ROAS Line) ──────────────────────────────── */
 export interface PerformanceDataPoint {
     label: string;   // "HH:00" for hourly, "MMM DD" for daily
     gmv: number;
@@ -100,10 +101,6 @@ export function PerformanceLineChart({ data, height = 280 }: PerformanceLineChar
             <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={data} margin={{ top: 8, right: hasRoas ? 12 : 4, left: 0, bottom: 0 }}>
                     <defs>
-                        <linearGradient id="gmvGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                        </linearGradient>
                         <linearGradient id="spendGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#a855f7" stopOpacity={0.2} />
                             <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
@@ -133,7 +130,7 @@ export function PerformanceLineChart({ data, height = 280 }: PerformanceLineChar
                         <YAxis
                             yAxisId="right"
                             orientation="right"
-                            stroke="#6b7280"
+                            stroke="#22c55e"
                             fontSize={11}
                             tickLine={false}
                             axisLine={false}
@@ -164,30 +161,28 @@ export function PerformanceLineChart({ data, height = 280 }: PerformanceLineChar
                         iconType="circle"
                         iconSize={8}
                     />
-                    {/* GMV — always shown */}
-                    <Area
+                    {/* GMV — Bar */}
+                    <Bar
                         yAxisId="left"
-                        type="monotone"
                         dataKey="gmv"
                         name="GMV"
-                        stroke="#6366f1"
-                        strokeWidth={2}
-                        fill="url(#gmvGradient)"
-                        dot={false}
-                        activeDot={{ r: 5, fill: '#6366f1' }}
+                        fill="#6366f1"
+                        radius={[4, 4, 0, 0]}
+                        opacity={0.85}
+                        maxBarSize={36}
                     />
                     {/* Ad Spend — only when data exists */}
                     {hasSpend && (
-                        <Area
+                        <Line
                             yAxisId="left"
                             type="monotone"
                             dataKey="spend"
                             name="Ad Spend"
                             stroke="#a855f7"
-                            strokeWidth={1.5}
-                            fill="url(#spendGradient)"
-                            dot={false}
+                            strokeWidth={2}
                             strokeDasharray="4 2"
+                            dot={false}
+                            activeDot={{ r: 4, fill: '#a855f7' }}
                         />
                     )}
                     {/* ROAS — only when data exists */}
@@ -198,9 +193,9 @@ export function PerformanceLineChart({ data, height = 280 }: PerformanceLineChar
                             dataKey="roas"
                             name="ROAS"
                             stroke="#22c55e"
-                            strokeWidth={2}
-                            dot={false}
-                            activeDot={{ r: 5, fill: '#22c55e' }}
+                            strokeWidth={2.5}
+                            dot={{ r: 3, fill: '#22c55e' }}
+                            activeDot={{ r: 6, fill: '#22c55e' }}
                         />
                     )}
                 </ComposedChart>

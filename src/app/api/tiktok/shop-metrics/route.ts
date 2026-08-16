@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchShopGMV, fetchShopROAS, SHOPS } from '@/lib/metrics-fetcher';
 import { query } from '@/lib/db';
+import { recordSyncEvent } from '@/lib/sync-tracker';
 
 function getKLToday(): string {
     const now = new Date();
@@ -35,7 +36,7 @@ function generateDateRange(startStr: string, endStr: string): string[] {
 async function fetchAndSaveTikTok(shopNumber: number, date: string) {
     try {
         const shopConfig = SHOPS[shopNumber.toString()];
-        if (!shopConfig) return { gmv: 0, spend: 0, orders: 0 };
+        if (!shopConfig) return { gmv: 0, spend: 0, spendAfterTax: 0, orders: 0 };
 
         const [gmvData, roasData] = await Promise.all([
             fetchShopGMV(shopNumber, date, date),
@@ -63,10 +64,12 @@ async function fetchAndSaveTikTok(shopNumber: number, date: string) {
                 updated_at = CURRENT_TIMESTAMP
         `, [shopNumber, gmvData.shopName || shopConfig.name, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount]);
 
-        return { gmv, spend: spendBeforeTax, orders: orderCount };
+        recordSyncEvent('tiktok_api', 'success', { shopNumber, date }).catch(() => {});
+
+        return { gmv, spend: spendBeforeTax, spendAfterTax, orders: orderCount };
     } catch (e: any) {
         console.error(`[shop-metrics-swr] TikTok Shop ${shopNumber} failed for ${date}:`, e.message);
-        return { gmv: 0, spend: 0, orders: 0 };
+        return { gmv: 0, spend: 0, spendAfterTax: 0, orders: 0 };
     }
 }
 
@@ -116,7 +119,7 @@ export async function GET(request: Request) {
         let loadedFromDbCount = 0;
         let loadedFromApiCount = 0;
 
-        const syncFetchPromises: { date: string; promise: Promise<{ gmv: number; spend: number; orders: number }> }[] = [];
+        const syncFetchPromises: { date: string; promise: Promise<{ gmv: number; spend: number; spendAfterTax: number; orders: number }> }[] = [];
         const backgroundRevalidateThunks: { key: string; date: string; fn: () => Promise<any> }[] = [];
 
         dates.forEach(date => {
@@ -176,12 +179,10 @@ export async function GET(request: Request) {
         if (syncFetchPromises.length > 0) {
             console.log(`[tiktok-shop-metrics-swr] Synchronously fetching ${syncFetchPromises.length} cache misses/live shop metrics...`);
             const syncResults = await Promise.all(syncFetchPromises.map(p => p.promise));
-            syncFetchPromises.forEach((item, idx) => {
-                const r = syncResults[idx];
+            syncResults.forEach((r) => {
                 totalGMV += r.gmv;
                 totalSpend += r.spend;
-                // Since spendAfterTax is not returned directly, approximate or look up after tax
-                totalSpendAfterTax += r.spend * 1.16; // 8% SST + 8% WHT
+                totalSpendAfterTax += r.spendAfterTax ?? (r.spend * 1.16);
                 totalOrders += r.orders;
             });
         }

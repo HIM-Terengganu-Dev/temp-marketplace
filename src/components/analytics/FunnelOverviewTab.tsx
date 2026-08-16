@@ -13,10 +13,14 @@ import {
     Clock, 
     RefreshCw,
     AlertCircle,
+    CheckCircle2,
     Eye,
     MousePointerClick,
     Layers,
     ArrowRight,
+    ArrowDown,
+    BarChart3,
+    Table as TableIcon,
     Store
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -98,6 +102,55 @@ export function FunnelOverviewTab({
     setActivePreset
 }: FunnelOverviewTabProps) {
     const [dailyFunnelPlatform, setDailyFunnelPlatform] = React.useState<'ALL' | 'TIKTOK' | 'SHOPEE'>('ALL');
+    const [dailyFunnelViewMode, setDailyFunnelViewMode] = React.useState<'FUNNEL' | 'TABLE'>('FUNNEL');
+    const [isRechecking, setIsRechecking] = React.useState(false);
+    const [recheckStatus, setRecheckStatus] = React.useState<{
+        type: 'success' | 'error';
+        message: string;
+        details?: string;
+    } | null>(null);
+
+    const handleRecheckApi = React.useCallback(async () => {
+        setIsRechecking(true);
+        setRecheckStatus(null);
+        try {
+            const res = await fetch(
+                `/api/internal/recheck?startDate=${startDate}&endDate=${endDate}&force=false`
+            );
+            const resData = await res.json();
+            if (!res.ok) {
+                throw new Error(resData.error || `HTTP error ${res.status}`);
+            }
+
+            const syncedCount = resData.synced ?? 0;
+            const failedCount = resData.failed ?? 0;
+            const skippedCount = resData.skipped ?? 0;
+
+            if (failedCount > 0 && syncedCount === 0) {
+                setRecheckStatus({
+                    type: 'error',
+                    message: `API recheck encountered errors on ${failedCount} shop/date requests.`,
+                    details: resData.results?.filter((r: any) => r.status === 'failed').map((r: any) => `${r.shopName || 'Shop'}: ${r.error}`).join(', ')
+                });
+            } else {
+                setRecheckStatus({
+                    type: 'success',
+                    message: `Data tally refreshed with API: ${syncedCount} synced, ${skippedCount} skipped${failedCount > 0 ? `, ${failedCount} failed` : ''}.`,
+                });
+            }
+
+            if (onRetry) {
+                onRetry();
+            }
+        } catch (err: any) {
+            setRecheckStatus({
+                type: 'error',
+                message: `Failed to recheck data with API: ${err.message || 'Unknown network error'}`
+            });
+        } finally {
+            setIsRechecking(false);
+        }
+    }, [startDate, endDate, onRetry]);
 
     if (!data) {
         if (error) {
@@ -299,47 +352,125 @@ export function FunnelOverviewTab({
                             Real database customer journey tracking ad impressions, user clicks, and completed orders.
                         </CardDescription>
                     </div>
-                    {/* Platform Selector */}
-                    <div className="flex items-center gap-1.5 bg-muted/50 dark:bg-muted/80 border border-border rounded-lg p-1">
+                    {/* Controls: Platform Selector & Recheck Button */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* Platform Selector */}
+                        <div className="flex items-center gap-1.5 bg-muted/50 dark:bg-muted/80 border border-border rounded-lg p-1">
+                            <button
+                                onClick={() => setDailyFunnelPlatform("ALL")}
+                                className={cn(
+                                    "text-xs font-bold px-3 py-1.5 rounded transition-all cursor-pointer",
+                                    dailyFunnelPlatform === "ALL"
+                                        ? "bg-primary text-white shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                All Channels
+                            </button>
+                            <button
+                                onClick={() => setDailyFunnelPlatform("TIKTOK")}
+                                className={cn(
+                                    "text-xs font-bold px-3 py-1.5 rounded transition-all cursor-pointer",
+                                    dailyFunnelPlatform === "TIKTOK"
+                                        ? "bg-pink-600 text-white shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                🛒 TikTok Shop
+                            </button>
+                            <button
+                                onClick={() => setDailyFunnelPlatform("SHOPEE")}
+                                className={cn(
+                                    "text-xs font-bold px-3 py-1.5 rounded transition-all cursor-pointer",
+                                    dailyFunnelPlatform === "SHOPEE"
+                                        ? "bg-orange-600 text-white shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                🛍 Shopee
+                            </button>
+                        </div>
+
+                        {/* View Mode Switcher: Funnel View vs Table View */}
+                        <div className="flex items-center gap-1 bg-muted/50 dark:bg-muted/80 border border-border rounded-lg p-1">
+                            <button
+                                onClick={() => setDailyFunnelViewMode("FUNNEL")}
+                                className={cn(
+                                    "flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded transition-all cursor-pointer",
+                                    dailyFunnelViewMode === "FUNNEL"
+                                        ? "bg-primary text-white shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                <BarChart3 className="h-3.5 w-3.5" />
+                                Funnel View
+                            </button>
+                            <button
+                                onClick={() => setDailyFunnelViewMode("TABLE")}
+                                className={cn(
+                                    "flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded transition-all cursor-pointer",
+                                    dailyFunnelViewMode === "TABLE"
+                                        ? "bg-primary text-white shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                <TableIcon className="h-3.5 w-3.5" />
+                                Table View
+                            </button>
+                        </div>
+
+                        {/* Recheck API Button */}
                         <button
-                            onClick={() => setDailyFunnelPlatform("ALL")}
+                            onClick={handleRecheckApi}
+                            disabled={isRechecking}
                             className={cn(
-                                "text-xs font-bold px-3 py-1.5 rounded transition-all cursor-pointer",
-                                dailyFunnelPlatform === "ALL"
-                                    ? "bg-primary text-white shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground"
+                                "flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border transition-all cursor-pointer shadow-sm",
+                                isRechecking 
+                                    ? "bg-primary/20 text-primary border-primary/40 cursor-not-allowed opacity-80" 
+                                    : "bg-primary/10 hover:bg-primary/20 text-primary hover:text-primary-foreground border-primary/30 hover:border-primary/50"
                             )}
+                            title="Recheck and sync missing metrics from TikTok & Shopee APIs (skips already checked dates)"
                         >
-                            All Channels
-                        </button>
-                        <button
-                            onClick={() => setDailyFunnelPlatform("TIKTOK")}
-                            className={cn(
-                                "text-xs font-bold px-3 py-1.5 rounded transition-all cursor-pointer",
-                                dailyFunnelPlatform === "TIKTOK"
-                                    ? "bg-pink-600 text-white shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            🛒 TikTok Shop
-                        </button>
-                        <button
-                            onClick={() => setDailyFunnelPlatform("SHOPEE")}
-                            className={cn(
-                                "text-xs font-bold px-3 py-1.5 rounded transition-all cursor-pointer",
-                                dailyFunnelPlatform === "SHOPEE"
-                                    ? "bg-orange-600 text-white shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground"
-                            )}
-                        >
-                            🛍 Shopee
+                            <RefreshCw className={cn("h-3.5 w-3.5", isRechecking && "animate-spin")} />
+                            {isRechecking ? "Rechecking API..." : "Recheck with API"}
                         </button>
                     </div>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-6">
-                    {isLoading || !generatedData.dailyFunnel ? (
-                        <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">
-                            <RefreshCw className="h-5 w-5 mr-2 animate-spin" /> Loading real daily funnel metrics...
+                    {/* Recheck Feedback Banner */}
+                    {recheckStatus && (
+                        <div className={cn(
+                            "p-3 rounded-lg text-xs flex items-center justify-between border transition-all animate-in fade-in-50",
+                            recheckStatus.type === 'error'
+                                ? "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                        )}>
+                            <div className="flex items-center gap-2">
+                                {recheckStatus.type === 'error' ? (
+                                    <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
+                                ) : (
+                                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                                )}
+                                <div>
+                                    <p className="font-semibold">{recheckStatus.message}</p>
+                                    {recheckStatus.details && (
+                                        <p className="text-[11px] opacity-80 mt-0.5">{recheckStatus.details}</p>
+                                    )}
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setRecheckStatus(null)} 
+                                className="text-muted-foreground hover:text-foreground text-xs ml-2 cursor-pointer font-bold px-1.5 py-0.5 rounded hover:bg-muted/40"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    )}
+
+                    {isLoading || isRechecking || !generatedData.dailyFunnel ? (
+                        <div className="h-40 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
+                            <RefreshCw className="h-5 w-5 text-primary animate-spin" />
+                            <span>{isRechecking ? "Rechecking and syncing live metrics with API..." : "Loading real daily funnel metrics..."}</span>
                         </div>
                     ) : (() => {
                         const dfList: any[] = generatedData.dailyFunnel || [];
@@ -437,24 +568,155 @@ export function FunnelOverviewTab({
                                     </div>
                                 </div>
 
-                                {/* Daily Breakdown Table */}
-                                <div className="border border-border/40 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left text-sm border-collapse">
-                                            <thead>
-                                                <tr className="border-b border-border/30 bg-muted/30 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                                                    <th className="py-3 px-3">Date</th>
-                                                    <th className="py-3 px-3 text-right">👁 Impressions</th>
-                                                    <th className="py-3 px-3 text-right">▶️ Thruplay (6s)</th>
-                                                    <th className="py-3 px-3 text-right">🖱 Anchor Click</th>
-                                                    <th className="py-3 px-3 text-right">🛍 Orders</th>
-                                                    <th className="py-3 px-3 text-center">Thruplay %</th>
-                                                    <th className="py-3 px-3 text-center">Click Rate %</th>
-                                                    <th className="py-3 px-3 text-center">Order CVR %</th>
-                                                    <th className="py-3 px-3 text-center">Yield %</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
+                                {dailyFunnelViewMode === 'FUNNEL' ? (
+                                    <div className="space-y-6">
+                                        {/* Visual 4-Stage Stepped Funnel Pipeline (Centralized) */}
+                                        <div className="p-5 sm:p-6 rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm space-y-6">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/20">
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                                                        <Filter className="h-4 w-4 text-primary" />
+                                                        Omnichannel Conversion Funnel Pipeline
+                                                    </h4>
+                                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                                        Visual customer journey from top-of-funnel impression to bottom-of-funnel completed order.
+                                                    </p>
+                                                </div>
+                                                <Badge variant="outline" className="text-xs font-mono px-2.5 py-1 bg-primary/10 border-primary/30 text-primary self-start sm:self-auto">
+                                                    Overall Yield: {totalImpressions > 0 ? ((totalOrders / totalImpressions) * 100).toFixed(2) : "0.00"}%
+                                                </Badge>
+                                            </div>
+
+                                            {/* Symmetrically Centered Cascade Stages */}
+                                            <div className="max-w-2xl mx-auto w-full space-y-4 pt-1 flex flex-col items-center">
+                                                {/* Stage 1: Impressions */}
+                                                <div className="w-full space-y-1.5">
+                                                    <div className="flex items-center justify-between text-xs font-mono px-1">
+                                                        <span className="font-bold flex items-center gap-1.5 text-blue-400">
+                                                            <Eye className="h-3.5 w-3.5" /> 1. Impressions (Top of Funnel)
+                                                        </span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-extrabold text-foreground">{totalImpressions.toLocaleString()} views</span>
+                                                            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">100%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-full flex justify-center">
+                                                        <div className="w-full h-10 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 rounded-xl shadow-md shadow-blue-500/10 flex items-center justify-center text-xs font-bold text-white font-mono transition-all duration-500 px-4">
+                                                            {totalImpressions.toLocaleString()} Impressions (100%)
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Transition: 1 -> 2 Centered */}
+                                                <div className="flex items-center justify-center gap-2.5 py-1 px-4 bg-muted/40 border border-border/30 rounded-full text-[11px] font-mono shadow-sm">
+                                                    <span className="text-muted-foreground flex items-center gap-1">
+                                                        <ArrowDown className="h-3 w-3 text-purple-400" /> Retention:
+                                                    </span>
+                                                    <span className="font-bold text-purple-400">{blendedThruplayRate}%</span>
+                                                    <span className="text-[10px] text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded">
+                                                        -{(100 - parseFloat(blendedThruplayRate)).toFixed(2)}% drop-off
+                                                    </span>
+                                                </div>
+
+                                                {/* Stage 2: Thruplay */}
+                                                <div className="w-full space-y-1.5">
+                                                    <div className="flex items-center justify-between text-xs font-mono px-1">
+                                                        <span className="font-bold flex items-center gap-1.5 text-purple-400">
+                                                            ▶️ 2. Thruplay (6s Engaged Plays)
+                                                        </span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-extrabold text-foreground">{totalThruplay.toLocaleString()} plays</span>
+                                                            <span className="text-[10px] text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">{blendedThruplayRate}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-full flex justify-center">
+                                                        <div 
+                                                            className="h-10 bg-gradient-to-r from-purple-600 via-purple-500 to-purple-600 rounded-xl shadow-md shadow-purple-500/10 flex items-center justify-center text-xs font-bold text-white font-mono transition-all duration-500 px-4" 
+                                                            style={{ width: `${Math.max(30, Math.min(100, (totalThruplay / Math.max(totalImpressions, 1)) * 100))}%` }} 
+                                                        >
+                                                            <span className="truncate">{totalThruplay.toLocaleString()} Plays ({blendedThruplayRate}%)</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Transition: 2 -> 3 Centered */}
+                                                <div className="flex items-center justify-center gap-2.5 py-1 px-4 bg-muted/40 border border-border/30 rounded-full text-[11px] font-mono shadow-sm">
+                                                    <span className="text-muted-foreground flex items-center gap-1">
+                                                        <ArrowDown className="h-3 w-3 text-pink-400" /> Retention:
+                                                    </span>
+                                                    <span className="font-bold text-pink-400">{blendedClickRate}%</span>
+                                                    <span className="text-[10px] text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded">
+                                                        -{(100 - parseFloat(blendedClickRate)).toFixed(2)}% drop-off
+                                                    </span>
+                                                </div>
+
+                                                {/* Stage 3: Anchor Click */}
+                                                <div className="w-full space-y-1.5">
+                                                    <div className="flex items-center justify-between text-xs font-mono px-1">
+                                                        <span className="font-bold flex items-center gap-1.5 text-pink-400">
+                                                            <MousePointerClick className="h-3.5 w-3.5" /> 3. Anchor & Product Clicks
+                                                        </span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-extrabold text-foreground">{totalClicks.toLocaleString()} clicks</span>
+                                                            <span className="text-[10px] text-pink-400 bg-pink-500/10 px-1.5 py-0.5 rounded border border-pink-500/20">{blendedClickRate}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-full flex justify-center">
+                                                        <div 
+                                                            className="h-10 bg-gradient-to-r from-pink-600 via-pink-500 to-pink-600 rounded-xl shadow-md shadow-pink-500/10 flex items-center justify-center text-xs font-bold text-white font-mono transition-all duration-500 px-4" 
+                                                            style={{ width: `${Math.max(24, Math.min(100, (totalClicks / Math.max(totalImpressions, 1)) * 100))}%` }} 
+                                                        >
+                                                            <span className="truncate">{totalClicks.toLocaleString()} Clicks ({blendedClickRate}%)</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Transition: 3 -> 4 Centered */}
+                                                <div className="flex items-center justify-center gap-2.5 py-1 px-4 bg-muted/40 border border-border/30 rounded-full text-[11px] font-mono shadow-sm">
+                                                    <span className="text-muted-foreground flex items-center gap-1">
+                                                        <ArrowDown className="h-3 w-3 text-emerald-400" /> Conversion CVR:
+                                                    </span>
+                                                    <span className="font-bold text-emerald-400">{blendedCvr}%</span>
+                                                    <span className="text-[10px] text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded">
+                                                        -{(100 - parseFloat(blendedCvr)).toFixed(2)}% drop-off
+                                                    </span>
+                                                </div>
+
+                                                {/* Stage 4: Total Orders */}
+                                                <div className="w-full space-y-1.5">
+                                                    <div className="flex items-center justify-between text-xs font-mono px-1">
+                                                        <span className="font-bold flex items-center gap-1.5 text-emerald-400">
+                                                            <ShoppingBag className="h-3.5 w-3.5" /> 4. Total Completed Orders
+                                                        </span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-extrabold text-foreground">{totalOrders.toLocaleString()} orders</span>
+                                                            <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">CVR: {blendedCvr}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-full flex justify-center">
+                                                        <div 
+                                                            className="h-10 bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-600 rounded-xl shadow-md shadow-emerald-500/10 flex items-center justify-center text-xs font-bold text-white font-mono transition-all duration-500 px-4" 
+                                                            style={{ width: `${Math.max(20, Math.min(100, (totalOrders / Math.max(totalImpressions, 1)) * 100))}%` }} 
+                                                        >
+                                                            <span className="truncate">{totalOrders.toLocaleString()} Orders ({blendedCvr}%)</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Daily Funnel Breakdown Cards (Visual Funnel Per Day) */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <h5 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+                                                    Daily Funnel Performance Cards ({dfList.length} Days)
+                                                </h5>
+                                                <span className="text-[11px] text-muted-foreground">
+                                                    Showing {isTk ? "TikTok Shop" : isSp ? "Shopee" : "Omnichannel"} daily conversions
+                                                </span>
+                                            </div>
+
+                                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                                 {dfList.map((row: any, idx: number) => {
                                                     const imp = getRowImp(row);
                                                     const thruplay = getRowThruplay(row);
@@ -465,57 +727,149 @@ export function FunnelOverviewTab({
                                                     const clickRate = thruplay > 0 ? ((clicks / thruplay) * 100).toFixed(2) : (imp > 0 ? ((clicks / imp) * 100).toFixed(2) : "0.00");
                                                     const cvr = clicks > 0 ? ((orders / clicks) * 100).toFixed(2) : "0.00";
                                                     const overallCvr = imp > 0 ? ((orders / imp) * 100).toFixed(2) : "0.00";
-                                                    const impWidth = Math.max(8, Math.round((imp / maxImp) * 100));
 
                                                     return (
-                                                        <tr key={idx} className="border-b border-border/10 hover:bg-muted/15 transition-colors text-xs">
-                                                            <td className="py-2.5 px-3 font-bold text-foreground font-mono whitespace-nowrap">
-                                                                {row.date}
-                                                            </td>
-                                                            <td className="py-2.5 px-3 text-right">
-                                                                <div className="flex flex-col items-end gap-0.5">
-                                                                    <span className="font-mono font-semibold text-foreground">{imp.toLocaleString()}</span>
-                                                                    <div className="w-16 bg-muted/40 h-1 rounded-full overflow-hidden">
-                                                                        <div className={cn("h-full rounded-full", isTk ? "bg-pink-500" : isSp ? "bg-orange-500" : "bg-blue-500")} style={{ width: `${impWidth}%` }} />
+                                                        <div key={idx} className="p-3.5 rounded-xl border border-border/40 bg-card/70 hover:border-primary/40 transition-all space-y-3">
+                                                            <div className="flex items-center justify-between pb-2 border-b border-border/20">
+                                                                <span className="font-bold text-xs font-mono text-foreground">{row.date}</span>
+                                                                <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">
+                                                                    Yield: {overallCvr}%
+                                                                </span>
+                                                            </div>
+
+                                                            {/* 4 Stage Stacked Mini-Bars */}
+                                                            <div className="space-y-2 text-[11px] font-mono">
+                                                                {/* Imp */}
+                                                                <div className="space-y-0.5">
+                                                                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                                                                        <span>👁 Imp</span>
+                                                                        <span className="font-bold text-foreground">{imp.toLocaleString()}</span>
+                                                                    </div>
+                                                                    <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
+                                                                        <div className="h-full bg-blue-500 rounded-full" style={{ width: '100%' }} />
                                                                     </div>
                                                                 </div>
-                                                            </td>
-                                                            <td className="py-2.5 px-3 text-right font-mono font-semibold text-purple-400">
-                                                                {thruplay.toLocaleString()}
-                                                            </td>
-                                                            <td className="py-2.5 px-3 text-right font-mono font-semibold text-foreground/90">
-                                                                {clicks.toLocaleString()}
-                                                            </td>
-                                                            <td className="py-2.5 px-3 text-right font-mono font-extrabold text-foreground">
-                                                                {orders.toLocaleString()}
-                                                            </td>
-                                                            <td className="py-2.5 px-3 text-center">
-                                                                <span className="inline-flex items-center text-[10px] font-extrabold font-mono text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
-                                                                    {thruplayRate}%
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-2.5 px-3 text-center">
-                                                                <span className="inline-flex items-center text-[10px] font-extrabold font-mono text-pink-400 bg-pink-500/10 px-1.5 py-0.5 rounded border border-pink-500/20">
-                                                                    {clickRate}%
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-2.5 px-3 text-center">
-                                                                <span className="inline-flex items-center text-[10px] font-extrabold font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                                                                    {cvr}%
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-2.5 px-3 text-center">
-                                                                <span className="text-[10px] font-bold font-mono text-indigo-400">
-                                                                    {overallCvr}%
-                                                                </span>
-                                                            </td>
-                                                        </tr>
+
+                                                                {/* Thruplay */}
+                                                                <div className="space-y-0.5">
+                                                                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                                                                        <span>▶️ Thruplay</span>
+                                                                        <span className="font-bold text-purple-400">{thruplay.toLocaleString()} ({thruplayRate}%)</span>
+                                                                    </div>
+                                                                    <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
+                                                                        <div className="h-full bg-purple-500 rounded-full" style={{ width: `${Math.max(5, Math.min(100, (thruplay / Math.max(imp, 1)) * 100))}%` }} />
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Clicks */}
+                                                                <div className="space-y-0.5">
+                                                                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                                                                        <span>🖱 Clicks</span>
+                                                                        <span className="font-bold text-pink-400">{clicks.toLocaleString()} ({clickRate}%)</span>
+                                                                    </div>
+                                                                    <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
+                                                                        <div className="h-full bg-pink-500 rounded-full" style={{ width: `${Math.max(5, Math.min(100, (clicks / Math.max(imp, 1)) * 100))}%` }} />
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Orders */}
+                                                                <div className="space-y-0.5">
+                                                                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                                                                        <span>🛍 Orders</span>
+                                                                        <span className="font-bold text-emerald-400">{orders.toLocaleString()} (CVR: {cvr}%)</span>
+                                                                    </div>
+                                                                    <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
+                                                                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.max(5, Math.min(100, (orders / Math.max(imp, 1)) * 100))}%` }} />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     );
                                                 })}
-                                            </tbody>
-                                        </table>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    /* Daily Breakdown Table */
+                                    <div className="border border-border/40 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left text-sm border-collapse">
+                                                <thead>
+                                                    <tr className="border-b border-border/30 bg-muted/30 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                                                        <th className="py-3 px-3">Date</th>
+                                                        <th className="py-3 px-3 text-right">👁 Impressions</th>
+                                                        <th className="py-3 px-3 text-right">▶️ Thruplay (6s)</th>
+                                                        <th className="py-3 px-3 text-right">🖱 Anchor Click</th>
+                                                        <th className="py-3 px-3 text-right">🛍 Orders</th>
+                                                        <th className="py-3 px-3 text-center">Thruplay %</th>
+                                                        <th className="py-3 px-3 text-center">Click Rate %</th>
+                                                        <th className="py-3 px-3 text-center">Order CVR %</th>
+                                                        <th className="py-3 px-3 text-center">Yield %</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {dfList.map((row: any, idx: number) => {
+                                                        const imp = getRowImp(row);
+                                                        const thruplay = getRowThruplay(row);
+                                                        const clicks = getRowClicks(row);
+                                                        const orders = getRowOrders(row);
+
+                                                        const thruplayRate = imp > 0 ? ((thruplay / imp) * 100).toFixed(2) : "0.00";
+                                                        const clickRate = thruplay > 0 ? ((clicks / thruplay) * 100).toFixed(2) : (imp > 0 ? ((clicks / imp) * 100).toFixed(2) : "0.00");
+                                                        const cvr = clicks > 0 ? ((orders / clicks) * 100).toFixed(2) : "0.00";
+                                                        const overallCvr = imp > 0 ? ((orders / imp) * 100).toFixed(2) : "0.00";
+                                                        const impWidth = Math.max(8, Math.round((imp / maxImp) * 100));
+
+                                                        return (
+                                                            <tr key={idx} className="border-b border-border/10 hover:bg-muted/15 transition-colors text-xs">
+                                                                <td className="py-2.5 px-3 font-bold text-foreground font-mono whitespace-nowrap">
+                                                                    {row.date}
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-right">
+                                                                    <div className="flex flex-col items-end gap-0.5">
+                                                                        <span className="font-mono font-semibold text-foreground">{imp.toLocaleString()}</span>
+                                                                        <div className="w-16 bg-muted/40 h-1 rounded-full overflow-hidden">
+                                                                            <div className={cn("h-full rounded-full", isTk ? "bg-pink-500" : isSp ? "bg-orange-500" : "bg-blue-500")} style={{ width: `${impWidth}%` }} />
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-right font-mono font-semibold text-purple-400">
+                                                                    {thruplay.toLocaleString()}
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-right font-mono font-semibold text-foreground/90">
+                                                                    {clicks.toLocaleString()}
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-right font-mono font-extrabold text-foreground">
+                                                                    {orders.toLocaleString()}
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-center">
+                                                                    <span className="inline-flex items-center text-[10px] font-extrabold font-mono text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20">
+                                                                        {thruplayRate}%
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-center">
+                                                                    <span className="inline-flex items-center text-[10px] font-extrabold font-mono text-pink-400 bg-pink-500/10 px-1.5 py-0.5 rounded border border-pink-500/20">
+                                                                        {clickRate}%
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-center">
+                                                                    <span className="inline-flex items-center text-[10px] font-extrabold font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                                                                        {cvr}%
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-center">
+                                                                    <span className="text-[10px] font-bold font-mono text-indigo-400">
+                                                                        {overallCvr}%
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         );
                     })()}

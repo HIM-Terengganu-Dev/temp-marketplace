@@ -113,6 +113,21 @@ function TrendBadge({ pct }: { pct: number }) {
     );
 }
 
+/* ── Client-side In-Memory Cache (SWR Pattern) ──────────────────────────── */
+
+interface DashboardCacheEntry {
+    timestamp: number;
+    shopData: ShopData[];
+    livestreams: any[];
+    cogsData: { totalCogs: number; source: 'dynamic' | 'fallback'; mappedSkuCount: number };
+    prevTotals: { gmv: number; spend: number; roas: number };
+    chartData: PerformanceDataPoint[];
+    dataSource: string;
+}
+
+const dashboardMemoryCache = new Map<string, DashboardCacheEntry>();
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
 /* ── component ──────────────────────────────────────────────────────────── */
 
 export default function Home() {
@@ -138,6 +153,7 @@ export default function Home() {
 
     // Chart data (daily/hourly breakdown for the aggregate performance chart)
     const [chartData, setChartData] = useState<PerformanceDataPoint[]>([]);
+    const [chartPlatform, setChartPlatform] = useState<"ALL" | "TIKTOK" | "SHOPEE">("ALL");
 
     // Selected shop for the detail modal
     const [selectedShop, setSelectedShop] = useState<ShopData | null>(null);
@@ -227,7 +243,7 @@ export default function Home() {
     } | null>(null);
 
     // fetchData ref — used by handleRecheck which is declared before fetchData
-    const fetchDataRef = useRef<() => void>(() => {});
+    const fetchDataRef = useRef<(bypassCache?: boolean) => void>(() => {});
 
     const handleRecheck = useCallback(async () => {
         setIsRechecking(true);
@@ -246,9 +262,9 @@ export default function Home() {
                 failed: data.failed ?? 0,
                 results: data.results || [],
             });
-            // If anything was synced, refresh the dashboard data
+            // If anything was synced, refresh the dashboard data bypassing cache
             if ((data.synced ?? 0) > 0) {
-                fetchDataRef.current();
+                fetchDataRef.current(true);
             }
         } catch (e: any) {
             setRecheckLog({
@@ -308,8 +324,26 @@ export default function Home() {
     // Track the active fetch request to prevent race conditions
     const abortControllerRef = useRef<AbortController | null>(null);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (bypassCache = false) => {
         if (!startDate || !endDate) return;
+
+        const cacheKey = `${startDate}_${endDate}_${activePreset}_${companyFilter}_${chartPlatform}`;
+        const cached = dashboardMemoryCache.get(cacheKey);
+        const hasValidCache = !bypassCache && cached && (Date.now() - cached.timestamp < CACHE_TTL_MS);
+
+        if (hasValidCache) {
+            // Instant 0ms render from memory cache
+            setShopData(cached.shopData);
+            setLivestreams(cached.livestreams);
+            setCogsData(cached.cogsData);
+            setPrevTotals(cached.prevTotals);
+            setChartData(cached.chartData);
+            setDataSource(cached.dataSource);
+            setIsLoading(false);
+            // Silent background revalidation proceeds below
+        } else {
+            setIsLoading(true);
+        }
 
         // Cancel previous request if still in flight
         if (abortControllerRef.current) {
@@ -320,59 +354,100 @@ export default function Home() {
         abortControllerRef.current = controller;
         const signal = controller.signal;
 
-        setIsLoading(true);
         try {
             const shopIndices =
                 (session?.user as { allowed_tiktok_shops?: number[] } | undefined)
                     ?.allowed_tiktok_shops ?? [1, 2, 3, 4];
 
-            // 1. Fetch connected Shopee shops dynamically
-            let shopeeShops: { id: number; shop_id: string; shop_name: string }[] = [];
-            try {
-                const shopeeShopsRes = await fetch('/api/shopee/shops', { signal });
-                if (shopeeShopsRes.ok) {
-                    const allShopeeShops = await shopeeShopsRes.json();
-                    const allowedShopeeShops = (session?.user as any)?.allowed_shopee_shops || [];
-                    const hasRealIds = allowedShopeeShops.some((id: number) => id > 1000);
-                    shopeeShops = allShopeeShops.filter((s: any) => {
-                        if (!hasRealIds) return true;
-                        return allowedShopeeShops.includes(parseInt(s.shop_id, 10));
-                    });
-                }
-            } catch (e: any) {
-                if (e.name === 'AbortError') throw e;
-                console.error("Failed to load Shopee shops", e);
-            }
-
             const prevRange = getPreviousRange(startDate, endDate, activePreset);
+            const daySpan = differenceInDays(parseISO(endDate), parseISO(startDate)) + 1;
+            const isOneDay = daySpan === 1;
 
-            // 2. Fetch current and previous metrics for TikTok and Shopee shops in parallel
-            let curResults: any[] = [];
-            let prevResults: any[] = [];
-            let shopeeCurResults: any[] = [];
-            let shopeePrevResults: any[] = [];
-
-            try {
-                const summaryRes = await fetch(
-                    `/api/shop-metrics/summary?startDate=${startDate}&endDate=${endDate}&prevStartDate=${prevRange.start}&prevEndDate=${prevRange.end}`,
-                    { signal }
-                );
-                if (summaryRes.ok) {
-                    const data = await summaryRes.json();
-                    curResults = data.curResults || [];
-                    prevResults = data.prevResults || [];
-                    shopeeCurResults = data.shopeeCurResults || [];
-                    shopeePrevResults = data.shopeePrevResults || [];
-                } else {
-                    console.error("Failed to load metrics summary:", summaryRes.statusText);
+            // 1. Kick off parallel queries concurrently
+            const shopeeShopsPromise = (async () => {
+                try {
+                    const res = await fetch('/api/shopee/shops', { signal });
+                    if (res.ok) {
+                        const allShopeeShops = await res.json();
+                        const allowedShopeeShops = (session?.user as any)?.allowed_shopee_shops || [];
+                        const hasRealIds = allowedShopeeShops.some((id: number) => id > 1000);
+                        return allShopeeShops.filter((s: any) => {
+                            if (!hasRealIds) return true;
+                            return allowedShopeeShops.includes(parseInt(s.shop_id, 10));
+                        });
+                    }
+                } catch (e: any) {
+                    if (e.name === 'AbortError') throw e;
+                    console.error("Failed to load Shopee shops", e);
                 }
-            } catch (e: any) {
-                if (e.name === 'AbortError') throw e;
-                console.error("Error fetching metrics summary:", e);
-            }
+                return [];
+            })();
+
+            const summaryPromise = (async () => {
+                try {
+                    const res = await fetch(
+                        `/api/shop-metrics/summary?startDate=${startDate}&endDate=${endDate}&prevStartDate=${prevRange.start}&prevEndDate=${prevRange.end}`,
+                        { signal }
+                    );
+                    if (res.ok) {
+                        return await res.json();
+                    } else {
+                        console.error("Failed to load metrics summary:", res.statusText);
+                    }
+                } catch (e: any) {
+                    if (e.name === 'AbortError') throw e;
+                    console.error("Error fetching metrics summary:", e);
+                }
+                return null;
+            })();
+
+            const livePromise = (async () => {
+                try {
+                    const liveRes = await fetch(
+                        `/api/tiktok/livestream-performance?startDate=${startDate}&endDate=${endDate}&company=${companyFilter}`,
+                        { signal }
+                    );
+                    if (liveRes.ok) {
+                        const liveJson = await liveRes.json();
+                        return liveJson.leaderboard || [];
+                    }
+                } catch (e: any) {
+                    if (e.name === 'AbortError') throw e;
+                    console.error("Failed to load livestream performance", e);
+                }
+                return [];
+            })();
+
+            const dailyTrendPromise = !isOneDay
+                ? (async () => {
+                    try {
+                        const res = await fetch(
+                            `/api/shop-metrics/daily-trend?startDate=${startDate}&endDate=${endDate}&company=${companyFilter}&platform=${chartPlatform}`,
+                            { signal }
+                        );
+                        if (res.ok) {
+                            return await res.json();
+                        } else {
+                            console.error("Failed to load daily trend metrics:", res.statusText);
+                        }
+                    } catch (e: any) {
+                        if (e.name === 'AbortError') throw e;
+                        console.error("Error fetching daily trend metrics:", e);
+                    }
+                    return [];
+                })()
+                : Promise.resolve(null);
+
+            // 2. Await Shopee shops & Summary metrics in parallel
+            const [shopeeShops, summaryData] = await Promise.all([shopeeShopsPromise, summaryPromise]);
+
+            const curResults = summaryData?.curResults || [];
+            const prevResults = summaryData?.prevResults || [];
+            const shopeeCurResults = summaryData?.shopeeCurResults || [];
+            const shopeePrevResults = summaryData?.shopeePrevResults || [];
 
             // 3. Build previous period aggregate totals across all channels (filtered by company)
-            const filteredPrevResults = prevResults.filter((_, idx) => {
+            const filteredPrevResults = prevResults.filter((_: any, idx: number) => {
                 const num = shopIndices[idx];
                 if (companyFilter === "ALL") return true;
                 if (companyFilter === "HIMWELLNESS") return num === 1 || num === 2;
@@ -387,12 +462,12 @@ export default function Home() {
                 return !isHim;
             });
 
-            const prevGmv = filteredPrevResults.reduce((s, d) => s + (d?.gmv ?? 0), 0) +
-                            filteredShopeePrevResults.reduce((s, d) => s + (d?.gmv ?? 0), 0);
-            const prevSpend = filteredPrevResults.reduce((s, d) => s + (d?.totalAdsSpend ?? 0), 0) +
-                              filteredShopeePrevResults.reduce((s, d) => s + (d?.totalAdsSpend ?? 0), 0);
+            const prevGmv = filteredPrevResults.reduce((s: number, d: any) => s + (d?.gmv ?? 0), 0) +
+                            filteredShopeePrevResults.reduce((s: number, d: any) => s + (d?.gmv ?? 0), 0);
+            const prevSpend = filteredPrevResults.reduce((s: number, d: any) => s + (d?.totalAdsSpend ?? 0), 0) +
+                              filteredShopeePrevResults.reduce((s: number, d: any) => s + (d?.totalAdsSpend ?? 0), 0);
             const prevTotalRoas = prevSpend > 0 ? prevGmv / prevSpend : 0;
-            setPrevTotals({ gmv: prevGmv, spend: prevSpend, roas: prevTotalRoas });
+            const newPrevTotals = { gmv: prevGmv, spend: prevSpend, roas: prevTotalRoas };
 
             // 4. Build TikTok shop cards
             const ttsShops: ShopData[] = shopIndices
@@ -440,7 +515,7 @@ export default function Home() {
 
             // 5. Build Shopee shop cards
             const shpShops: ShopData[] = shopeeShops
-                .map((shop) => {
+                .map((shop: any) => {
                     const d = shopeeCurResults.find((r: any) => String(r.shopId) === String(shop.shop_id));
                     const p = shopeePrevResults.find((r: any) => String(r.shopId) === String(shop.shop_id));
                     if (!d) {
@@ -492,7 +567,7 @@ export default function Home() {
                     };
                     return shopItem;
                 })
-                .filter((s): s is ShopData => s !== null);
+                .filter((s: any): s is ShopData => s !== null);
 
             const shops = [...ttsShops, ...shpShops];
 
@@ -514,148 +589,146 @@ export default function Home() {
                 });
             }
 
-            // Update range ref for next cycle
             prevRangeRef.current = { startDate, endDate, activePreset };
 
-            setShopData(shops);
-
             const sources = [...new Set(shops.map((s) => s.dataSource || "live_api"))];
-            setDataSource(sources.join("+"));
+            const newDataSource = sources.join("+");
 
-            // ── Fetch COGS total for selected date range ────────────────────
+            // 6. Launch COGS and Hourly Charts concurrently
             const totalGMVForCogs = shops.reduce((s, d) => s + (d.revenue ?? 0), 0);
-            try {
-                const cogsRes = await fetch(
-                    `/api/cogs/total?startDate=${startDate}&endDate=${endDate}&gmv=${totalGMVForCogs}`,
-                    { signal }
-                );
-                if (cogsRes.ok) {
-                    const cogsJson = await cogsRes.json();
-                    setCogsData({
-                        totalCogs: cogsJson.totalCogs || 0,
-                        source: cogsJson.source || 'fallback',
-                        mappedSkuCount: cogsJson.mappedSkuCount || 0,
-                    });
-                }
-            } catch (e: any) {
-                if (e.name === 'AbortError') throw e;
-                // Fallback silently
-                setCogsData({ totalCogs: totalGMVForCogs * 0.28, source: 'fallback', mappedSkuCount: 0 });
-            }
-
-            // ── Build aggregate chart data ──────────────────────────────────
-            const daySpan = differenceInDays(parseISO(endDate), parseISO(startDate)) + 1;
-            const isOneDay = daySpan === 1;
-
-            if (isOneDay) {
-                // Single day → hourly chart (summed across all shops)
-                const hourlyBuckets: { [h: string]: { gmv: number; orders: number; spend: number } } = {};
-                for (let i = 0; i < 24; i++) {
-                    hourlyBuckets[`${String(i).padStart(2, "0")}:00`] = { gmv: 0, orders: 0, spend: 0 };
-                }
-
-                // Filter shops by company for hourly fetching
-                const hourlyShopIndices = shopIndices.filter(num => {
-                    if (companyFilter === "ALL") return true;
-                    if (companyFilter === "HIMWELLNESS") return num === 1 || num === 2;
-                    return num === 3 || num === 4;
-                });
-                const hourlyShopeeShops = shopeeShops.filter(shop => {
-                    if (companyFilter === "ALL") return true;
-                    const name = shop.shop_name?.toLowerCase() || '';
-                    const isHim = name.includes("him.drsamhan") || name.includes("himclinic");
-                    if (companyFilter === "HIMWELLNESS") return isHim;
-                    return !isHim;
-                });
-
-                // Fetch TikTok hourly and Shopee hourly in parallel
-                await Promise.all([
-                    Promise.all(
-                        hourlyShopIndices.map(async (num) => {
-                            try {
-                                const res = await fetch(
-                                    `/api/tiktok/shop-metrics/hourly?date=${startDate}&shopNumber=${num}`,
-                                    { signal }
-                                );
-                                if (!res.ok) return;
-                                const data = await res.json();
-                                (data.hourly as { hour: string; gmv: number; orders: number }[]).forEach((h) => {
-                                    if (hourlyBuckets[h.hour]) {
-                                        hourlyBuckets[h.hour].gmv += h.gmv;
-                                        hourlyBuckets[h.hour].orders += h.orders;
-                                    }
-                                });
-                            } catch (e: any) {
-                                if (e.name === 'AbortError') throw e;
-                                /* ignore other errors */
-                            }
-                        })
-                    ),
-                    Promise.all(
-                        hourlyShopeeShops.map(async (shop) => {
-                            try {
-                                const res = await fetch(
-                                    `/api/shopee/shop-metrics/hourly?date=${startDate}&shopId=${shop.shop_id}`,
-                                    { signal }
-                                );
-                                if (!res.ok) return;
-                                const data = await res.json();
-                                (data.hourly as { hour: string; gmv: number; orders: number; spend: number }[]).forEach((h) => {
-                                    if (hourlyBuckets[h.hour]) {
-                                        hourlyBuckets[h.hour].gmv += h.gmv;
-                                        hourlyBuckets[h.hour].orders += h.orders;
-                                        hourlyBuckets[h.hour].spend += h.spend || 0;
-                                    }
-                                });
-                            } catch (e: any) {
-                                if (e.name === 'AbortError') throw e;
-                                /* ignore other errors */
-                            }
-                        })
-                    )
-                ]);
-
-                const points: PerformanceDataPoint[] = Object.entries(hourlyBuckets).map(([hour, b]) => ({
-                    label: hour,
-                    gmv: b.gmv,
-                    spend: b.spend,
-                    roas: b.spend > 0 ? b.gmv / b.spend : 0,
-                    orders: b.orders,
-                }));
-
-                setChartData(points);
-            } else {
-                // Multi-day → daily chart (using single consolidated endpoint)
+            const cogsPromise = (async () => {
                 try {
-                    const res = await fetch(`/api/shop-metrics/daily-trend?startDate=${startDate}&endDate=${endDate}&company=${companyFilter}`, { signal });
-                    if (res.ok) {
-                        const data = await res.json();
-                        setChartData(data);
-                    } else {
-                        console.error("Failed to load daily trend metrics:", res.statusText);
+                    const cogsRes = await fetch(
+                        `/api/cogs/total?startDate=${startDate}&endDate=${endDate}&gmv=${totalGMVForCogs}`,
+                        { signal }
+                    );
+                    if (cogsRes.ok) {
+                        const cogsJson = await cogsRes.json();
+                        return {
+                            totalCogs: cogsJson.totalCogs || 0,
+                            source: cogsJson.source || 'fallback',
+                            mappedSkuCount: cogsJson.mappedSkuCount || 0,
+                        };
                     }
                 } catch (e: any) {
                     if (e.name === 'AbortError') throw e;
-                    console.error("Error fetching daily trend metrics:", e);
                 }
-            }
+                return { totalCogs: totalGMVForCogs * 0.28, source: 'fallback' as const, mappedSkuCount: 0 };
+            })();
 
-            // ── Fetch livestream leaderboard ──────────────────────────────
-            try {
-                const liveRes = await fetch(`/api/tiktok/livestream-performance?startDate=${startDate}&endDate=${endDate}&company=${companyFilter}`, { signal });
-                if (liveRes.ok) {
-                    const liveJson = await liveRes.json();
-                    setLivestreams(liveJson.leaderboard || []);
-                }
-            } catch (e: any) {
-                if (e.name === 'AbortError') throw e;
-                console.error("Failed to load livestream performance", e);
-            }
+            const hourlyPromise = isOneDay
+                ? (async () => {
+                    const hourlyBuckets: { [h: string]: { gmv: number; orders: number; spend: number } } = {};
+                    for (let i = 0; i < 24; i++) {
+                        hourlyBuckets[`${String(i).padStart(2, "0")}:00`] = { gmv: 0, orders: 0, spend: 0 };
+                    }
 
+                    const hourlyShopIndices = shopIndices.filter(num => {
+                        if (companyFilter === "ALL") return true;
+                        if (companyFilter === "HIMWELLNESS") return num === 1 || num === 2;
+                        return num === 3 || num === 4;
+                    });
+                    const hourlyShopeeShops = shopeeShops.filter((shop: any) => {
+                        if (companyFilter === "ALL") return true;
+                        const name = shop.shop_name?.toLowerCase() || '';
+                        const isHim = name.includes("him.drsamhan") || name.includes("himclinic");
+                        if (companyFilter === "HIMWELLNESS") return isHim;
+                        return !isHim;
+                    });
+
+                    const shouldFetchTikTok = chartPlatform === "ALL" || chartPlatform === "TIKTOK";
+                    const shouldFetchShopee = chartPlatform === "ALL" || chartPlatform === "SHOPEE";
+
+                    await Promise.all([
+                        shouldFetchTikTok
+                            ? Promise.all(
+                                hourlyShopIndices.map(async (num) => {
+                                    try {
+                                        const res = await fetch(
+                                            `/api/tiktok/shop-metrics/hourly?date=${startDate}&shopNumber=${num}`,
+                                            { signal }
+                                        );
+                                        if (!res.ok) return;
+                                        const data = await res.json();
+                                        (data.hourly as { hour: string; gmv: number; orders: number; spend?: number }[]).forEach((h) => {
+                                            if (hourlyBuckets[h.hour]) {
+                                                hourlyBuckets[h.hour].gmv += h.gmv;
+                                                hourlyBuckets[h.hour].orders += h.orders;
+                                                hourlyBuckets[h.hour].spend += h.spend || 0;
+                                            }
+                                        });
+                                    } catch (e: any) {
+                                        if (e.name === 'AbortError') throw e;
+                                    }
+                                })
+                            )
+                            : Promise.resolve(),
+                        shouldFetchShopee
+                            ? Promise.all(
+                                hourlyShopeeShops.map(async (shop: any) => {
+                                    try {
+                                        const res = await fetch(
+                                            `/api/shopee/shop-metrics/hourly?date=${startDate}&shopId=${shop.shop_id}`,
+                                            { signal }
+                                        );
+                                        if (!res.ok) return;
+                                        const data = await res.json();
+                                        (data.hourly as { hour: string; gmv: number; orders: number; spend: number }[]).forEach((h) => {
+                                            if (hourlyBuckets[h.hour]) {
+                                                hourlyBuckets[h.hour].gmv += h.gmv;
+                                                hourlyBuckets[h.hour].orders += h.orders;
+                                                hourlyBuckets[h.hour].spend += h.spend || 0;
+                                            }
+                                        });
+                                    } catch (e: any) {
+                                        if (e.name === 'AbortError') throw e;
+                                    }
+                                })
+                            )
+                            : Promise.resolve()
+                    ]);
+
+                    return Object.entries(hourlyBuckets).map(([hour, b]) => ({
+                        label: hour,
+                        gmv: b.gmv,
+                        spend: b.spend,
+                        roas: b.spend > 0 ? b.gmv / b.spend : 0,
+                        orders: b.orders,
+                    }));
+                })()
+                : Promise.resolve(null);
+
+            // 7. Resolve all secondary data in parallel
+            const [cogsResult, liveLeaderboard, dailyTrendResult, hourlyResult] = await Promise.all([
+                cogsPromise,
+                livePromise,
+                dailyTrendPromise,
+                hourlyPromise
+            ]);
+
+            const finalChartData = isOneDay ? (hourlyResult || []) : (dailyTrendResult || []);
+
+            // 8. Commit state updates
+            setPrevTotals(newPrevTotals);
+            setShopData(shops);
+            setDataSource(newDataSource);
+            setCogsData(cogsResult);
+            setLivestreams(liveLeaderboard);
+            setChartData(finalChartData);
+
+            // 9. Update in-memory cache
+            dashboardMemoryCache.set(cacheKey, {
+                timestamp: Date.now(),
+                shopData: shops,
+                livestreams: liveLeaderboard,
+                cogsData: cogsResult,
+                prevTotals: newPrevTotals,
+                chartData: finalChartData,
+                dataSource: newDataSource,
+            });
 
         } catch (error: any) {
             if (error.name === 'AbortError') {
-                // Silent catch abort
                 return;
             }
             console.error("Error fetching shop data:", error);
@@ -665,7 +738,7 @@ export default function Home() {
                 setLastUpdated(Date.now());
             }
         }
-    }, [startDate, endDate, activePreset, session, companyFilter]);
+    }, [startDate, endDate, activePreset, session, companyFilter, chartPlatform, triggerNotification]);
 
     // Keep fetchDataRef current so handleRecheck can call it without a forward-reference issue
     useEffect(() => {
@@ -674,7 +747,7 @@ export default function Home() {
 
 
     const handleManualRefresh = useCallback(() => {
-        fetchData();
+        fetchData(true);
         if (activePreset === "today") {
             setLastUpdated(Date.now());
         }
@@ -1484,18 +1557,60 @@ export default function Home() {
             {/* Performance Chart (hidden in Lite Mode) */}
             {!isLiteMode && (
             <Card className="border-border/50 bg-card/40 backdrop-blur-sm">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 gap-3">
                     <div>
                         <CardTitle className="text-sm font-medium">Performance Over Time</CardTitle>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
                             {differenceInDays(parseISO(endDate), parseISO(startDate)) === 0
-                                ? "Hourly GMV breakdown for today (GMT+8)"
-                                : "Daily GMV, Ad Spend & ROAS across all shops"}
+                                ? `Hourly GMV breakdown (${chartPlatform === 'ALL' ? 'All Platforms' : chartPlatform === 'TIKTOK' ? 'TikTok Shop' : 'Shopee'}, GMT+8)`
+                                : `Daily GMV, Ad Spend & ROAS (${chartPlatform === 'ALL' ? 'All Platforms' : chartPlatform === 'TIKTOK' ? 'TikTok Shop' : 'Shopee'})`}
                         </p>
                     </div>
-                    {isLoading && (
-                        <span className="text-[11px] text-muted-foreground animate-pulse">Loading chart...</span>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {isLoading && (
+                            <span className="text-[11px] text-muted-foreground animate-pulse mr-1">Loading...</span>
+                        )}
+                        <div className="flex items-center bg-muted/60 dark:bg-muted/40 p-0.5 rounded-lg border border-border/50 text-xs">
+                            <button
+                                type="button"
+                                onClick={() => setChartPlatform("ALL")}
+                                className={cn(
+                                    "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all",
+                                    chartPlatform === "ALL"
+                                        ? "bg-background text-foreground shadow-sm font-semibold"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                All
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setChartPlatform("TIKTOK")}
+                                className={cn(
+                                    "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1.5",
+                                    chartPlatform === "TIKTOK"
+                                        ? "bg-background text-foreground shadow-sm font-semibold"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />
+                                TikTok
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setChartPlatform("SHOPEE")}
+                                className={cn(
+                                    "px-2.5 py-1 rounded-md text-[11px] font-medium transition-all flex items-center gap-1.5",
+                                    chartPlatform === "SHOPEE"
+                                        ? "bg-background text-foreground shadow-sm font-semibold"
+                                        : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                                Shopee
+                            </button>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent className="pt-0 pb-4">
                     {chartData.length > 0 ? (

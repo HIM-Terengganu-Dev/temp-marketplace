@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { fetchShopGMV, fetchShopROAS, SHOPS } from '@/lib/metrics-fetcher';
 import { fetchShopeeShopPerformance, getConnectedShopeeShops } from '@/lib/shopee-client';
 import { query, pool } from '@/lib/db';
+import { recordSyncEvent } from '@/lib/sync-tracker';
 
 /**
  * Vercel Cron Job — Nightly Metrics Sync
@@ -62,13 +63,18 @@ async function syncTikTokShop(shopNumber: number, date: string) {
         const cancelledOrderCount = cancelledOrders.length;
         const cancelledGMV = cancelledOrders.reduce((sum: number, o: any) => sum + o.gmv, 0);
 
+        const impressions = roasData.impressions || 0;
+        const thruplay = roasData.thruplay || 0;
+        const visitors = roasData.clicks || 0;
+
         await query(`
             INSERT INTO credentials.daily_shop_metrics (
                 shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax,
                 roas_before_tax, roas_after_tax, order_count,
                 live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend,
-                cancelled_order_count, cancelled_gmv, updated_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, CURRENT_TIMESTAMP)
+                cancelled_order_count, cancelled_gmv,
+                impressions, thruplay, visitors, updated_at
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_number, date) DO UPDATE SET
                 shop_name             = EXCLUDED.shop_name,
                 gmv                   = EXCLUDED.gmv,
@@ -82,11 +88,15 @@ async function syncTikTokShop(shopNumber: number, date: string) {
                 manual_campaign_spend = EXCLUDED.manual_campaign_spend,
                 cancelled_order_count = EXCLUDED.cancelled_order_count,
                 cancelled_gmv         = EXCLUDED.cancelled_gmv,
+                impressions           = EXCLUDED.impressions,
+                thruplay              = EXCLUDED.thruplay,
+                visitors              = EXCLUDED.visitors,
                 updated_at            = CURRENT_TIMESTAMP
         `, [shopNumber, gmvData.shopName || shopConfig.name, date,
             gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax,
             orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend,
-            cancelledOrderCount, cancelledGMV]);
+            cancelledOrderCount, cancelledGMV,
+            impressions, thruplay, visitors]);
 
         return { success: true, shopName: gmvData.shopName || shopConfig.name, gmv, orders: orderCount, spend: spendBeforeTax };
     } catch (e: any) {
@@ -246,6 +256,15 @@ export async function GET(request: Request) {
         shopee: { success: shpOk, failed: shpFail },
         results,
     };
+
+    if (ttsOk > 0) {
+        recordSyncEvent('tiktok_api', 'success', { count: ttsOk, date }).catch(() => {});
+        recordSyncEvent('tiktok_db', 'success', { count: ttsOk, date }).catch(() => {});
+    }
+    if (shpOk > 0) {
+        recordSyncEvent('shopee_api', 'success', { count: shpOk, date }).catch(() => {});
+        recordSyncEvent('shopee_db', 'success', { count: shpOk, date }).catch(() => {});
+    }
 
     console.log(`[cron/nightly-sync] Done — TikTok: ${ttsOk}✅ ${ttsFail}❌  Shopee: ${shpOk}✅ ${shpFail}❌`);
 

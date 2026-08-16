@@ -115,6 +115,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
     const company = searchParams.get('company') || 'ALL';
+    const platform = (searchParams.get('platform') || 'ALL').toUpperCase();
+    const shopNumberParam = searchParams.get('shopNumber');
     const endDate = searchParams.get('endDate');
 
     if (!startDate || !endDate) {
@@ -265,9 +267,15 @@ export async function GET(request: Request) {
 
             const dayMetrics = shopDataMap[date];
             Object.entries(dayMetrics).forEach(([key, m]) => {
+                if (platform === 'TIKTOK' && !key.startsWith('tiktok_')) return;
+                if (platform === 'SHOPEE' && !key.startsWith('shopee_')) return;
+
                 let shopCompany = 'WEROCA';
                 if (key.startsWith('tiktok_')) {
                     const shopNumber = parseInt(key.split('_')[2], 10);
+                    if (shopNumberParam && shopNumberParam !== 'ALL' && shopNumber !== parseInt(shopNumberParam, 10)) {
+                        return;
+                    }
                     if (shopNumber === 1 || shopNumber === 2) {
                         shopCompany = 'HIMWELLNESS';
                     }

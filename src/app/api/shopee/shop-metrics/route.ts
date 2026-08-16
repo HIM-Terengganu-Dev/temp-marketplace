@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchShopeeShopPerformance } from '@/lib/shopee-client';
 import { query } from '@/lib/db';
+import { recordSyncEvent } from '@/lib/sync-tracker';
 
 function getKLToday(): string {
     const now = new Date();
@@ -69,6 +70,8 @@ async function fetchAndSaveShopee(shopId: number, date: string) {
                 ad_sales = EXCLUDED.ad_sales,
                 updated_at = CURRENT_TIMESTAMP
         `, [shopId, data.shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend, adImpressions, adClicks, adOrders, adSales]);
+
+        recordSyncEvent('shopee_api', 'success', { shopId, date }).catch(() => {});
 
         return { 
             gmv, 

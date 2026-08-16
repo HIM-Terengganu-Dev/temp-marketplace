@@ -80,19 +80,18 @@ async function recheckAndSyncShop(
 
         const row = existing.rows[0];
         const wasPresent = !!row;
-        const hasNonZeroData = row && (parseFloat(row.gmv) > 0 || parseInt(row.order_count, 10) > 0);
 
-        // Skip only if data exists, is non-zero, and forceResync is false
-        if (wasPresent && hasNonZeroData && !forceResync) {
+        // Skip if data already exists and forceResync is false
+        if (wasPresent && !forceResync) {
             return {
                 shopNumber,
                 shopName,
                 date,
                 status: 'skipped',
                 wasPresent: true,
-                gmv: parseFloat(row.gmv),
-                orders: parseInt(row.order_count, 10),
-                spend: parseFloat(row.spend_before_tax),
+                gmv: parseFloat(row.gmv || '0'),
+                orders: parseInt(row.order_count || '0', 10),
+                spend: parseFloat(row.spend_before_tax || '0'),
             };
         }
 
@@ -116,13 +115,18 @@ async function recheckAndSyncShop(
         const cancelledOrderCount = cancelledOrders.length;
         const cancelledGMV = cancelledOrders.reduce((sum: number, o: any) => sum + o.gmv, 0);
 
+        const impressions = roasData.impressions || 0;
+        const thruplay = roasData.thruplay || 0;
+        const visitors = roasData.clicks || 0;
+
         await query(`
             INSERT INTO credentials.daily_shop_metrics (
                 shop_number, shop_name, date, gmv, spend_before_tax, spend_after_tax,
                 roas_before_tax, roas_after_tax, order_count,
                 live_gmv_max_cost, product_gmv_max_cost, manual_campaign_spend,
-                cancelled_order_count, cancelled_gmv, updated_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14, CURRENT_TIMESTAMP)
+                cancelled_order_count, cancelled_gmv,
+                impressions, thruplay, visitors, updated_at
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_number, date) DO UPDATE SET
                 shop_name             = EXCLUDED.shop_name,
                 gmv                   = EXCLUDED.gmv,
@@ -136,11 +140,15 @@ async function recheckAndSyncShop(
                 manual_campaign_spend = EXCLUDED.manual_campaign_spend,
                 cancelled_order_count = EXCLUDED.cancelled_order_count,
                 cancelled_gmv         = EXCLUDED.cancelled_gmv,
+                impressions           = EXCLUDED.impressions,
+                thruplay              = EXCLUDED.thruplay,
+                visitors              = EXCLUDED.visitors,
                 updated_at            = CURRENT_TIMESTAMP
         `, [shopNumber, gmvData.shopName || shopName, date,
             gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax,
             orderCount, liveGMVMaxCost, productGMVMaxCost, manualCampaignSpend,
-            cancelledOrderCount, cancelledGMV]);
+            cancelledOrderCount, cancelledGMV,
+            impressions, thruplay, visitors]);
 
         return {
             shopNumber,
@@ -188,19 +196,17 @@ async function recheckAndSyncShopeeShop(
             shopName = row.shop_name;
         }
 
-        const hasNonZeroData = row && (parseFloat(row.gmv) > 0 || parseInt(row.order_count, 10) > 0);
-
-        // Skip only if data exists, is non-zero, and forceResync is false
-        if (wasPresent && hasNonZeroData && !forceResync) {
+        // Skip if data already exists and forceResync is false
+        if (wasPresent && !forceResync) {
             return {
                 shopNumber: shopId,
                 shopName,
                 date,
                 status: 'skipped',
                 wasPresent: true,
-                gmv: parseFloat(row.gmv),
-                orders: parseInt(row.order_count, 10),
-                spend: parseFloat(row.spend_before_tax),
+                gmv: parseFloat(row.gmv || '0'),
+                orders: parseInt(row.order_count || '0', 10),
+                spend: parseFloat(row.spend_before_tax || '0'),
             };
         }
 
@@ -234,6 +240,11 @@ async function recheckAndSyncShopeeShop(
         let orderCount = 0;
         let ordersList: any[] = [];
 
+        let adImpressions = 0;
+        let adClicks = 0;
+        let adOrders = 0;
+        let adSales = 0;
+
         if (hasCachedSpend) {
             // Spend is cached; only query Shopee Order API to get latest GMV / cancellations
             const accessToken = await getValidShopeeToken(shopId);
@@ -242,6 +253,10 @@ async function recheckAndSyncShopeeShop(
             orderCount = orderData.orderCount || 0;
             shopName = orderData.shopName || shopName;
             ordersList = orderData.orders || [];
+            adImpressions = parseFloat(row.ad_impressions || '0');
+            adClicks = parseFloat(row.ad_clicks || '0');
+            adOrders = parseInt(row.ad_orders || '0', 10);
+            adSales = parseFloat(row.ad_sales || '0');
         } else {
             // Fetch everything dynamically
             const data = await fetchShopeeShopPerformance(shopId, date, date);
@@ -253,6 +268,10 @@ async function recheckAndSyncShopeeShop(
             shopeeCpcSpend = data.shopeeCpcSpend || 0;
             shopName = data.shopName || shopName;
             ordersList = data.orders || [];
+            adImpressions = data.adImpressions || 0;
+            adClicks = data.adClicks || 0;
+            adOrders = data.adOrders || 0;
+            adSales = data.adSales || 0;
         }
 
         const cancelledOrders = ordersList.filter((o: any) => o.status === 'CANCELLED');
@@ -264,9 +283,10 @@ async function recheckAndSyncShopeeShop(
 
         await query(`
             INSERT INTO credentials.daily_shopee_metrics (
-                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend, cancelled_order_count, cancelled_gmv, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CURRENT_TIMESTAMP)
+                shop_id, shop_name, date, gmv, spend_before_tax, spend_after_tax, roas_before_tax, roas_after_tax, order_count, cpas_spend, shopee_cpc_spend, cancelled_order_count, cancelled_gmv, ad_impressions, ad_clicks, ad_orders, ad_sales, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP)
             ON CONFLICT (shop_id, date) DO UPDATE SET
+                shop_name = EXCLUDED.shop_name,
                 gmv = EXCLUDED.gmv,
                 spend_before_tax = EXCLUDED.spend_before_tax,
                 spend_after_tax = EXCLUDED.spend_after_tax,
@@ -277,8 +297,12 @@ async function recheckAndSyncShopeeShop(
                 shopee_cpc_spend = EXCLUDED.shopee_cpc_spend,
                 cancelled_order_count = EXCLUDED.cancelled_order_count,
                 cancelled_gmv = EXCLUDED.cancelled_gmv,
+                ad_impressions = EXCLUDED.ad_impressions,
+                ad_clicks = EXCLUDED.ad_clicks,
+                ad_orders = EXCLUDED.ad_orders,
+                ad_sales = EXCLUDED.ad_sales,
                 updated_at = CURRENT_TIMESTAMP
-        `, [shopId, shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend, cancelledOrderCount, cancelledGMV]);
+        `, [shopId, shopName, date, gmv, spendBeforeTax, spendAfterTax, roasBeforeTax, roasAfterTax, orderCount, cpasSpend, shopeeCpcSpend, cancelledOrderCount, cancelledGMV, adImpressions, adClicks, adOrders, adSales]);
 
         return {
             shopNumber: shopId,
@@ -305,24 +329,18 @@ async function recheckAndSyncShopeeShop(
     }
 }
 
-export async function GET(request: Request) {
-    // ── Security ──────────────────────────────────────────────────────────────
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
-
-    if (!cronSecret) {
-        return NextResponse.json({ error: 'Server misconfiguration: CRON_SECRET not set' }, { status: 500 });
-    }
-    if (authHeader !== `Bearer ${cronSecret}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // ── Parameters ───────────────────────────────────────────────────────────
-    const { searchParams } = new URL(request.url);
+export async function performRecheckSync({
+    startDate: customStartDate,
+    endDate: customEndDate,
+    forceResync = false
+}: {
+    startDate?: string;
+    endDate?: string;
+    forceResync?: boolean;
+}) {
     const today = getKLToday();
-    const startDate = searchParams.get('startDate') || subDaysKL(today, 2);
-    const endDate   = searchParams.get('endDate')   || today;
-    const forceResync = searchParams.get('force') === 'true';
+    const startDate = customStartDate || subDaysKL(today, 2);
+    const endDate   = customEndDate   || today;
 
     const dates = generateDateRange(startDate, endDate);
     const shopNumbers = [1, 2, 3, 4];
@@ -373,7 +391,6 @@ export async function GET(request: Request) {
     }
 
     const finishedAt = new Date().toISOString();
-    const hasFailures = failed > 0;
     const shopsCountPerDay = shopNumbers.length + shopeeShops.length;
 
     const summary = {
@@ -392,5 +409,33 @@ export async function GET(request: Request) {
     };
 
     console.log(`[cron/recheck] Done — synced: ${synced}  skipped: ${skipped}  failed: ${failed}`);
-    return NextResponse.json(summary, { status: hasFailures ? 207 : 200 });
+    return summary;
+}
+
+export async function GET(request: Request) {
+    // ── Security ──────────────────────────────────────────────────────────────
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret) {
+        return NextResponse.json({ error: 'Server misconfiguration: CRON_SECRET not set' }, { status: 500 });
+    }
+    if (authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // ── Parameters ───────────────────────────────────────────────────────────
+    const { searchParams } = new URL(request.url);
+    const startDate = searchParams.get('startDate') || undefined;
+    const endDate   = searchParams.get('endDate')   || undefined;
+    const forceResync = searchParams.get('force') === 'true';
+
+    try {
+        const summary = await performRecheckSync({ startDate, endDate, forceResync });
+        const hasFailures = summary.failed > 0;
+        return NextResponse.json(summary, { status: hasFailures ? 207 : 200 });
+    } catch (e: any) {
+        console.error('[cron/recheck] Execution failed:', e.message);
+        return NextResponse.json({ error: e.message }, { status: 500 });
+    }
 }

@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { fetchShopGMV, SHOPS } from '@/lib/metrics-fetcher';
+import { fetchShopGMV, fetchShopROAS, SHOPS } from '@/lib/metrics-fetcher';
 
 /**
- * Hourly GMV breakdown endpoint.
- * Fetches all orders for a single day and buckets them into hourly slots (GMT+8).
+ * Hourly GMV & Spend breakdown endpoint.
+ * Fetches all orders and ads spend for a single day and buckets them into hourly slots (GMT+8).
  * Always calls the live TikTok API — no DB cache for hourly data.
  *
  * Query params:
@@ -25,16 +25,24 @@ export async function GET(request: Request) {
     }
 
     try {
-        // Fetch all orders for the day
-        const gmvData = await fetchShopGMV(shopNumber, date, date);
+        // Fetch orders and ads spend for the day in parallel
+        const [gmvData, roasData] = await Promise.all([
+            fetchShopGMV(shopNumber, date, date),
+            fetchShopROAS(shopNumber, date, date).catch((err) => {
+                console.warn(`[shop-metrics/hourly] Failed to fetch ROAS for shop ${shopNumber}:`, err.message);
+                return { totalAdsSpend: 0, totalCostWithTaxes: 0 };
+            })
+        ]);
 
         // Build 24 hourly buckets (00:00 – 23:00) in GMT+8
-        const hourlyBuckets: { hour: string; gmv: number; orders: number }[] = Array.from(
+        const hourlyBuckets: { hour: string; gmv: number; orders: number; spend: number; roas: number }[] = Array.from(
             { length: 24 },
             (_, i) => ({
                 hour: `${String(i).padStart(2, '0')}:00`,
                 gmv: 0,
                 orders: 0,
+                spend: 0,
+                roas: 0,
             })
         );
 
@@ -49,8 +57,25 @@ export async function GET(request: Request) {
             );
             const hourIndex = gmt8Date.getHours();
 
-            hourlyBuckets[hourIndex].gmv += order.gmv || 0;
-            hourlyBuckets[hourIndex].orders += 1;
+            if (hourIndex >= 0 && hourIndex < 24) {
+                hourlyBuckets[hourIndex].gmv += order.gmv || 0;
+                hourlyBuckets[hourIndex].orders += 1;
+            }
+        }
+
+        const totalGMV = gmvData.gmv || 0;
+        const totalSpend = roasData.totalAdsSpend || 0;
+
+        // Distribute spend and calculate ROAS per hourly slot
+        for (let i = 0; i < 24; i++) {
+            let hourSpend = 0;
+            if (totalGMV > 0) {
+                hourSpend = (hourlyBuckets[i].gmv / totalGMV) * totalSpend;
+            } else if (totalSpend > 0) {
+                hourSpend = totalSpend / 24;
+            }
+            hourlyBuckets[i].spend = hourSpend;
+            hourlyBuckets[i].roas = hourSpend > 0 ? hourlyBuckets[i].gmv / hourSpend : 0;
         }
 
         const shopConfig = SHOPS[shopNumberParam];
@@ -62,6 +87,7 @@ export async function GET(request: Request) {
             hourly: hourlyBuckets,
             totalGMV: gmvData.gmv,
             totalOrders: gmvData.orderCount,
+            totalSpend,
         });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';
