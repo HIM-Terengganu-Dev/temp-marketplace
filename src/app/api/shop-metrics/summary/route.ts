@@ -294,7 +294,7 @@ async function fetchTikTokShopMetricsSWR(
         const key = `tiktok_${date}_${shopNumber}`;
 
         if (isToday) {
-            // Serve cache if fresh (< 5 min), else revalidate in background
+            // Serve cache if fresh (< 5 min), else re-fetch live synchronously
             const FIVE_MIN_MS = 5 * 60 * 1000;
             const isCacheFresh = cached?.updatedAt && (Date.now() - new Date(cached.updatedAt).getTime()) < FIVE_MIN_MS;
 
@@ -306,20 +306,6 @@ async function fetchTikTokShopMetricsSWR(
                 totalCancelledGMV += cached.cancelledGMV || 0;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
-            } else if (cached) {
-                totalGMV += cached.gmv;
-                totalSpend += cached.spend;
-                totalOrders += cached.orders;
-                totalCancelledOrders += cached.cancelledOrderCount || 0;
-                totalCancelledGMV += cached.cancelledGMV || 0;
-                if (cached.shopName) shopName = cached.shopName;
-                loadedFromDbCount++;
-                // Queue background revalidation
-                backgroundThunks.push({
-                    key,
-                    date,
-                    fn: () => fetchAndSaveTikTok(shopNumber, date)
-                });
             } else {
                 syncPromises.push(fetchAndSaveTikTok(shopNumber, date));
                 loadedFromApiCount++;
@@ -480,7 +466,7 @@ async function fetchShopeeShopMetricsSWR(
         const key = `shopee_${date}_${shopId}`;
 
         if (isToday) {
-            // Serve cache if fresh (< 5 min), else revalidate in background
+            // Serve cache if fresh (< 5 min), else re-fetch live synchronously
             const FIVE_MIN_MS = 5 * 60 * 1000;
             const isCacheFresh = cached?.updatedAt && (Date.now() - new Date(cached.updatedAt).getTime()) < FIVE_MIN_MS;
 
@@ -494,22 +480,6 @@ async function fetchShopeeShopMetricsSWR(
                 totalCancelledGMV += cached.cancelledGMV || 0;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
-            } else if (cached) {
-                totalGMV += cached.gmv;
-                totalSpend += cached.spend;
-                totalOrders += cached.orders;
-                totalCpasSpend += cached.cpasSpend;
-                totalShopeeCpcSpend += cached.shopeeCpcSpend;
-                totalCancelledOrders += cached.cancelledOrderCount || 0;
-                totalCancelledGMV += cached.cancelledGMV || 0;
-                if (cached.shopName) shopName = cached.shopName;
-                loadedFromDbCount++;
-                // Queue background revalidation
-                backgroundThunks.push({
-                    key,
-                    date,
-                    fn: () => fetchAndSaveShopee(shopId, date)
-                });
             } else {
                 syncPromises.push(fetchAndSaveShopee(shopId, date));
                 loadedFromApiCount++;

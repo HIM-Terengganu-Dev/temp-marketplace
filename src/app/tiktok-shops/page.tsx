@@ -39,6 +39,37 @@ function pctChange(cur: number, prev: number) {
     return ((cur - prev) / prev) * 100;
 }
 
+function getPreviousRange(
+    startDate: string,
+    endDate: string,
+    preset: DatePreset
+): { start: string; end: string } {
+    const start = parseISO(startDate);
+    const end = parseISO(endDate);
+    const daySpan = differenceInDays(end, start) + 1;
+
+    switch (preset) {
+        case "today":
+        case "yesterday": {
+            const d = subDays(start, 1);
+            return { start: format(d, "yyyy-MM-dd"), end: format(d, "yyyy-MM-dd") };
+        }
+        case "weekly":
+            return {
+                start: format(subDays(start, 7), "yyyy-MM-dd"),
+                end: format(subDays(start, 1), "yyyy-MM-dd"),
+            };
+        case "monthly":
+        default: {
+            const prevStart = subDays(start, daySpan);
+            return {
+                start: format(prevStart, "yyyy-MM-dd"),
+                end: format(subDays(start, 1), "yyyy-MM-dd"),
+            };
+        }
+    }
+}
+
 function comparisonLabel(preset: DatePreset) {
     switch (preset) {
         case "today": return "vs yesterday";
@@ -70,24 +101,6 @@ function TrendBadge({ pct }: { pct: number }) {
     );
 }
 
-/** Computes the previous period date range of equal duration */
-function getPreviousPeriod(startStr: string, endStr: string) {
-    const start = new Date(startStr);
-    const end = new Date(endStr);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-    const prevStart = new Date(start);
-    prevStart.setDate(start.getDate() - diffDays);
-    const prevEnd = new Date(start);
-    prevEnd.setDate(start.getDate() - 1);
-
-    return {
-        start: prevStart.toISOString().split('T')[0],
-        end: prevEnd.toISOString().split('T')[0]
-    };
-}
-
 export default function TikTokShopsPage() {
     const { data: session } = useSession();
     const { isLiteMode } = useLiteMode();
@@ -96,6 +109,7 @@ export default function TikTokShopsPage() {
     const [startDate, setStartDate] = useState(todayKL());
     const [endDate, setEndDate] = useState(todayKL());
     const [activePreset, setActivePreset] = useState<DatePreset>("today");
+    const [companyFilter, setCompanyFilter] = useState<"ALL" | "HIMWELLNESS" | "WEROCA">("ALL");
 
     const [shopData, setShopData] = useState<ShopData[]>([]);
     const [prevTotals, setPrevTotals] = useState({ gmv: 0, spend: 0, spendAfterTax: 0, roas: 0, roasAfterTax: 0, orders: 0 });
@@ -112,88 +126,90 @@ export default function TikTokShopsPage() {
 
     const allowedShopIndices: number[] = (session?.user as any)?.allowed_tiktok_shops || [1, 2, 3, 4];
 
-    // Fetch Shop Cards data + Totals
+    // Fetch Shop Cards data + Totals from unified summary endpoint
     const fetchShopCards = useCallback(async (signal?: AbortSignal) => {
         if (!startDate || !endDate) return;
 
         setIsLoading(true);
-        const prevRange = getPreviousPeriod(startDate, endDate);
+        const prevRange = getPreviousRange(startDate, endDate, activePreset);
 
         try {
-            let prevGmvSum = 0;
-            let prevSpendSum = 0;
-            let prevSpendAfterTaxSum = 0;
-            let prevOrdersSum = 0;
-            let ds = "";
+            const res = await fetch(
+                `/api/shop-metrics/summary?startDate=${startDate}&endDate=${endDate}&prevStartDate=${prevRange.start}&prevEndDate=${prevRange.end}`,
+                { signal }
+            );
 
-            const results = await Promise.all(allowedShopIndices.map(async (num: number) => {
-                try {
-                    const [res, prevRes] = await Promise.all([
-                        fetch(`/api/tiktok/shop-metrics?startDate=${startDate}&endDate=${endDate}&shopNumber=${num}`, { signal }),
-                        fetch(`/api/tiktok/shop-metrics?startDate=${prevRange.start}&endDate=${prevRange.end}&shopNumber=${num}`, { signal })
-                    ]);
+            if (!res.ok) {
+                console.error("Failed to load shop metrics summary:", res.statusText);
+                return;
+            }
 
-                    if (!res.ok) return null;
+            const data = await res.json();
+            const curResults = data?.curResults || [];
+            const prevResults = data?.prevResults || [];
 
-                    const data = await res.json();
-                    const prevData = prevRes.ok ? await prevRes.json() : null;
+            let ds = "live_api";
+            if (curResults.some((r: any) => r.dataSource?.includes("database"))) {
+                ds = curResults.some((r: any) => r.dataSource?.includes("api")) ? "database+api" : "database";
+            }
 
-                    if (data.dataSource) ds = data.dataSource;
+            const ttsShops: ShopData[] = allowedShopIndices
+                .map((num) => {
+                    const d = curResults.find((r: any) => r.shopNumber === num);
+                    const p = prevResults.find((r: any) => r.shopNumber === num);
+                    if (!d) return null;
 
-                    const gmv = data.gmv || 0;
-                    const prevGmv = prevData ? (prevData.gmv || 0) : 0;
-                    const gmvChange = prevGmv > 0 ? ((gmv - prevGmv) / prevGmv) * 100 : 0;
+                    // Filter by company
+                    if (companyFilter === "HIMWELLNESS" && num !== 1 && num !== 2) return null;
+                    if (companyFilter === "WEROCA" && num !== 3 && num !== 4) return null;
 
-                    const spend = data.totalAdsSpend || 0;
-                    const prevSpend = prevData ? (prevData.totalAdsSpend || 0) : 0;
-                    const spendChange = prevSpend > 0 ? ((spend - prevSpend) / prevSpend) * 100 : 0;
+                    const curRoas = d.roasBeforeTax ?? 0;
+                    const prevRoas = p && (p.totalAdsSpend ?? 0) > 0
+                        ? (p.gmv ?? 0) / (p.totalAdsSpend ?? 1)
+                        : 0;
 
-                    const spendAfterTax = data.totalCostWithTaxes || 0;
-                    const prevSpendAfterTax = prevData ? (prevData.totalCostWithTaxes || 0) : 0;
-
-                    const roas = data.roasBeforeTax || 0;
-                    const prevRoas = prevData ? (prevData.roasBeforeTax || 0) : 0;
-                    const roasChange = prevRoas > 0 ? ((roas - prevRoas) / prevRoas) * 100 : 0;
-
-                    const orders = data.orderCount || 0;
-                    const prevOrders = prevData ? (prevData.orderCount || 0) : 0;
-
-                    prevGmvSum += prevGmv;
-                    prevSpendSum += prevSpend;
-                    prevSpendAfterTaxSum += prevSpendAfterTax;
-                    prevOrdersSum += prevOrders;
-
-                    return {
+                    const shop: ShopData = {
                         id: `tts_${num}`,
-                        name: data.shopName || SHOP_NAMES[num] || `Shop ${num}`,
+                        name: d.shopName || SHOP_NAMES[num] || `Shop ${num}`,
                         platform: 'TikTok',
                         type: 'shop',
                         shopNumber: num,
-                        gmv,
-                        revenue: gmv,
-                        orders,
-                        spend,
-                        spendAfterTax,
-                        roas,
-                        roasAfterTax: data.roasAfterTax || 0,
-                        dataSource: data.dataSource,
+                        gmv: d.gmv ?? 0,
+                        revenue: d.gmv ?? 0,
+                        orders: d.orderCount ?? 0,
+                        cancelledOrderCount: d.cancelledOrderCount ?? 0,
+                        cancelledGMV: d.cancelledGMV ?? 0,
+                        spend: d.totalAdsSpend ?? 0,
+                        spendAfterTax: d.totalCostWithTaxes ?? 0,
+                        roas: curRoas,
+                        roasAfterTax: d.roasAfterTax ?? 0,
+                        dataSource: d.dataSource ?? "live_api",
                         status: 'connected',
                         change: {
-                            gmv: gmvChange,
-                            spend: spendChange,
-                            roas: roasChange,
-                            orders: 0
+                            gmv: pctChange(d.gmv ?? 0, p?.gmv ?? 0),
+                            spend: pctChange(d.totalAdsSpend ?? 0, p?.totalAdsSpend ?? 0),
+                            roas: pctChange(curRoas, prevRoas),
+                            orders: pctChange(d.orderCount ?? 0, p?.orderCount ?? 0)
                         }
-                    } as ShopData;
-                } catch (e: any) {
-                    if (e.name === 'AbortError') return null;
-                    console.error(`Error fetching shop ${num}:`, e);
-                    return null;
-                }
-            }));
+                    };
+                    return shop;
+                })
+                .filter((s): s is ShopData => s !== null);
+
+            const filteredPrev = prevResults.filter((p: any) => {
+                if (!allowedShopIndices.includes(p.shopNumber)) return false;
+                if (companyFilter === "HIMWELLNESS" && p.shopNumber !== 1 && p.shopNumber !== 2) return false;
+                if (companyFilter === "WEROCA" && p.shopNumber !== 3 && p.shopNumber !== 4) return false;
+                return true;
+            });
+
+            const prevGmvSum = filteredPrev.reduce((s: number, d: any) => s + (d?.gmv ?? 0), 0);
+            const prevSpendSum = filteredPrev.reduce((s: number, d: any) => s + (d?.totalAdsSpend ?? 0), 0);
+            const prevSpendAfterTaxSum = filteredPrev.reduce((s: number, d: any) => s + (d?.totalCostWithTaxes ?? 0), 0);
+            const prevOrdersSum = filteredPrev.reduce((s: number, d: any) => s + (d?.orderCount ?? 0), 0);
 
             setDataSource(ds);
-            setShopData(results.filter((r): r is ShopData => r !== null));
+            setShopData(ttsShops);
             setPrevTotals({
                 gmv: prevGmvSum,
                 spend: prevSpendSum,
@@ -209,7 +225,7 @@ export default function TikTokShopsPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [startDate, endDate, allowedShopIndices]);
+    }, [startDate, endDate, activePreset, allowedShopIndices, companyFilter]);
 
     // Fetch Performance Over Time chart data
     const fetchChartData = useCallback(async (signal?: AbortSignal) => {
@@ -227,9 +243,15 @@ export default function TikTokShopsPage() {
                     hourlyBuckets[label] = { gmv: 0, orders: 0, spend: 0 };
                 }
 
-                const targetShops = chartShopFilter === "ALL"
+                let targetShops = chartShopFilter === "ALL"
                     ? allowedShopIndices
                     : [parseInt(chartShopFilter, 10)];
+
+                if (companyFilter === "HIMWELLNESS") {
+                    targetShops = targetShops.filter(n => n === 1 || n === 2);
+                } else if (companyFilter === "WEROCA") {
+                    targetShops = targetShops.filter(n => n === 3 || n === 4);
+                }
 
                 await Promise.all(
                     targetShops.map(async (num) => {
@@ -264,7 +286,7 @@ export default function TikTokShopsPage() {
                 setChartData(points);
             } else {
                 // Multi-day trend from daily-trend API
-                const url = `/api/shop-metrics/daily-trend?startDate=${startDate}&endDate=${endDate}&platform=TIKTOK${chartShopFilter !== 'ALL' ? `&shopNumber=${chartShopFilter}` : ''}`;
+                const url = `/api/shop-metrics/daily-trend?startDate=${startDate}&endDate=${endDate}&company=${companyFilter}&platform=TIKTOK${chartShopFilter !== 'ALL' ? `&shopNumber=${chartShopFilter}` : ''}`;
                 const res = await fetch(url, { signal });
                 if (res.ok) {
                     const data = await res.json();
@@ -280,7 +302,7 @@ export default function TikTokShopsPage() {
         } finally {
             setIsChartLoading(false);
         }
-    }, [startDate, endDate, chartShopFilter, allowedShopIndices]);
+    }, [startDate, endDate, chartShopFilter, companyFilter, allowedShopIndices]);
 
     const handleRefreshAll = () => {
         if (abortControllerRef.current) {
@@ -305,7 +327,7 @@ export default function TikTokShopsPage() {
         return () => {
             controller.abort();
         };
-    }, [startDate, endDate, session, chartShopFilter, fetchShopCards, fetchChartData]);
+    }, [startDate, endDate, activePreset, companyFilter, session, chartShopFilter, fetchShopCards, fetchChartData]);
 
     const isSingleDay = differenceInDays(parseISO(endDate), parseISO(startDate)) === 0;
     const activeShopLabel = chartShopFilter === "ALL" 
@@ -325,9 +347,15 @@ export default function TikTokShopsPage() {
     const roasPct = pctChange(totalRoas, prevTotals.roas);
     const cmpLabel = comparisonLabel(activePreset);
 
+    const availableShops = allowedShopIndices.filter(num => {
+        if (companyFilter === "HIMWELLNESS") return num === 1 || num === 2;
+        if (companyFilter === "WEROCA") return num === 3 || num === 4;
+        return true;
+    });
+
     return (
         <div className="space-y-4 md:space-y-6">
-            {/* Header */}
+            {/* Header & Controls */}
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-lg">
@@ -339,12 +367,37 @@ export default function TikTokShopsPage() {
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    {/* Company Filter Pills */}
+                    <div className="flex items-center gap-0.5 bg-muted/20 dark:bg-muted/40 border border-border rounded-xl p-1 backdrop-blur-sm select-none">
+                        {(["ALL", "HIMWELLNESS", "WEROCA"] as const).map((filter) => (
+                            <button
+                                key={filter}
+                                onClick={() => {
+                                    setCompanyFilter(filter);
+                                    setChartShopFilter("ALL");
+                                }}
+                                className={cn(
+                                    "text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all duration-200 cursor-pointer whitespace-nowrap",
+                                    companyFilter === filter
+                                        ? filter === "ALL"
+                                            ? "bg-primary text-white shadow-md shadow-primary/25"
+                                            : filter === "HIMWELLNESS"
+                                            ? "bg-blue-600 text-white shadow-md shadow-blue-500/25"
+                                            : "bg-purple-650 text-white shadow-md shadow-purple-500/25"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-muted dark:hover:bg-muted/50"
+                                )}
+                            >
+                                {filter === "ALL" ? "All" : filter === "HIMWELLNESS" ? "HIM" : "WEROCA"}
+                            </button>
+                        ))}
+                    </div>
+
                     <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={handleRefreshAll} 
                         disabled={isLoading || isChartLoading}
-                        className="h-9 gap-2 text-xs font-semibold"
+                        className="h-9 gap-2 text-xs font-semibold rounded-xl"
                     >
                         <RefreshCw className={cn("h-3.5 w-3.5", (isLoading || isChartLoading) && "animate-spin")} />
                         Refresh
@@ -465,7 +518,7 @@ export default function TikTokShopsPage() {
                                 >
                                     All Shops
                                 </button>
-                                {allowedShopIndices.map((num) => (
+                                {availableShops.map((num) => (
                                     <button
                                         key={num}
                                         type="button"
