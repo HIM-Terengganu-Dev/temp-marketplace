@@ -270,10 +270,12 @@ export default function TikTokShopsPage() {
                                 }
                             });
                         } catch (e: any) {
-                            if (e.name === 'AbortError') throw e;
+                            if (e.name === 'AbortError' || signal?.aborted) return;
                         }
                     })
                 );
+
+                if (signal?.aborted) return;
 
                 const points: PerformanceDataPoint[] = Object.entries(hourlyBuckets).map(([hour, b]) => ({
                     label: hour,
@@ -288,6 +290,7 @@ export default function TikTokShopsPage() {
                 // Multi-day trend from daily-trend API
                 const url = `/api/shop-metrics/daily-trend?startDate=${startDate}&endDate=${endDate}&company=${companyFilter}&platform=TIKTOK${chartShopFilter !== 'ALL' ? `&shopNumber=${chartShopFilter}` : ''}`;
                 const res = await fetch(url, { signal });
+                if (signal?.aborted) return;
                 if (res.ok) {
                     const data = await res.json();
                     setChartData(data);
@@ -296,7 +299,7 @@ export default function TikTokShopsPage() {
                 }
             }
         } catch (error: any) {
-            if (error.name !== 'AbortError') {
+            if (error.name !== 'AbortError' && !signal?.aborted) {
                 console.error("Error fetching chart data:", error);
             }
         } finally {

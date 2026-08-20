@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Globe, HelpCircle, BarChart3, Activity, PieChart, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -15,6 +16,17 @@ export default function LoginPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const ssoError = searchParams.get("error");
+    if (ssoError === "sso_invalid") {
+      setError("Single Sign-On session was invalid or expired. Please sign in via the portal.");
+    } else if (ssoError === "sso_token_missing") {
+      setError("SSO token was missing. Please launch the app from the portal.");
+    } else if (ssoError === "sso_invalid_payload") {
+      setError("Invalid SSO user payload received.");
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +64,7 @@ export default function LoginPage() {
   };
 
   // Pre-fill remembered email if present
-  useState(() => {
+  useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("remembered_email");
       if (saved) {
@@ -60,7 +72,7 @@ export default function LoginPage() {
         setRememberMe(true);
       }
     }
-  });
+  }, []);
 
   return (
     <main className="min-h-screen w-full flex flex-col lg:flex-row bg-background text-foreground absolute inset-0 z-50">
@@ -279,5 +291,13 @@ export default function LoginPage() {
       </section>
 
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

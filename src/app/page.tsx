@@ -377,7 +377,7 @@ export default function Home() {
                         });
                     }
                 } catch (e: any) {
-                    if (e.name === 'AbortError') throw e;
+                    if (e.name === 'AbortError' || signal.aborted) return [];
                     console.error("Failed to load Shopee shops", e);
                 }
                 return [];
@@ -395,7 +395,7 @@ export default function Home() {
                         console.error("Failed to load metrics summary:", res.statusText);
                     }
                 } catch (e: any) {
-                    if (e.name === 'AbortError') throw e;
+                    if (e.name === 'AbortError' || signal.aborted) return null;
                     console.error("Error fetching metrics summary:", e);
                 }
                 return null;
@@ -412,7 +412,7 @@ export default function Home() {
                         return liveJson.leaderboard || [];
                     }
                 } catch (e: any) {
-                    if (e.name === 'AbortError') throw e;
+                    if (e.name === 'AbortError' || signal.aborted) return [];
                     console.error("Failed to load livestream performance", e);
                 }
                 return [];
@@ -431,7 +431,7 @@ export default function Home() {
                             console.error("Failed to load daily trend metrics:", res.statusText);
                         }
                     } catch (e: any) {
-                        if (e.name === 'AbortError') throw e;
+                        if (e.name === 'AbortError' || signal.aborted) return [];
                         console.error("Error fetching daily trend metrics:", e);
                     }
                     return [];
@@ -440,6 +440,8 @@ export default function Home() {
 
             // 2. Await Shopee shops & Summary metrics in parallel
             const [shopeeShops, summaryData] = await Promise.all([shopeeShopsPromise, summaryPromise]);
+
+            if (signal.aborted) return;
 
             const curResults = summaryData?.curResults || [];
             const prevResults = summaryData?.prevResults || [];
@@ -611,7 +613,9 @@ export default function Home() {
                         };
                     }
                 } catch (e: any) {
-                    if (e.name === 'AbortError') throw e;
+                    if (e.name === 'AbortError' || signal.aborted) {
+                        return { totalCogs: 0, source: 'fallback' as const, mappedSkuCount: 0 };
+                    }
                 }
                 return { totalCogs: totalGMVForCogs * 0.28, source: 'fallback' as const, mappedSkuCount: 0 };
             })();
@@ -658,7 +662,7 @@ export default function Home() {
                                             }
                                         });
                                     } catch (e: any) {
-                                        if (e.name === 'AbortError') throw e;
+                                        if (e.name === 'AbortError' || signal.aborted) return;
                                     }
                                 })
                             )
@@ -681,7 +685,7 @@ export default function Home() {
                                             }
                                         });
                                     } catch (e: any) {
-                                        if (e.name === 'AbortError') throw e;
+                                        if (e.name === 'AbortError' || signal.aborted) return;
                                     }
                                 })
                             )
@@ -706,6 +710,8 @@ export default function Home() {
                 hourlyPromise
             ]);
 
+            if (signal.aborted) return;
+
             const finalChartData = isOneDay ? (hourlyResult || []) : (dailyTrendResult || []);
 
             // 8. Commit state updates
@@ -728,7 +734,7 @@ export default function Home() {
             });
 
         } catch (error: any) {
-            if (error.name === 'AbortError') {
+            if (error.name === 'AbortError' || signal.aborted) {
                 return;
             }
             console.error("Error fetching shop data:", error);
@@ -761,6 +767,11 @@ export default function Home() {
 
     useEffect(() => {
         fetchData();
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
     }, [fetchData]);
 
     // The countdown timer is now managed in the child LiveCountdownTimer component
