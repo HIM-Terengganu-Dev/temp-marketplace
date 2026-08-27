@@ -405,8 +405,8 @@ export function MtdReportTab({
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="p-0">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left text-sm border-collapse">
+                                <div className="overflow-x-auto scrollbar-thin touch-scroll">
+                                    <table className="w-full min-w-[640px] text-left text-sm border-collapse">
                                         <thead>
                                             <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
                                                 <th className="py-3 px-4">Platform</th>
@@ -529,8 +529,8 @@ export function MtdReportTab({
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-0">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left text-sm border-collapse">
+                                    <div className="overflow-x-auto scrollbar-thin touch-scroll">
+                                        <table className="w-full min-w-[640px] text-left text-sm border-collapse">
                                             <thead>
                                                 <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
                                                     <th className="py-3 px-4">Month</th>
@@ -633,16 +633,17 @@ export function MtdReportTab({
                                                     </CardTitle>
                                                 </CardHeader>
                                                 <CardContent className="p-0">
-                                                    <table className="w-full text-left border-collapse">
-                                                        <thead>
-                                                            <tr className="border-b border-border/20 bg-muted/5 text-[10px] font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
-                                                                <th className="py-2 px-4">Metric</th>
-                                                                <th className="py-2 px-4 text-right">Active</th>
-                                                                <th className="py-2 px-4 text-right">Prev</th>
-                                                                <th className="py-2 px-4 text-right">Δ Change</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
+                                                    <div className="overflow-x-auto scrollbar-thin touch-scroll">
+                                                        <table className="w-full min-w-[340px] text-left border-collapse">
+                                                            <thead>
+                                                                <tr className="border-b border-border/20 bg-muted/5 text-[10px] font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
+                                                                    <th className="py-2 px-4">Metric</th>
+                                                                    <th className="py-2 px-4 text-right">Active</th>
+                                                                    <th className="py-2 px-4 text-right">Prev</th>
+                                                                    <th className="py-2 px-4 text-right">Δ Change</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
                                                             <tr className="border-b border-border/5 hover:bg-muted/5">
                                                                 <td className="py-2.5 px-4 text-xs font-medium text-foreground/70 dark:text-foreground">Sales</td>
                                                                 <td className="py-2.5 px-4 text-right font-mono text-xs text-foreground/80 dark:text-foreground font-bold">RM {d.active.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
@@ -663,6 +664,7 @@ export function MtdReportTab({
                                                             </tr>
                                                         </tbody>
                                                     </table>
+                                                    </div>
                                                 </CardContent>
                                             </Card>
                                         );
@@ -688,18 +690,18 @@ export function MtdReportTab({
 
             {/* WhatsApp Share Modal */}
             {showWaModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowWaModal(false)}>
-                    <div className="relative bg-white dark:bg-muted border border-border dark:border-border rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4 flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowWaModal(false)}>
+                    <div className="relative bg-white dark:bg-muted border border-border dark:border-border rounded-2xl shadow-2xl p-4 sm:p-6 w-full max-w-[calc(100vw-1.5rem)] sm:max-w-lg flex flex-col max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => setShowWaModal(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-white cursor-pointer transition-colors">
                             <X className="h-5 w-5" />
                         </button>
                         
-                        <div className="flex items-center gap-3 mb-5">
-                            <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl">
+                        <div className="flex items-center gap-3 mb-5 pr-8">
+                            <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl flex-shrink-0">
                                 <MessageCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                             </div>
                             <div>
-                                <h3 className="text-base font-bold text-foreground dark:text-white">Share MTD Report</h3>
+                                <h3 className="text-base font-bold text-foreground dark:text-white leading-tight">Share MTD Report</h3>
                                 <p className="text-xs text-muted-foreground dark:text-muted-foreground">Preview the unified square performance graphic (1080x1080)</p>
                             </div>
                         </div>
@@ -1055,47 +1057,59 @@ function MtdReportGraphic({
             </div>
 
             {/* Section 3: Ringkasan Bulanan Table */}
-            <div className="bg-white dark:bg-muted/30 border border-border dark:border-border/60 rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+            <div className="bg-white dark:bg-muted/30 border border-border dark:border-border/60 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col gap-4">
                 <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-indigo-500" />
                     <span className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground dark:text-muted-foreground font-mono">Ringkasan Bulanan (MTD Day 1 - {dayRangeEnd})</span>
                 </div>
                 
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="border-b border-border dark:border-border text-[10px] text-muted-foreground dark:text-muted-foreground font-extrabold uppercase tracking-wider">
-                            <th className="py-2 px-4">Month</th>
-                            <th className="py-2 px-4 text-right">TikTok Sales</th>
-                            <th className="py-2 px-4 text-right">Shopee Sales</th>
-                            <th className="py-2 px-4 text-right">Total Sales</th>
-                            <th className="py-2 px-4 text-right">Ad Spend</th>
-                            <th className="py-2 px-4 text-right">Blended ROAS</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {trendItems.map((item: any) => {
-                            const isCurrent = item.monthKey === targetMonth;
-                            return (
-                                <tr 
-                                    key={item.monthKey} 
-                                    className={cn(
-                                        "border-b border-border/50 dark:border-border/50 hover:bg-muted/20 dark:hover:bg-muted/30 text-xs font-semibold",
-                                        isCurrent && "bg-indigo-500/5 dark:bg-indigo-950/10 font-bold border-l-2 border-l-indigo-600 dark:border-l-indigo-400"
-                                    )}
-                                >
-                                    <td className="py-2.5 px-4 font-bold text-foreground/70 dark:text-foreground">
-                                        {item.monthLabel} {isCurrent && "⭐"}
-                                    </td>
-                                    <td className="py-2.5 px-4 text-right font-mono text-foreground dark:text-foreground">RM {item.tiktok.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                    <td className="py-2.5 px-4 text-right font-mono text-foreground dark:text-foreground">RM {item.shopee.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                    <td className="py-2.5 px-4 text-right font-mono text-foreground dark:text-white font-extrabold">RM {item.totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                    <td className="py-2.5 px-4 text-right font-mono text-foreground dark:text-foreground">RM {item.totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                    <td className="py-2.5 px-4 text-right font-mono font-black text-indigo-600 dark:text-indigo-400">{item.roas.toFixed(2)}x</td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                <div className="overflow-x-auto scrollbar-thin touch-scroll">
+                    <table className="w-full min-w-[600px] text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-border dark:border-border text-[10px] text-muted-foreground dark:text-muted-foreground font-extrabold uppercase tracking-wider">
+                                <th className="py-2 px-4">Month</th>
+                                <th className="py-2 px-4 text-right">TikTok Sales</th>
+                                <th className="py-2 px-4 text-right">Shopee Sales</th>
+                                <th className="py-2 px-4 text-right">Total Sales</th>
+                                <th className="py-2 px-4 text-right">Ad Spend</th>
+                                <th className="py-2 px-4 text-right">Blended ROAS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {trendItems.map((item: any) => {
+                                const isCurrent = item.monthKey === targetMonth;
+                                return (
+                                    <tr 
+                                        key={item.monthKey} 
+                                        className={cn(
+                                            "border-b border-border/50 dark:border-border/50 hover:bg-muted/20 dark:hover:bg-muted/30 text-xs font-semibold",
+                                            isCurrent && "bg-indigo-500/5 dark:bg-indigo-950/10 font-bold border-l-2 border-l-indigo-600 dark:border-l-indigo-400"
+                                        )}
+                                    >
+                                        <td className="py-3 px-4 font-mono font-bold text-foreground dark:text-foreground">
+                                            {item.monthLabel}
+                                        </td>
+                                        <td className="py-3 px-4 text-right font-mono text-pink-600 dark:text-pink-400 font-bold">
+                                            RM {item.tiktok.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                        </td>
+                                        <td className="py-3 px-4 text-right font-mono text-orange-600 dark:text-orange-400 font-bold">
+                                            RM {item.shopee.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                        </td>
+                                        <td className="py-3 px-4 text-right font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                                            RM {item.totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                        </td>
+                                        <td className="py-3 px-4 text-right font-mono text-muted-foreground dark:text-foreground">
+                                            RM {item.totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                        </td>
+                                        <td className="py-3 px-4 text-right font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                                            {item.roas.toFixed(2)}x
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Footer */}

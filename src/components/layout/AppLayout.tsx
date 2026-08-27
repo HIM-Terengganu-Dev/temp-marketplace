@@ -74,11 +74,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* 
           Page content:
-          - Mobile: 16px padding, extra bottom padding for the bottom nav bar
-          - Tablet+: 24px padding
-          - Desktop: 32px padding
+          - Mobile: 12px (p-3) padding, extra bottom padding for bottom nav
+          - Tablet: 16px-24px (sm:p-4 md:p-6)
+          - Desktop: 32px (lg:p-8)
         */}
-        <main id="main-content" className="p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto w-full flex-1 pb-24 md:pb-8">
+        <main id="main-content" className="p-3 sm:p-4 md:p-6 lg:p-8 max-w-[1600px] mx-auto w-full min-w-0 flex-1 pb-24 md:pb-8 overflow-x-hidden">
           {children}
         </main>
       </div>
@@ -87,7 +87,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <FeedbackWidget />
 
       {/* ── Mobile: Bottom Navigation Bar ───────────────────────────────── */}
-      <MobileBottomNav pathname={pathname} />
+      <MobileBottomNav pathname={pathname} onOpenMenu={() => setIsMobileOpen(true)} />
     </div>
   );
 }
@@ -99,27 +99,40 @@ import {
   Store,
   ShoppingBag,
   Megaphone,
-  Settings,
+  BarChart3,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 
-function MobileBottomNav({ pathname }: { pathname: string }) {
+function MobileBottomNav({
+  pathname,
+  onOpenMenu,
+}: {
+  pathname: string;
+  onOpenMenu: () => void;
+}) {
   const { data: session } = useSession();
   const allowedFeatures =
     (session?.user as { allowed_features?: string[] } | undefined)
-      ?.allowed_features || ["overview", "tiktok", "shopee", "ads", "analytics"];
+      ?.allowed_features || ["overview", "tiktok", "shopee", "ads", "analytics", "feedback"];
 
-  const navItems = [
-    { href: "/",             icon: LayoutDashboard, label: "Overview",  feature: "overview" },
-    { href: "/tiktok-shops", icon: Store,            label: "TikTok",   feature: "tiktok"   },
-    { href: "/shopee",       icon: ShoppingBag,      label: "Shopee",   feature: "shopee"   },
-    { href: "/ads",          icon: Megaphone,        label: "Ads",      feature: "ads"      },
-    { href: "/settings",     icon: Settings,         label: "Settings", feature: "settings" },
-  ].filter(item => allowedFeatures.includes(item.feature));
+  const primaryItems = [
+    { href: "/",             icon: LayoutDashboard, label: "Overview",   feature: "overview"  },
+    { href: "/tiktok-shops", icon: Store,            label: "TikTok",     feature: "tiktok"    },
+    { href: "/shopee",       icon: ShoppingBag,      label: "Shopee",     feature: "shopee"    },
+    { href: "/ads",          icon: Megaphone,        label: "Ads",        feature: "ads"       },
+    { href: "/analytics",    icon: BarChart3,        label: "Analytics",  feature: "analytics" },
+  ].filter((item) => allowedFeatures.includes(item.feature));
 
-  // Limit to 5 items for the bottom bar
-  const visibleItems = navItems.slice(0, 5);
+  const isMoreActive = [
+    "/shopee-ads",
+    "/feedback",
+    "/settings",
+    "/debug-table",
+    "/debug-table-ikram",
+    "/refresh-token",
+  ].some((p) => pathname === p || pathname.startsWith(p + "/"));
 
   return (
     <nav
@@ -132,8 +145,8 @@ function MobileBottomNav({ pathname }: { pathname: string }) {
       )}
       style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 8px)" }}
     >
-      <div className="flex items-center justify-around h-14 px-2">
-        {visibleItems.map((item) => {
+      <div className="flex items-center justify-around h-14 px-1">
+        {primaryItems.map((item) => {
           const isActive =
             item.href === "/"
               ? pathname === "/"
@@ -145,9 +158,9 @@ function MobileBottomNav({ pathname }: { pathname: string }) {
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 flex-1 h-full rounded-xl",
                 "transition-all duration-200 ease-in-out",
-                "min-w-0 px-1 py-2",
+                "min-w-0 px-0.5 py-1.5",
                 isActive
-                  ? "text-primary"
+                  ? "text-primary font-bold"
                   : "text-muted-foreground hover:text-foreground"
               )}
               aria-label={item.label}
@@ -160,15 +173,15 @@ function MobileBottomNav({ pathname }: { pathname: string }) {
               >
                 <item.icon
                   className={cn(
-                    "h-5 w-5 transition-transform duration-200",
+                    "h-4.5 w-4.5 transition-transform duration-200",
                     isActive && "scale-110"
                   )}
                 />
               </div>
               <span
                 className={cn(
-                  "text-[9px] font-semibold tracking-wide leading-none transition-all duration-200",
-                  isActive ? "text-primary" : "text-muted-foreground"
+                  "text-[9px] tracking-tight leading-none truncate max-w-full transition-all duration-200",
+                  isActive ? "text-primary font-bold" : "text-muted-foreground"
                 )}
               >
                 {item.label}
@@ -176,6 +189,42 @@ function MobileBottomNav({ pathname }: { pathname: string }) {
             </Link>
           );
         })}
+
+        {/* More / Full Menu Drawer Trigger */}
+        <button
+          onClick={onOpenMenu}
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 flex-1 h-full rounded-xl",
+            "transition-all duration-200 ease-in-out cursor-pointer",
+            "min-w-0 px-0.5 py-1.5",
+            isMoreActive
+              ? "text-primary font-bold"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+          aria-label="More navigation options"
+        >
+          <div
+            className={cn(
+              "flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200",
+              isMoreActive && "bg-primary/15 shadow-[0_0_12px_rgba(var(--primary),0.3)]"
+            )}
+          >
+            <Menu
+              className={cn(
+                "h-4.5 w-4.5 transition-transform duration-200",
+                isMoreActive && "scale-110"
+              )}
+            />
+          </div>
+          <span
+            className={cn(
+              "text-[9px] tracking-tight leading-none truncate max-w-full transition-all duration-200",
+              isMoreActive ? "text-primary font-bold" : "text-muted-foreground"
+            )}
+          >
+            More
+          </span>
+        </button>
       </div>
     </nav>
   );

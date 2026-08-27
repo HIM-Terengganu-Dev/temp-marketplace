@@ -354,11 +354,11 @@ export default function AdAccountsPage() {
             {/* Header / Title */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/40 pb-5">
                 <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary via-purple-400 to-indigo-500 bg-clip-text text-transparent flex items-center gap-2">
-                        <Megaphone className="h-8 w-8 text-primary" />
-                        Ad Accounts Overview
+                    <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary via-purple-400 to-indigo-500 bg-clip-text text-transparent flex items-center gap-2">
+                        <Megaphone className="h-7 w-7 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
+                        <span>Ad Accounts Overview</span>
                     </h1>
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                         Consolidated ad cost analysis including LIVE GMV MAX, PRODUCT GMV MAX, and TTAM (before and after tax).
                     </p>
                 </div>
@@ -394,7 +394,7 @@ export default function AdAccountsPage() {
 
             {/* Store Selection Switcher Toolbar */}
             <div className="flex flex-col gap-2 bg-muted/30 border border-border/50 rounded-xl p-3 backdrop-blur-sm shadow-sm select-none">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 overflow-x-auto touch-scroll">
                     <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 px-1 mr-1">
                         <Store className="h-3.5 w-3.5 text-muted-foreground" />
                         Select Store View:

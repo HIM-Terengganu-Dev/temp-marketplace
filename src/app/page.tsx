@@ -1650,7 +1650,7 @@ export default function Home() {
                             </CardTitle>
                             <p className="text-xs text-muted-foreground mt-0.5">Rankings based on sales volume and total order counts generated from active live sessions</p>
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-foreground">
+                        <div className="flex items-center gap-4 text-xs text-foreground flex-wrap">
                             <span className="flex items-center gap-1 bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20"><Tv className="h-3 w-5" /> {livestreams.length} Sessions</span>
                             <span className="flex items-center gap-1 bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20"><Users className="h-3.5 w-3.5" /> {livestreams.reduce((sum, s) => sum + parseInt(s.viewer_count || 0, 10), 0).toLocaleString()} Peak Viewers</span>
                             <span className="flex items-center gap-1 bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20"><ShoppingBag className="h-3.5 w-3.5" /> {livestreams.reduce((sum, s) => sum + parseInt(s.order_count || 0, 10), 0).toLocaleString()} Total Orders</span>
@@ -1659,7 +1659,7 @@ export default function Home() {
                 </CardHeader>
                 <CardContent className="p-0">
                     {livestreams.length > 0 ? (
-                        <div className="overflow-x-auto overflow-y-auto max-h-[520px] scrollbar-thin -webkit-overflow-scrolling-touch">
+                        <div className="overflow-x-auto overflow-y-auto max-h-[520px] scrollbar-thin touch-scroll">
                             <table className="w-full min-w-[720px] text-left text-sm border-collapse">
                                 <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur-sm shadow-[0_1px_0_rgba(255,255,255,0.05)]">
                                     <tr className="border-b border-border/30 text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
@@ -1764,10 +1764,6 @@ export default function Home() {
             </Card>
             )}
 
-
-
-
-
             {/* Shop Detail Modal */}
             {selectedShop && (
                 <ShopDetailModal
@@ -1781,12 +1777,12 @@ export default function Home() {
 
             {/* Floating Sales Notifications (hidden in Lite Mode) */}
             {!isLiteMode && (
-            <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0">
+            <div className="fixed bottom-20 md:bottom-4 right-4 z-40 flex flex-col gap-2 max-w-sm w-[calc(100vw-2rem)] sm:w-full pointer-events-none px-2 sm:px-0">
                 {notifications.map((n) => (
                     <div
                         key={n.id}
                         className={cn(
-                            "pointer-events-auto flex items-start gap-3 p-4 rounded-xl border bg-muted/95 backdrop-blur shadow-2xl transition-all duration-300",
+                            "pointer-events-auto flex items-start gap-3 p-3.5 sm:p-4 rounded-xl border bg-muted/95 backdrop-blur shadow-2xl transition-all duration-300",
                             n.platform === "TikTok" ? "border-purple-500/30 shadow-purple-500/5 shadow-[0_0_10px_rgba(168,85,247,0.15)]" : "border-orange-500/30 shadow-orange-500/5 shadow-[0_0_10px_rgba(249,115,22,0.15)]",
                             "animate-in slide-in-from-bottom duration-300"
                         )}
@@ -1821,19 +1817,19 @@ export default function Home() {
 
             {/* WhatsApp Share Modal */}
             {showWaModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowWaModal(false)}>
-                    <div className="relative bg-white dark:bg-muted border border-border dark:border-border rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4 flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowWaModal(false)}>
+                    <div className="relative bg-white dark:bg-muted border border-border dark:border-border rounded-2xl shadow-2xl p-4 sm:p-6 w-full max-w-[calc(100vw-1.5rem)] sm:max-w-lg flex flex-col max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => setShowWaModal(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-white cursor-pointer transition-colors">
                             <X className="h-5 w-5" />
                         </button>
                         
-                        <div className="flex items-center gap-3 mb-5">
-                            <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl">
+                        <div className="flex items-center gap-3 mb-5 pr-8">
+                            <div className="p-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl flex-shrink-0">
                                 <MessageCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                             </div>
                             <div>
-                                <h3 className="text-base font-bold text-foreground dark:text-white">Share Performance Report</h3>
-                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Preview the square performance graphic (1080x1080)</p>
+                                <h3 className="text-base font-bold text-foreground dark:text-white leading-tight">Share Performance Report</h3>
+                                <p className="text-xs text-muted-foreground dark:text-muted-foreground">Preview the performance graphic</p>
                             </div>
                         </div>
 

@@ -89,7 +89,11 @@ interface PerformanceLineChartProps {
     height?: number;
 }
 
-const formatRM = (v: number) => `RM${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const formatRM = (v: number) => {
+    if (v >= 1000000) return `RM${(v / 1000000).toFixed(1)}M`;
+    if (v >= 1000) return `RM${(v / 1000).toFixed(0)}k`;
+    return `RM${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+};
 
 export function PerformanceLineChart({ data, height = 280 }: PerformanceLineChartProps) {
     // Detect if spend / roas data is available (not all-zero)
@@ -97,9 +101,9 @@ export function PerformanceLineChart({ data, height = 280 }: PerformanceLineChar
     const hasRoas = data.some((d) => d.roas > 0);
 
     return (
-        <div style={{ height }} className="w-full">
+        <div style={{ height }} className="w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={data} margin={{ top: 8, right: hasRoas ? 12 : 4, left: 0, bottom: 0 }}>
+                <ComposedChart data={data} margin={{ top: 8, right: hasRoas ? 8 : 4, left: -10, bottom: 0 }}>
                     <defs>
                         <linearGradient id="spendGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#a855f7" stopOpacity={0.2} />
@@ -110,7 +114,7 @@ export function PerformanceLineChart({ data, height = 280 }: PerformanceLineChar
                     <XAxis
                         dataKey="label"
                         stroke="#6b7280"
-                        fontSize={11}
+                        fontSize={10}
                         tickLine={false}
                         axisLine={false}
                         interval="preserveStartEnd"
@@ -119,11 +123,11 @@ export function PerformanceLineChart({ data, height = 280 }: PerformanceLineChar
                     <YAxis
                         yAxisId="left"
                         stroke="#6b7280"
-                        fontSize={11}
+                        fontSize={10}
                         tickLine={false}
                         axisLine={false}
                         tickFormatter={formatRM}
-                        width={72}
+                        width={54}
                     />
                     {/* Right Y-axis: ROAS — only rendered when data has ROAS values */}
                     {hasRoas && (
@@ -131,11 +135,11 @@ export function PerformanceLineChart({ data, height = 280 }: PerformanceLineChar
                             yAxisId="right"
                             orientation="right"
                             stroke="#22c55e"
-                            fontSize={11}
+                            fontSize={10}
                             tickLine={false}
                             axisLine={false}
                             tickFormatter={(v) => `${v.toFixed(1)}x`}
-                            width={44}
+                            width={36}
                         />
                     )}
                     <Tooltip

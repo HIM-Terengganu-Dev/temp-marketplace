@@ -362,7 +362,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Glassmorphic Tab Switcher */}
-            <div className="flex border-b border-border/40 gap-4 md:gap-6 overflow-x-auto scrollbar-none whitespace-nowrap">
+            <div className="flex border-b border-border/40 gap-4 md:gap-6 overflow-x-auto scrollbar-none whitespace-nowrap touch-scroll pb-1">
                 <button
                     onClick={() => setActiveTab("rbac")}
                     className={`pb-3 font-semibold text-sm transition-all border-b-2 px-1 flex items-center gap-2 ${
@@ -707,7 +707,7 @@ export default function SettingsPage() {
                                     No products found in the catalog matching your query.
                                 </div>
                             ) : (
-                                <div className="rounded-md border border-border/40 overflow-x-auto scrollbar-thin -webkit-overflow-scrolling-touch">
+                                <div className="rounded-md border border-border/40 overflow-x-auto scrollbar-thin touch-scroll">
                                     <table className="w-full min-w-[800px] text-left border-collapse text-sm">
                                         <thead>
                                             <tr className="border-b border-border/40 bg-muted/30 text-xs font-semibold text-muted-foreground uppercase">

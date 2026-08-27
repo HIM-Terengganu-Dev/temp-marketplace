@@ -254,13 +254,13 @@ export function ShopDetailModal({ shop, startDate, endDate, preset, onClose }: S
             />
 
             {/* Slide-in panel */}
-            <div className="fixed right-0 top-0 h-full w-full max-w-[520px] z-50 flex flex-col bg-background border-l border-border dark:border-border/60 shadow-2xl overflow-y-auto animate-slide-in-right">
+            <div className="fixed right-0 top-0 h-full w-full max-w-full sm:max-w-[520px] z-50 flex flex-col bg-background border-l border-border dark:border-border/60 shadow-2xl overflow-y-auto animate-slide-in-right">
                 {/* Header */}
-                <div className="flex items-start justify-between p-5 border-b border-border dark:border-border/50 bg-card dark:bg-card/30 backdrop-blur-sm sticky top-0 z-10">
+                <div className="flex items-start justify-between p-4 sm:p-5 border-b border-border dark:border-border/50 bg-card dark:bg-card/30 backdrop-blur-sm sticky top-0 z-10">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
                             <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <h2 className="text-lg font-bold tracking-tight text-foreground dark:text-foreground">{shop.name}</h2>
+                            <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground dark:text-foreground">{shop.name}</h2>
                         </div>
                         <p className="text-xs text-muted-foreground dark:text-muted-foreground">
                             {shop.platform} • {startDate === endDate ? startDate : `${startDate} → ${endDate}`}
@@ -282,7 +282,7 @@ export function ShopDetailModal({ shop, startDate, endDate, preset, onClose }: S
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 p-5 space-y-5">
+                <div className="flex-1 p-3.5 sm:p-5 space-y-4 sm:space-y-5">
                     {loading ? (
                         <div className="flex flex-col items-center justify-center h-48 gap-3">
                             <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />

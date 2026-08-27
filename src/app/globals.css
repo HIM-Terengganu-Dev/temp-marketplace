@@ -102,18 +102,33 @@
     scroll-behavior: smooth;
     /* Prevent horizontal overflow at root */
     overflow-x: hidden;
+    max-width: 100vw;
     /* Improve font rendering */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
     text-rendering: optimizeLegibility;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
     overflow-x: hidden;
+    max-width: 100vw;
     /* Safe area padding for notched phones (iOS) */
     padding-bottom: env(safe-area-inset-bottom, 0px);
     min-height: 100dvh; /* Use dynamic viewport height — correct on mobile browsers */
+  }
+
+  /* Universal table & container safety on mobile */
+  img, svg, video, canvas, audio, iframe, embed, object {
+    display: block;
+    max-width: 100%;
+  }
+
+  /* Ensure card & pre text wraps without blowing out width */
+  pre, code, kbd, samp {
+    max-width: 100%;
+    overflow-x: auto;
   }
 
   /* Respect safe areas in fixed bottom elements */
@@ -127,11 +142,12 @@
   }
 }
 
-/* ── Custom Scrollbars (thin, themed) ───────────────────────────────────── */
+/* ── Custom Scrollbars & Mobile Utilities ───────────────────────────────── */
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: oklch(0.3 0.05 260 / 0.6) transparent;
+    -webkit-overflow-scrolling: touch;
   }
   .scrollbar-thin::-webkit-scrollbar {
     width: 4px;
@@ -148,10 +164,11 @@
     background: oklch(0.4 0.08 260 / 0.8);
   }
 
-  /* Completely hide scrollbar but keep scrollability */
+  /* Completely hide scrollbar but keep touch scrollability */
   .scrollbar-none {
     scrollbar-width: none;
     -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
@@ -160,6 +177,12 @@
   /* Safe-area aware bottom padding (for bottom nav) */
   .pb-safe {
     padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
+  }
+
+  /* Smooth momentum touch scroll container */
+  .touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
 
   /* Smooth micro-interaction defaults */

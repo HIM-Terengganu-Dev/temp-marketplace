@@ -125,6 +125,17 @@ export function SimpleDatePicker({
         setIsOpen(false);
     };
 
+    const [isMobileScreen, setIsMobileScreen] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobileScreen(window.innerWidth < 768);
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     const handleApply = () => {
         if (selectedRange?.from) {
             const startStr = formatKLDate(selectedRange.from);
@@ -180,7 +191,7 @@ export function SimpleDatePicker({
 
             <PopoverContent
                 className={cn(
-                    "w-[calc(100vw-2rem)] sm:w-auto p-0 max-w-[680px]",
+                    "w-[calc(100vw-1.5rem)] sm:w-auto p-0 max-w-[680px]",
                     "border border-border dark:border-border bg-card dark:bg-muted/95 backdrop-blur-xl",
                     "shadow-2xl rounded-2xl overflow-hidden",
                     "flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border/50 dark:divide-border/80",
@@ -195,7 +206,7 @@ export function SimpleDatePicker({
                         Quick Select
                     </span>
                     {/* Mobile: horizontal scrolling pill row */}
-                    <div className="flex flex-row md:flex-col gap-1 overflow-x-auto scrollbar-none pb-1 md:pb-0">
+                    <div className="flex flex-row md:flex-col gap-1 overflow-x-auto scrollbar-none pb-1 md:pb-0 touch-scroll">
                         {presets.map((p) => {
                             const isActive = activePreset === p.id;
                             return (
@@ -204,9 +215,9 @@ export function SimpleDatePicker({
                                     onClick={() => handlePresetSelect(p.id, p.getValue)}
                                     className={cn(
                                         "flex items-center justify-between text-xs font-semibold",
-                                        "px-3 py-2 rounded-lg transition-all duration-150",
+                                        "px-2.5 py-1.5 md:py-2 rounded-lg transition-all duration-150",
                                         "whitespace-nowrap flex-shrink-0",
-                                        "text-left cursor-pointer w-full",
+                                        "text-left cursor-pointer",
                                         isActive
                                             ? "bg-primary/15 text-primary"
                                             : "text-muted-foreground dark:text-muted-foreground hover:text-foreground dark:hover:text-foreground hover:bg-muted/50 dark:hover:bg-muted/60"
@@ -221,15 +232,15 @@ export function SimpleDatePicker({
                 </div>
 
                 {/* Calendar panel */}
-                <div className="flex flex-col">
-                    <div className="p-3 select-none overflow-x-auto scrollbar-none">
+                <div className="flex flex-col min-w-0">
+                    <div className="p-2 sm:p-3 select-none overflow-x-auto scrollbar-none flex justify-center">
                         <Calendar
                             initialFocus
                             mode="range"
                             defaultMonth={selectedRange?.from}
                             selected={selectedRange}
                             onSelect={handleSelect}
-                            numberOfMonths={2}
+                            numberOfMonths={isMobileScreen ? 1 : 2}
                             className="bg-transparent"
                         />
                     </div>

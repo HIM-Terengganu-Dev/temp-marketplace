@@ -759,7 +759,7 @@ export default function ShopeeAdsPage() {
                     <p className="text-xs text-muted-foreground font-semibold">Detailed comparison of ad spend, taxes, and corresponding ROAS values per Shopee store.</p>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="overflow-x-auto scrollbar-thin">
+                    <div className="overflow-x-auto scrollbar-thin touch-scroll">
                         <table className="w-full min-w-[1000px] text-left text-sm border-collapse">
                             <thead>
                                 <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-muted-foreground uppercase tracking-wider">

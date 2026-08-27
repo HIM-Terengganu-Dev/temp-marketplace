@@ -792,8 +792,8 @@ export function FunnelOverviewTab({
                                 ) : (
                                     /* Daily Breakdown Table */
                                     <div className="border border-border/40 rounded-xl overflow-hidden bg-card/60 backdrop-blur-sm">
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left text-sm border-collapse">
+                                        <div className="overflow-x-auto scrollbar-thin touch-scroll">
+                                            <table className="w-full min-w-[760px] text-left text-sm border-collapse">
                                                 <thead>
                                                     <tr className="border-b border-border/30 bg-muted/30 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                                                         <th className="py-3 px-3">Date</th>

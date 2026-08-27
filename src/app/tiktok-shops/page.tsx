@@ -419,18 +419,18 @@ export default function TikTokShopsPage() {
             </div>
 
             {/* ── Summary Overview KPI Cards (GMV, Ad Spend, ROAS) ── */}
-            <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {/* 1. GMV Hero Card */}
-                <Card className="col-span-2 lg:col-span-2 bg-gradient-to-br from-primary/15 to-purple-900/10 border-primary/25 backdrop-blur-sm">
+                <Card className="col-span-1 sm:col-span-2 lg:col-span-2 bg-gradient-to-br from-primary/15 to-purple-900/10 border-primary/25 backdrop-blur-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
                         <div className="flex flex-col gap-1">
-                            <CardTitle className="text-2xl sm:text-3xl font-extrabold uppercase tracking-wider text-primary">Total TikTok GMV</CardTitle>
+                            <CardTitle className="text-xs font-bold uppercase tracking-wider text-primary">Total TikTok GMV</CardTitle>
                             <SyncIndicator isLoading={isLoading} dataSource={dataSource} />
                         </div>
                         {!isLoading && <TrendBadge pct={gmvPct} />}
                     </CardHeader>
                     <CardContent className="px-4 pb-4 space-y-3">
-                        <div className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight tabular-nums leading-none pt-2">
+                        <div className="text-xl sm:text-2xl md:text-3xl font-extrabold text-foreground tracking-tight tabular-nums leading-none pt-2">
                             RM {totalGMV.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-2">

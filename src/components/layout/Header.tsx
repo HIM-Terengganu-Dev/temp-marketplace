@@ -62,24 +62,24 @@ export function Header({ onMenuClick }: HeaderProps) {
     const pageTitle = getPageTitle(pathname);
 
     return (
-        <header className="sticky top-0 z-20 flex h-14 md:h-16 flex-shrink-0 items-center gap-x-3 border-b border-border/40 bg-background/80 backdrop-blur-xl px-4 md:px-6 shadow-[0_1px_0_rgba(255,255,255,0.04)]">
+        <header className="sticky top-0 z-20 flex h-14 md:h-16 flex-shrink-0 items-center gap-x-2 sm:gap-x-3 border-b border-border/40 bg-background/80 backdrop-blur-xl px-2.5 sm:px-4 md:px-6 shadow-[0_1px_0_rgba(255,255,255,0.04)]">
 
             {/* Left: hamburger (md+: hidden; mobile: only shown as drawer trigger for overflow) */}
-            <div className="flex flex-1 items-center gap-3 min-w-0">
+            <div className="flex flex-1 items-center gap-2 sm:gap-3 min-w-0">
                 {/* Hamburger — shown on mobile only as a secondary way to open full nav drawer */}
                 {onMenuClick && (
                     <button
                         onClick={onMenuClick}
-                        className="md:hidden flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200 flex-shrink-0"
+                        className="md:hidden flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200 flex-shrink-0"
                         aria-label="Open navigation menu"
                     >
-                        <Menu className="h-5 w-5 md:h-4.5 md:w-4.5" />
+                        <Menu className="h-4.5 w-4.5" />
                     </button>
                 )}
 
                 {/* Page title — desktop shows full name, mobile shows short title */}
                 <div className="min-w-0">
-                    <span className="block text-base md:text-lg font-bold text-foreground leading-tight truncate">
+                    <span className="block text-sm sm:text-base md:text-lg font-bold text-foreground leading-tight truncate">
                         {pageTitle}
                     </span>
                     <p className="text-[10px] text-muted-foreground hidden sm:block leading-none mt-0.5">
@@ -89,7 +89,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             </div>
 
             {/* Right: actions */}
-            <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
 
                 {/* Data Freshness & Sync Status */}
                 <DataFreshnessBadge />
@@ -97,7 +97,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 {/* Lite Mode Toggle */}
                 <button
                     onClick={toggleLiteMode}
-                    className={`flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-lg transition-all duration-200 cursor-pointer ${
+                    className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg transition-all duration-200 cursor-pointer ${
                         isLiteMode
                             ? "bg-yellow-500/15 text-yellow-400 hover:bg-yellow-500/25 ring-1 ring-yellow-500/30"
                             : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -105,39 +105,39 @@ export function Header({ onMenuClick }: HeaderProps) {
                     aria-label={isLiteMode ? "Switch to Full Mode" : "Switch to Lite Mode"}
                     title={isLiteMode ? "⚡ Lite Mode ON — Click to go Full" : "Switch to Lite Mode (faster on older devices)"}
                 >
-                    <Zap className={`h-5 w-5 md:h-4.5 md:w-4.5 ${isLiteMode ? "fill-yellow-400" : ""}`} />
+                    <Zap className={`h-4 w-4 sm:h-4.5 sm:w-4.5 ${isLiteMode ? "fill-yellow-400" : ""}`} />
                 </button>
 
                 {/* Theme Toggle */}
                 <button
                     onClick={toggleTheme}
-                    className="flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200 cursor-pointer"
+                    className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200 cursor-pointer"
                     aria-label="Toggle theme"
                     title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
                 >
                     {!mounted ? (
-                        <div className="h-5 w-5 md:h-4.5 md:w-4.5" />
+                        <div className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
                     ) : theme === "dark" ? (
-                        <Sun className="h-5 w-5 md:h-4.5 md:w-4.5 text-amber-400 hover:text-amber-300 transition-colors animate-fade-in" />
+                        <Sun className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-amber-400 hover:text-amber-300 transition-colors animate-fade-in" />
                     ) : (
-                        <Moon className="h-5 w-5 md:h-4.5 md:w-4.5 text-indigo-600 hover:text-indigo-500 transition-colors animate-fade-in" />
+                        <Moon className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-indigo-600 hover:text-indigo-500 transition-colors animate-fade-in" />
                     )}
                 </button>
 
                 {/* Notification bell */}
                 <button
-                    className="relative flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+                    className="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
                     aria-label="Notifications"
                 >
-                    <Bell className="h-5 w-5 md:h-4.5 md:w-4.5" />
-                    <span className="absolute top-2 right-2 md:top-1.5 md:right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-background animate-pulse" />
+                    <Bell className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                    <span className="absolute top-1.5 right-1.5 sm:top-1.5 sm:right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-background animate-pulse" />
                 </button>
 
-                <Separator orientation="vertical" className="h-6 bg-border/50 hidden sm:block" />
+                <Separator orientation="vertical" className="h-5 sm:h-6 bg-border/50 hidden sm:block" />
 
                 {/* User section */}
                 {session?.user && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                         {/* Name & role — hidden on very small screens */}
                         <div className="hidden sm:flex flex-col items-end">
                             <span className="text-xs font-semibold text-foreground leading-none">
@@ -149,8 +149,8 @@ export function Header({ onMenuClick }: HeaderProps) {
                         </div>
 
                         {/* Avatar */}
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 p-[1.5px] flex-shrink-0">
-                            <div className="h-full w-full rounded-full bg-background flex items-center justify-center font-bold text-[10px] text-foreground">
+                        <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 p-[1.5px] flex-shrink-0">
+                            <div className="h-full w-full rounded-full bg-background flex items-center justify-center font-bold text-[9px] sm:text-[10px] text-foreground">
                                 {getInitials(session.user.name || "User")}
                             </div>
                         </div>
@@ -158,11 +158,11 @@ export function Header({ onMenuClick }: HeaderProps) {
                         {/* Sign out */}
                         <button
                             onClick={() => signOut()}
-                            className="flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+                            className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
                             title="Sign Out"
                             aria-label="Sign Out"
                         >
-                            <LogOut className="h-5 w-5 md:h-4 md:w-4" />
+                            <LogOut className="h-4 w-4" />
                         </button>
                     </div>
                 )}

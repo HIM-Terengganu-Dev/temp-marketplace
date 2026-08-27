@@ -229,7 +229,7 @@ function ShopeeShopsContent() {
                         <p className="text-sm text-muted-foreground">Expose sales, orders, and listing metrics from your Shopee Seller Center</p>
                     </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto self-stretch xl:self-auto justify-end">
+                <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto self-stretch xl:self-auto justify-start sm:justify-end">
                     <Button 
                         variant="outline"
                         size="sm"
@@ -253,7 +253,7 @@ function ShopeeShopsContent() {
                     <Button 
                         onClick={handleConnectShopee} 
                         disabled={isConnecting}
-                        className="bg-orange-500 hover:bg-orange-600 text-white gap-2 transition-all shadow-lg shadow-orange-500/15 text-xs h-9 shrink-0"
+                        className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white gap-2 transition-all shadow-lg shadow-orange-500/15 text-xs h-9 shrink-0"
                     >
                         {isConnecting ? (
                             <Loader2 className="h-4 w-4 animate-spin" />

@@ -61,19 +61,20 @@ export function FeedbackWidget() {
     useEffect(() => {
         const updateInitialPosition = () => {
             const saved = localStorage.getItem("feedback_widget_pos");
-            const btnWidth = 180;
+            const btnWidth = window.innerWidth < 640 ? 150 : 180;
             const btnHeight = 44;
-            const margin = 20;
+            const margin = 12;
+            const bottomMargin = window.innerWidth < 768 ? 76 : 24;
 
             let initialX = window.innerWidth - btnWidth - margin;
-            let initialY = window.innerHeight - btnHeight - margin - 40;
+            let initialY = window.innerHeight - btnHeight - bottomMargin;
 
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved);
                     if (typeof parsed.x === "number" && typeof parsed.y === "number") {
                         initialX = Math.max(margin, Math.min(parsed.x, window.innerWidth - btnWidth - margin));
-                        initialY = Math.max(margin, Math.min(parsed.y, window.innerHeight - btnHeight - margin));
+                        initialY = Math.max(margin, Math.min(parsed.y, window.innerHeight - btnHeight - bottomMargin));
                     }
                 } catch (e) {
                     console.error("Failed to parse feedback widget position", e);
@@ -113,12 +114,13 @@ export function FeedbackWidget() {
             setHasMoved(true);
         }
 
-        const btnWidth = 180;
+        const btnWidth = window.innerWidth < 640 ? 150 : 180;
         const btnHeight = 44;
         const margin = 8;
+        const bottomMargin = window.innerWidth < 768 ? 72 : 16;
 
         const newX = Math.max(margin, Math.min(dragStartRef.current.posX + dx, window.innerWidth - btnWidth - margin));
-        const newY = Math.max(margin, Math.min(dragStartRef.current.posY + dy, window.innerHeight - btnHeight - margin));
+        const newY = Math.max(margin, Math.min(dragStartRef.current.posY + dy, window.innerHeight - btnHeight - bottomMargin));
 
         setPosition({ x: newX, y: newY });
     };
@@ -215,19 +217,19 @@ export function FeedbackWidget() {
 
             {/* ── Submission Modal ───────────────────────────────────────────── */}
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                     <div
-                        className="relative w-full max-w-lg bg-card border border-border text-card-foreground rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                        className="relative w-full max-w-[calc(100vw-1.5rem)] sm:max-w-lg bg-card border border-border text-card-foreground rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
+                        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border bg-muted/30">
                             <div className="flex items-center gap-2.5">
-                                <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
+                                <div className="p-2 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 flex-shrink-0">
                                     <MessageSquarePlus className="h-5 w-5" />
                                 </div>
                                 <div>
-                                    <h3 className="text-base font-bold text-foreground">Send System Feedback</h3>
+                                    <h3 className="text-base font-bold text-foreground leading-tight">Send System Feedback</h3>
                                     <p className="text-xs text-muted-foreground">Report bugs, suggest ideas, or request features</p>
                                 </div>
                             </div>
@@ -240,7 +242,7 @@ export function FeedbackWidget() {
                         </div>
 
                         {/* Content Body */}
-                        <div className="p-6 overflow-y-auto space-y-5">
+                        <div className="p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5">
                             {submittedId ? (
                                 /* Success State */
                                 <div className="py-6 text-center space-y-4">

@@ -261,8 +261,8 @@ export default function DebugTablePage() {
             )}
 
             {data && (
-                <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-left text-sm">
+                <div className="border rounded-lg overflow-x-auto scrollbar-thin touch-scroll">
+                    <table className="w-full min-w-[340px] text-left text-sm">
                         <thead className="bg-muted">
                             <tr>
                                 <th className="p-3 border-b">Metric</th>
@@ -464,8 +464,8 @@ export default function DebugTablePage() {
                             Export to CSV
                         </Button>
                     </div>
-                    <div className="border rounded-lg overflow-hidden max-h-[600px] overflow-y-auto">
-                        <table className="w-full text-left text-sm">
+                    <div className="border rounded-lg overflow-x-auto overflow-y-auto max-h-[600px] scrollbar-thin touch-scroll">
+                        <table className="w-full min-w-[640px] text-left text-sm">
                             <thead className="bg-muted sticky top-0">
                                 <tr>
                                     <th className="p-3 border-b">Order ID</th>
@@ -552,8 +552,8 @@ export default function DebugTablePage() {
             {data && selectedMetric === 'live_gmv_max' && data.accounts && data.accounts.length > 0 && (
                 <div className="space-y-2">
                     <h2 className="text-lg font-semibold">Breakdown by Account</h2>
-                    <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full text-left text-sm">
+                    <div className="border rounded-lg overflow-x-auto scrollbar-thin touch-scroll">
+                        <table className="w-full min-w-[500px] text-left text-sm">
                             <thead className="bg-muted">
                                 <tr>
                                     <th className="p-3 border-b">Account</th>
@@ -589,8 +589,8 @@ export default function DebugTablePage() {
             {data && selectedMetric === 'product_gmv_max' && data.campaigns && data.campaigns.length > 0 && (
                 <div className="space-y-2">
                     <h2 className="text-lg font-semibold">Breakdown by Campaign</h2>
-                    <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full text-left text-sm">
+                    <div className="border rounded-lg overflow-x-auto scrollbar-thin touch-scroll">
+                        <table className="w-full min-w-[500px] text-left text-sm">
                             <thead className="bg-muted">
                                 <tr>
                                     <th className="p-3 border-b">Campaign Name</th>
@@ -630,8 +630,8 @@ export default function DebugTablePage() {
             {data && selectedMetric === 'manual_ads_cost' && data.accounts && data.accounts.length > 0 && (
                 <div className="space-y-2">
                     <h2 className="text-lg font-semibold">Breakdown by Advertiser Account</h2>
-                    <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full text-left text-sm">
+                    <div className="border rounded-lg overflow-x-auto scrollbar-thin touch-scroll">
+                        <table className="w-full min-w-[700px] text-left text-sm">
                             <thead className="bg-muted">
                                 <tr>
                                     <th className="p-3 border-b">Account</th>

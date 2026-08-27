@@ -60,10 +60,10 @@ export default function RefreshTokenPage() {
     };
 
     return (
-        <div className="container mx-auto p-6 max-w-4xl">
+        <div className="space-y-6 max-w-4xl">
             <div className="mb-6">
-                <h1 className="text-3xl font-bold mb-2">Refresh TikTok Shop Tokens</h1>
-                <p className="text-muted-foreground">
+                <h1 className="text-2xl sm:text-3xl font-bold mb-2">Refresh TikTok Shop Tokens</h1>
+                <p className="text-sm text-muted-foreground">
                     Manually refresh access tokens and refresh tokens for all TikTok Shops.
                 </p>
             </div>

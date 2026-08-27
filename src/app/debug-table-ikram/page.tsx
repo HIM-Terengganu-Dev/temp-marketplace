@@ -370,8 +370,8 @@ export default function DebugTableIkramPage() {
             )}
 
             {data && (
-                <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-left text-sm">
+                <div className="border rounded-lg overflow-x-auto scrollbar-thin touch-scroll">
+                    <table className="w-full min-w-[340px] text-left text-sm">
                         <thead className="bg-muted">
                             <tr>
                                 <th className="p-3 border-b">Metric</th>
@@ -642,8 +642,8 @@ export default function DebugTableIkramPage() {
                 <div className="space-y-2">
                     <h2 className="text-lg font-semibold">Breakdown by Account</h2>
                     <p className="text-sm text-muted-foreground">Click on an account to view campaign-level details</p>
-                    <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full text-left text-sm">
+                    <div className="border rounded-lg overflow-x-auto scrollbar-thin touch-scroll">
+                        <table className="w-full min-w-[500px] text-left text-sm">
                             <thead className="bg-muted">
                                 <tr>
                                     <th className="p-3 border-b w-8"></th>
@@ -871,8 +871,8 @@ export default function DebugTableIkramPage() {
             {data && selectedMetric === 'gross_revenue' && data.accounts && data.accounts.length > 0 && (
                 <div className="space-y-2">
                     <h2 className="text-lg font-semibold">Breakdown by Advertiser Account</h2>
-                    <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full text-left text-sm">
+                    <div className="border rounded-lg overflow-x-auto scrollbar-thin touch-scroll">
+                        <table className="w-full min-w-[600px] text-left text-sm">
                             <thead className="bg-muted">
                                 <tr>
                                     <th className="p-3 border-b">Account</th>
@@ -942,8 +942,8 @@ export default function DebugTableIkramPage() {
                         })).sort((a, b) => b.gmv - a.gmv); // Sort by GMV descending
 
                         return (
-                            <div className="border rounded-lg overflow-hidden">
-                                <table className="w-full text-left text-sm">
+                            <div className="border rounded-lg overflow-x-auto scrollbar-thin touch-scroll">
+                                <table className="w-full min-w-[600px] text-left text-sm">
                                     <thead className="bg-muted">
                                         <tr>
                                             <th className="p-3 border-b w-8"></th>
@@ -1055,8 +1055,8 @@ export default function DebugTableIkramPage() {
             {data && selectedMetric === 'manual_ads_cost' && data.accounts && data.accounts.length > 0 && (
                 <div className="space-y-2">
                     <h2 className="text-lg font-semibold">Breakdown by Advertiser Account</h2>
-                    <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full text-left text-sm">
+                    <div className="border rounded-lg overflow-x-auto scrollbar-thin touch-scroll">
+                        <table className="w-full min-w-[700px] text-left text-sm">
                             <thead className="bg-muted">
                                 <tr>
                                     <th className="p-3 border-b">Account</th>
