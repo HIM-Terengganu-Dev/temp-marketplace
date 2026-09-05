@@ -294,11 +294,8 @@ async function fetchTikTokShopMetricsSWR(
         const key = `tiktok_${date}_${shopNumber}`;
 
         if (isToday) {
-            // Serve cache if fresh (< 5 min), else re-fetch live synchronously
-            const FIVE_MIN_MS = 5 * 60 * 1000;
-            const isCacheFresh = cached?.updatedAt && (Date.now() - new Date(cached.updatedAt).getTime()) < FIVE_MIN_MS;
-
-            if (cached && isCacheFresh) {
+            if (cached) {
+                // TRUE SWR: Serve DB cache immediately for sub-second UI response
                 totalGMV += cached.gmv;
                 totalSpend += cached.spend;
                 totalOrders += cached.orders;
@@ -306,35 +303,50 @@ async function fetchTikTokShopMetricsSWR(
                 totalCancelledGMV += cached.cancelledGMV || 0;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
+
+                // If cache is older than 5 minutes, queue non-blocking background refresh
+                const FIVE_MIN_MS = 5 * 60 * 1000;
+                const isCacheFresh = cached?.updatedAt && (Date.now() - new Date(cached.updatedAt).getTime()) < FIVE_MIN_MS;
+                if (!isCacheFresh) {
+                    backgroundThunks.push({
+                        key,
+                        date,
+                        fn: () => fetchAndSaveTikTok(shopNumber, date)
+                    });
+                }
             } else {
+                // No row in DB yet — fetch live synchronously
                 syncPromises.push(fetchAndSaveTikTok(shopNumber, date));
                 loadedFromApiCount++;
             }
         } else if (isRecentPast) {
             if (cached) {
                 const dayClosed = isDayClosed(date, cached.updatedAt);
+                totalGMV += cached.gmv;
+                totalSpend += cached.spend;
+                totalOrders += cached.orders;
+                totalCancelledOrders += cached.cancelledOrderCount || 0;
+                totalCancelledGMV += cached.cancelledGMV || 0;
+                if (cached.shopName) shopName = cached.shopName;
+                loadedFromDbCount++;
+
                 if (dayClosed) {
-                    // Day has fully closed and DB was synced after midnight — data is final, trust it
-                    totalGMV += cached.gmv;
-                    totalSpend += cached.spend;
-                    totalOrders += cached.orders;
-                    totalCancelledOrders += cached.cancelledOrderCount || 0;
-                    totalCancelledGMV += cached.cancelledGMV || 0;
-                    if (cached.shopName) shopName = cached.shopName;
-                    loadedFromDbCount++;
-                    // Still queue a light background refresh for refund/cancellation adjustments
+                    // Day has fully closed and DB was synced after midnight — data is final.
+                    // Light background refresh for any late refund/cancellation adjustments
                     backgroundThunks.push({
                         key,
                         date,
                         fn: () => fetchAndSaveTikTok(shopNumber, date)
                     });
                 } else {
-                    // DB row was written mid-day (before midnight KL) — data is incomplete.
-                    // Re-fetch live synchronously so first load shows correct totals.
-                    console.log(`[summary-swr] TikTok Shop ${shopNumber} date ${date}: DB cached mid-day (before close), re-fetching live...`);
-                    syncPromises.push(fetchAndSaveTikTok(shopNumber, date));
+                    // DB row was written mid-day. Serve stale cache immediately + schedule background refresh
+                    console.log(`[summary-swr] TikTok Shop ${shopNumber} date ${date}: DB cached mid-day, serving stale cache + scheduling background refresh...`);
                     loadedStaleCount++;
-                    loadedFromApiCount++;
+                    backgroundThunks.push({
+                        key,
+                        date,
+                        fn: () => fetchAndSaveTikTok(shopNumber, date)
+                    });
                 }
             } else {
                 syncPromises.push(fetchAndSaveTikTok(shopNumber, date));
@@ -466,11 +478,8 @@ async function fetchShopeeShopMetricsSWR(
         const key = `shopee_${date}_${shopId}`;
 
         if (isToday) {
-            // Serve cache if fresh (< 5 min), else re-fetch live synchronously
-            const FIVE_MIN_MS = 5 * 60 * 1000;
-            const isCacheFresh = cached?.updatedAt && (Date.now() - new Date(cached.updatedAt).getTime()) < FIVE_MIN_MS;
-
-            if (cached && isCacheFresh) {
+            if (cached) {
+                // TRUE SWR: Serve DB cache immediately for sub-second UI response
                 totalGMV += cached.gmv;
                 totalSpend += cached.spend;
                 totalOrders += cached.orders;
@@ -480,7 +489,19 @@ async function fetchShopeeShopMetricsSWR(
                 totalCancelledGMV += cached.cancelledGMV || 0;
                 if (cached.shopName) shopName = cached.shopName;
                 loadedFromDbCount++;
+
+                // If cache is older than 5 minutes, queue non-blocking background refresh
+                const FIVE_MIN_MS = 5 * 60 * 1000;
+                const isCacheFresh = cached?.updatedAt && (Date.now() - new Date(cached.updatedAt).getTime()) < FIVE_MIN_MS;
+                if (!isCacheFresh) {
+                    backgroundThunks.push({
+                        key,
+                        date,
+                        fn: () => fetchAndSaveShopee(shopId, date)
+                    });
+                }
             } else {
+                // No row in DB yet — fetch live synchronously
                 syncPromises.push(fetchAndSaveShopee(shopId, date));
                 loadedFromApiCount++;
             }

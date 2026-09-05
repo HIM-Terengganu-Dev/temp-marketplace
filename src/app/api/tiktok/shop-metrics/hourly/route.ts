@@ -1,15 +1,25 @@
 import { NextResponse } from 'next/server';
 import { fetchShopGMV, fetchShopROAS, SHOPS } from '@/lib/metrics-fetcher';
 
+export const dynamic = 'force-dynamic';
+
 /**
- * Hourly GMV & Spend breakdown endpoint.
- * Fetches all orders and ads spend for a single day and buckets them into hourly slots (GMT+8).
- * Always calls the live TikTok API — no DB cache for hourly data.
- *
- * Query params:
- *   date=YYYY-MM-DD   (required)
- *   shopNumber=1-4    (required)
+ * Hourly GMV & Spend breakdown endpoint for TikTok.
+ * Features in-memory TTL caching and in-flight request deduplication to prevent rate limits.
  */
+
+interface CacheEntry {
+    data: any;
+    expiresAt: number;
+}
+
+const hourlyCache = new Map<string, CacheEntry>();
+const inFlightPromises = new Map<string, Promise<any>>();
+
+function getKLToday(): string {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
@@ -24,7 +34,36 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: `Invalid shop number: ${shopNumberParam}` }, { status: 400 });
     }
 
-    try {
+    const cacheKey = `tt_hourly_${shopNumber}_${date}`;
+    const now = Date.now();
+
+    // 1. Return from memory cache if valid
+    const cached = hourlyCache.get(cacheKey);
+    if (cached && now < cached.expiresAt) {
+        return NextResponse.json(cached.data, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+                'X-Cache': 'HIT',
+            }
+        });
+    }
+
+    // 2. Reuse in-flight request if already pending
+    if (inFlightPromises.has(cacheKey)) {
+        try {
+            const data = await inFlightPromises.get(cacheKey)!;
+            return NextResponse.json(data, {
+                headers: {
+                    'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+                    'X-Cache': 'COALESCED',
+                }
+            });
+        } catch {
+            // Fall through to retry on error
+        }
+    }
+
+    const fetchPromise = (async () => {
         // Fetch orders and ads spend for the day in parallel
         const [gmvData, roasData] = await Promise.all([
             fetchShopGMV(shopNumber, date, date),
@@ -50,7 +89,6 @@ export async function GET(request: Request) {
         for (const order of gmvData.orders || []) {
             if (!order.isIncluded || !order.createTime) continue;
 
-            // createTime is a Unix timestamp (seconds); convert to GMT+8 hour
             const utcMs = order.createTime * 1000;
             const gmt8Date = new Date(
                 new Date(utcMs).toLocaleString('en-US', { timeZone: 'Asia/Kuala_Lumpur' })
@@ -80,7 +118,7 @@ export async function GET(request: Request) {
 
         const shopConfig = SHOPS[shopNumberParam];
 
-        return NextResponse.json({
+        const payload = {
             shopNumber,
             shopName: gmvData.shopName || shopConfig?.name || `Shop ${shopNumber}`,
             date,
@@ -88,10 +126,31 @@ export async function GET(request: Request) {
             totalGMV: gmvData.gmv,
             totalOrders: gmvData.orderCount,
             totalSpend,
+        };
+
+        // Cache TTL: 5 min for today, 1 hour for past dates
+        const isToday = date === getKLToday();
+        const ttlMs = isToday ? 5 * 60 * 1000 : 60 * 60 * 1000;
+        hourlyCache.set(cacheKey, { data: payload, expiresAt: Date.now() + ttlMs });
+
+        return payload;
+    })();
+
+    inFlightPromises.set(cacheKey, fetchPromise);
+
+    try {
+        const data = await fetchPromise;
+        return NextResponse.json(data, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+                'X-Cache': 'MISS',
+            }
         });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         console.error(`[shop-metrics/hourly] Error for shop ${shopNumber} on ${date}:`, message);
         return NextResponse.json({ error: message }, { status: 500 });
+    } finally {
+        inFlightPromises.delete(cacheKey);
     }
 }

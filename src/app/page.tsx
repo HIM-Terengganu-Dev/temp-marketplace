@@ -596,6 +596,13 @@ export default function Home() {
             const sources = [...new Set(shops.map((s) => s.dataSource || "live_api"))];
             const newDataSource = sources.join("+");
 
+            // Progressive render: Display overview KPI cards and shop cards immediately!
+            // Do not hold UI hostage while waiting for hourly buckets or COGS.
+            setShopData(shops);
+            setPrevTotals(newPrevTotals);
+            setDataSource(newDataSource);
+            setIsLoading(false);
+
             // 6. Launch COGS and Hourly Charts concurrently
             const totalGMVForCogs = shops.reduce((s, d) => s + (d.revenue ?? 0), 0);
             const cogsPromise = (async () => {

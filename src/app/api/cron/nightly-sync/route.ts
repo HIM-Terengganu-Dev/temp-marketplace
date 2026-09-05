@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { fetchShopGMV, fetchShopROAS, SHOPS } from '@/lib/metrics-fetcher';
 import { fetchShopeeShopPerformance, getConnectedShopeeShops } from '@/lib/shopee-client';
-import { query, pool } from '@/lib/db';
+import { query } from '@/lib/db';
 import { recordSyncEvent } from '@/lib/sync-tracker';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // Allow up to 300s on Vercel Pro (capped safely at 60s on Hobby)
 
 /**
  * Vercel Cron Job — Nightly Metrics Sync
@@ -13,6 +16,8 @@ import { recordSyncEvent } from '@/lib/sync-tracker';
  * Security: Vercel automatically sets the Authorization header with CRON_SECRET.
  * Requests without the correct secret are rejected with 401.
  */
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Returns yesterday's date string in KL timezone (Asia/Kuala_Lumpur).
@@ -39,33 +44,65 @@ function subDaysKL(dateStr: string, n: number): string {
     return dt.toISOString().split('T')[0];
 }
 
-async function syncTikTokShop(shopNumber: number, date: string) {
+interface SyncShopResult {
+    success: boolean;
+    shopName: string;
+    gmv?: number;
+    orders?: number;
+    spend?: number;
+    error?: string;
+    warning?: string;
+}
+
+async function syncTikTokShop(shopNumber: number, date: string, retries = 1): Promise<SyncShopResult> {
     const shopConfig = SHOPS[shopNumber.toString()];
-    if (!shopConfig) return { success: false, shopName: `Shop ${shopNumber}` };
+    if (!shopConfig) return { success: false, shopName: `Shop ${shopNumber}`, error: 'Config missing' };
 
     try {
-        const [gmvData, roasData] = await Promise.all([
+        // Resilient parallel fetch: decouple GMV and ROAS
+        // If ROAS/Ads API fails (token blip or rate limit), GMV & Orders are preserved
+        const [gmvSettled, roasSettled] = await Promise.allSettled([
             fetchShopGMV(shopNumber, date, date),
             fetchShopROAS(shopNumber, date, date),
         ]);
 
-        const gmv               = gmvData.gmv || 0;
-        const orderCount        = gmvData.orderCount || 0;
-        const spendBeforeTax    = roasData.totalAdsSpend || 0;
-        const spendAfterTax     = roasData.totalCostWithTaxes || 0;
-        const liveGMVMaxCost    = roasData.liveGMVMaxCost || 0;
-        const productGMVMaxCost = roasData.productGMVMaxCost || 0;
+        if (gmvSettled.status === 'rejected') {
+            if (retries > 0) {
+                console.warn(`[cron/nightly-sync] TikTok Shop ${shopNumber} GMV fetch failed (${gmvSettled.reason?.message}). Retrying in 1s...`);
+                await sleep(1000);
+                return syncTikTokShop(shopNumber, date, retries - 1);
+            }
+            throw new Error(`GMV fetch failed: ${gmvSettled.reason?.message || 'Unknown error'}`);
+        }
+
+        const gmvData = gmvSettled.value;
+        let roasData: any = {};
+        let roasWarning = '';
+
+        if (roasSettled.status === 'fulfilled') {
+            roasData = roasSettled.value;
+        } else {
+            roasWarning = `Ads ROAS fetch failed (${roasSettled.reason?.message}); saved with 0 ads spend`;
+            console.warn(`[cron/nightly-sync] TikTok Shop ${shopNumber} Ads ROAS warning: ${roasWarning}`);
+        }
+
+        const gmv                 = gmvData.gmv || 0;
+        const orderCount          = gmvData.orderCount || 0;
+        const spendBeforeTax      = roasData.totalAdsSpend || 0;
+        const spendAfterTax       = roasData.totalCostWithTaxes || 0;
+        const liveGMVMaxCost      = roasData.liveGMVMaxCost || 0;
+        const productGMVMaxCost   = roasData.productGMVMaxCost || 0;
         const manualCampaignSpend = roasData.manualCampaignSpend || 0;
-        const roasBeforeTax     = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
-        const roasAfterTax      = spendAfterTax  > 0 ? gmv / spendAfterTax  : 0;
+        const roasBeforeTax       = spendBeforeTax > 0 ? gmv / spendBeforeTax : 0;
+        const roasAfterTax        = spendAfterTax  > 0 ? gmv / spendAfterTax  : 0;
 
-        const cancelledOrders = gmvData.orders.filter((o: any) => o.status === 'CANCELLED');
+        const cancelledOrders     = (gmvData.orders || []).filter((o: any) => o.status === 'CANCELLED');
         const cancelledOrderCount = cancelledOrders.length;
-        const cancelledGMV = cancelledOrders.reduce((sum: number, o: any) => sum + o.gmv, 0);
+        const cancelledGMV        = cancelledOrders.reduce((sum: number, o: any) => sum + (o.gmv || 0), 0);
 
-        const impressions = roasData.impressions || 0;
-        const thruplay = roasData.thruplay || 0;
-        const visitors = roasData.clicks || 0;
+        const impressions         = roasData.impressions || 0;
+        const thruplay            = roasData.thruplay || 0;
+        const visitors            = roasData.clicks || 0;
 
         await query(`
             INSERT INTO credentials.daily_shop_metrics (
@@ -98,14 +135,21 @@ async function syncTikTokShop(shopNumber: number, date: string) {
             cancelledOrderCount, cancelledGMV,
             impressions, thruplay, visitors]);
 
-        return { success: true, shopName: gmvData.shopName || shopConfig.name, gmv, orders: orderCount, spend: spendBeforeTax };
+        return {
+            success: true,
+            shopName: gmvData.shopName || shopConfig.name,
+            gmv,
+            orders: orderCount,
+            spend: spendBeforeTax,
+            warning: roasWarning || undefined
+        };
     } catch (e: any) {
         console.error(`[cron/nightly-sync] TikTok Shop ${shopNumber} error:`, e.message);
         return { success: false, shopName: shopConfig.name, error: e.message };
     }
 }
 
-async function syncShopeeShop(shopId: number, shopName: string, date: string) {
+async function syncShopeeShop(shopId: number, shopName: string, date: string, retries = 1): Promise<SyncShopResult> {
     try {
         const data = await fetchShopeeShopPerformance(shopId, date, date);
 
@@ -118,14 +162,14 @@ async function syncShopeeShop(shopId: number, shopName: string, date: string) {
         const cpasSpend       = data.cpasSpend || 0;
         const shopeeCpcSpend  = data.shopeeCpcSpend || 0;
         
-        const adImpressions = data.adImpressions || 0;
-        const adClicks = data.adClicks || 0;
-        const adOrders = data.adOrders || 0;
-        const adSales = data.adSales || 0;
+        const adImpressions   = data.adImpressions || 0;
+        const adClicks        = data.adClicks || 0;
+        const adOrders        = data.adOrders || 0;
+        const adSales         = data.adSales || 0;
 
-        const cancelledOrders = data.orders.filter((o: any) => o.status === 'CANCELLED');
+        const cancelledOrders     = (data.orders || []).filter((o: any) => o.status === 'CANCELLED');
         const cancelledOrderCount = cancelledOrders.length;
-        const cancelledGMV = cancelledOrders.reduce((sum: number, o: any) => sum + o.gmv, 0);
+        const cancelledGMV        = cancelledOrders.reduce((sum: number, o: any) => sum + (o.gmv || 0), 0);
 
         await query(`
             INSERT INTO credentials.daily_shopee_metrics (
@@ -157,8 +201,65 @@ async function syncShopeeShop(shopId: number, shopName: string, date: string) {
 
         return { success: true, shopName: data.shopName || shopName, gmv, orders: orderCount, spend: spendBeforeTax };
     } catch (e: any) {
+        if (retries > 0) {
+            console.warn(`[cron/nightly-sync] Shopee Shop ${shopId} failed (${e.message}). Retrying in 1s...`);
+            await sleep(1000);
+            return syncShopeeShop(shopId, shopName, date, retries - 1);
+        }
         console.error(`[cron/nightly-sync] Shopee Shop ${shopId} error:`, e.message);
         return { success: false, shopName, error: e.message };
+    }
+}
+
+/**
+ * Guard-sync: Checks past 2 days for missing rows across TikTok and Shopee and backfills them.
+ * Optimized with batch database queries to avoid serial roundtrips.
+ */
+async function runGuardSync(todayKL: string, currentSyncDate: string, shopeeShops: { shop_id: string; shop_name: string }[]) {
+    const guardDates = [subDaysKL(todayKL, 1), subDaysKL(todayKL, 2)].filter(d => d !== currentSyncDate);
+    if (guardDates.length === 0) return;
+
+    try {
+        // 1. Batch query existing TikTok entries
+        const existingTtRes = await query(
+            `SELECT date::text as d, shop_number FROM credentials.daily_shop_metrics WHERE date = ANY($1::date[])`,
+            [guardDates]
+        );
+        const existingTtSet = new Set(existingTtRes.rows.map((r: any) => `${r.d.split('T')[0]}_${r.shop_number}`));
+
+        for (const guardDate of guardDates) {
+            for (const shopNum of [1, 2, 3, 4]) {
+                const key = `${guardDate}_${shopNum}`;
+                if (!existingTtSet.has(key)) {
+                    console.log(`[cron/nightly-sync] Guard-healing missing TikTok shop ${shopNum} for ${guardDate}...`);
+                    await syncTikTokShop(shopNum, guardDate);
+                    await sleep(200);
+                }
+            }
+        }
+
+        // 2. Batch query existing Shopee entries
+        if (shopeeShops.length > 0) {
+            const existingShpRes = await query(
+                `SELECT date::text as d, shop_id FROM credentials.daily_shopee_metrics WHERE date = ANY($1::date[])`,
+                [guardDates]
+            );
+            const existingShpSet = new Set(existingShpRes.rows.map((r: any) => `${r.d.split('T')[0]}_${r.shop_id}`));
+
+            for (const guardDate of guardDates) {
+                for (const shop of shopeeShops) {
+                    const shopId = parseInt(shop.shop_id, 10);
+                    const key = `${guardDate}_${shopId}`;
+                    if (!existingShpSet.has(key)) {
+                        console.log(`[cron/nightly-sync] Guard-healing missing Shopee shop ${shop.shop_name} (${shopId}) for ${guardDate}...`);
+                        await syncShopeeShop(shopId, shop.shop_name, guardDate);
+                        await sleep(200);
+                    }
+                }
+            }
+        }
+    } catch (guardErr: any) {
+        console.warn(`[cron/nightly-sync] Guard-sync warning:`, guardErr.message);
     }
 }
 
@@ -169,7 +270,7 @@ export async function GET(request: Request) {
 
     if (!cronSecret) {
         console.error('[cron/nightly-sync] CRON_SECRET env var is not set!');
-        return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
+        return NextResponse.json({ error: 'Server misconfiguration: CRON_SECRET missing' }, { status: 500 });
     }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
@@ -182,52 +283,9 @@ export async function GET(request: Request) {
     const date = searchParams.get('date') || getKLYesterday();
 
     const startedAt = new Date().toISOString();
-    console.log(`[cron/nightly-sync] Starting sync for date: ${date}`);
+    console.log(`[cron/nightly-sync] Starting optimized sync for date: ${date}`);
 
-    // ── Guard-sync: heal any missing TikTok data from the past 2 days ────────
-    // If the cron failed silently on a recent night, this ensures data is
-    // backfilled before we proceed with tonight's sync.
-    const today = getKLToday();
-    const guardDates = [subDaysKL(today, 1), subDaysKL(today, 2)].filter(d => d !== date);
-    for (const guardDate of guardDates) {
-        try {
-            const existing = await query(
-                `SELECT COUNT(*) AS cnt FROM credentials.daily_shop_metrics WHERE date = $1::date`,
-                [guardDate]
-            );
-            const cnt = parseInt(existing.rows[0]?.cnt || '0', 10);
-            if (cnt < 4) {
-                console.log(`[cron/nightly-sync] Guard-sync: ${guardDate} has only ${cnt}/4 TikTok shop rows — backfilling...`);
-                for (const shopNumber of [1, 2, 3, 4]) {
-                    const existingShop = await query(
-                        `SELECT 1 FROM credentials.daily_shop_metrics WHERE date = $1::date AND shop_number = $2`,
-                        [guardDate, shopNumber]
-                    );
-                    if (existingShop.rows.length === 0) {
-                        await syncTikTokShop(shopNumber, guardDate);
-                        await new Promise(resolve => setTimeout(resolve, 300));
-                    }
-                }
-            }
-        } catch (guardErr: any) {
-            console.warn(`[cron/nightly-sync] Guard-sync check for ${guardDate} failed:`, guardErr.message);
-        }
-    }
-
-    const results: {
-        tiktok: { shopNumber: number; shopName: string; success: boolean; gmv?: number; orders?: number; spend?: number; error?: string }[];
-        shopee: { shopId: number; shopName: string; success: boolean; gmv?: number; orders?: number; spend?: number; error?: string }[];
-    } = { tiktok: [], shopee: [] };
-
-    // ── TikTok Shops (1–4) ───────────────────────────────────────────────────
-    for (const shopNumber of [1, 2, 3, 4]) {
-        const r = await syncTikTokShop(shopNumber, date);
-        results.tiktok.push({ shopNumber, ...r });
-        // 300ms rate-limit buffer between shops
-        await new Promise(resolve => setTimeout(resolve, 300));
-    }
-
-    // ── Shopee Shops (dynamic from DB) ──────────────────────────────────────
+    // Pre-fetch Shopee shop list once
     let shopeeShops: { shop_id: string; shop_name: string }[] = [];
     try {
         shopeeShops = await getConnectedShopeeShops();
@@ -235,17 +293,43 @@ export async function GET(request: Request) {
         console.warn('[cron/nightly-sync] Could not fetch Shopee shops:', e.message);
     }
 
-    for (const shop of shopeeShops) {
-        const shopId = parseInt(shop.shop_id, 10);
-        const r = await syncShopeeShop(shopId, shop.shop_name, date);
-        results.shopee.push({ shopId, ...r });
-        await new Promise(resolve => setTimeout(resolve, 300));
-    }
+    // ── Guard-sync past 2 days in background or before main sync ─────────────
+    const todayKL = getKLToday();
+    await runGuardSync(todayKL, date, shopeeShops);
 
-    // ── Summary ──────────────────────────────────────────────────────────────
-    const ttsOk  = results.tiktok.filter(r => r.success).length;
+    // ── Run TikTok & Shopee sync pipelines CONCURRENTLY ──────────────────────
+    // Running in parallel cuts total execution time down by ~50%
+    const [tiktokResults, shopeeResults] = await Promise.all([
+        (async () => {
+            const list: { shopNumber: number; shopName: string; success: boolean; gmv?: number; orders?: number; spend?: number; error?: string; warning?: string }[] = [];
+            for (const shopNumber of [1, 2, 3, 4]) {
+                const r = await syncTikTokShop(shopNumber, date);
+                list.push({ shopNumber, ...r });
+                await sleep(200); // polite rate-limit buffer
+            }
+            return list;
+        })(),
+        (async () => {
+            const list: { shopId: number; shopName: string; success: boolean; gmv?: number; orders?: number; spend?: number; error?: string }[] = [];
+            for (const shop of shopeeShops) {
+                const shopId = parseInt(shop.shop_id, 10);
+                const r = await syncShopeeShop(shopId, shop.shop_name, date);
+                list.push({ shopId, ...r });
+                await sleep(200);
+            }
+            return list;
+        })()
+    ]);
+
+    const results = {
+        tiktok: tiktokResults,
+        shopee: shopeeResults
+    };
+
+    // ── Summary & Accurate Status Recording ──────────────────────────────────
+    const ttsOk   = results.tiktok.filter(r => r.success).length;
     const ttsFail = results.tiktok.filter(r => !r.success).length;
-    const shpOk  = results.shopee.filter(r => r.success).length;
+    const shpOk   = results.shopee.filter(r => r.success).length;
     const shpFail = results.shopee.filter(r => !r.success).length;
 
     const summary = {
@@ -257,19 +341,27 @@ export async function GET(request: Request) {
         results,
     };
 
-    if (ttsOk > 0) {
-        recordSyncEvent('tiktok_api', 'success', { count: ttsOk, date }).catch(() => {});
-        recordSyncEvent('tiktok_db', 'success', { count: ttsOk, date }).catch(() => {});
+    // AWAIT sync tracking to prevent serverless freeze from dropping updates
+    const syncStatusPromises: Promise<any>[] = [];
+
+    const ttStatus = ttsOk > 0 ? (ttsFail > 0 ? 'success' : 'success') : 'error';
+    syncStatusPromises.push(
+        recordSyncEvent('tiktok_api', ttStatus, { count: ttsOk, failed: ttsFail, date }),
+        recordSyncEvent('tiktok_db', ttStatus, { count: ttsOk, failed: ttsFail, date })
+    );
+
+    if (shopeeShops.length > 0) {
+        const shpStatus = shpOk > 0 ? (shpFail > 0 ? 'success' : 'success') : 'error';
+        syncStatusPromises.push(
+            recordSyncEvent('shopee_api', shpStatus, { count: shpOk, failed: shpFail, date }),
+            recordSyncEvent('shopee_db', shpStatus, { count: shpOk, failed: shpFail, date })
+        );
     }
-    if (shpOk > 0) {
-        recordSyncEvent('shopee_api', 'success', { count: shpOk, date }).catch(() => {});
-        recordSyncEvent('shopee_db', 'success', { count: shpOk, date }).catch(() => {});
-    }
+
+    await Promise.allSettled(syncStatusPromises);
 
     console.log(`[cron/nightly-sync] Done — TikTok: ${ttsOk}✅ ${ttsFail}❌  Shopee: ${shpOk}✅ ${shpFail}❌`);
 
-    // Vercel expects the function to complete within 300s (Pro) or 60s (Hobby)
-    // Our sync typically finishes in ~40s so we're safe
     const hasFailures = ttsFail > 0 || shpFail > 0;
     return NextResponse.json(summary, { status: hasFailures ? 207 : 200 });
 }

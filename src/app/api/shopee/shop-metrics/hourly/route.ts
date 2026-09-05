@@ -1,14 +1,25 @@
 import { NextResponse } from 'next/server';
 import { fetchShopeeShopPerformance } from '@/lib/shopee-client';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Hourly GMV & Spend breakdown endpoint for Shopee.
- * Fetches all orders and CPC ad spends for a single day and buckets them into 24 hourly slots (GMT+8).
- *
- * Query params:
- *   date=YYYY-MM-DD   (required)
- *   shopId=12345      (required)
+ * Features in-memory TTL caching and in-flight request deduplication to prevent rate limits.
  */
+
+interface CacheEntry {
+    data: any;
+    expiresAt: number;
+}
+
+const hourlyCache = new Map<string, CacheEntry>();
+const inFlightPromises = new Map<string, Promise<any>>();
+
+function getKLToday(): string {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+}
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
@@ -23,7 +34,36 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: `Invalid shop ID: ${shopIdParam}` }, { status: 400 });
     }
 
-    try {
+    const cacheKey = `shp_hourly_${shopId}_${date}`;
+    const now = Date.now();
+
+    // 1. Return from memory cache if valid
+    const cached = hourlyCache.get(cacheKey);
+    if (cached && now < cached.expiresAt) {
+        return NextResponse.json(cached.data, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+                'X-Cache': 'HIT',
+            }
+        });
+    }
+
+    // 2. Reuse in-flight request if already pending
+    if (inFlightPromises.has(cacheKey)) {
+        try {
+            const data = await inFlightPromises.get(cacheKey)!;
+            return NextResponse.json(data, {
+                headers: {
+                    'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+                    'X-Cache': 'COALESCED',
+                }
+            });
+        } catch {
+            // Fall through to retry on error
+        }
+    }
+
+    const fetchPromise = (async () => {
         // Fetch performance details for the single day
         const data = await fetchShopeeShopPerformance(shopId, date, date);
 
@@ -62,7 +102,7 @@ export async function GET(request: Request) {
             hourlyBuckets[i].roas = hourlySpend[i] > 0 ? hourlyBuckets[i].gmv / hourlySpend[i] : 0;
         }
 
-        return NextResponse.json({
+        const payload = {
             shopId,
             shopName: data.shopName,
             date,
@@ -70,10 +110,31 @@ export async function GET(request: Request) {
             totalGMV: data.gmv,
             totalOrders: data.orderCount,
             totalSpend: data.spendBeforeTax,
+        };
+
+        // Cache TTL: 5 min for today, 1 hour for past dates
+        const isToday = date === getKLToday();
+        const ttlMs = isToday ? 5 * 60 * 1000 : 60 * 60 * 1000;
+        hourlyCache.set(cacheKey, { data: payload, expiresAt: Date.now() + ttlMs });
+
+        return payload;
+    })();
+
+    inFlightPromises.set(cacheKey, fetchPromise);
+
+    try {
+        const data = await fetchPromise;
+        return NextResponse.json(data, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+                'X-Cache': 'MISS',
+            }
         });
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         console.error(`[shopee-metrics/hourly] Error for shop ${shopId} on ${date}:`, message);
         return NextResponse.json({ error: message }, { status: 500 });
+    } finally {
+        inFlightPromises.delete(cacheKey);
     }
 }

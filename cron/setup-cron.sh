@@ -34,9 +34,13 @@ echo "  Log file: $LOG_FILE"
 echo "  npm:      $NPM_BIN"
 echo ""
 
+# Capture Node/npm directory so cron environment can find node & npm
+NODE_DIR="$(dirname "$(which node)")"
+CRON_PATH="PATH=$NODE_DIR:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:\$PATH"
+
 # Build the cron command
 # Runs at 17:00 UTC every day = 1:00 AM KL (GMT+8)
-CRON_JOB="0 17 * * * cd $PROJECT_DIR && $NPM_BIN run db:nightly-sync >> $LOG_FILE 2>&1"
+CRON_JOB="0 17 * * * export $CRON_PATH && cd \"$PROJECT_DIR\" && \"$NPM_BIN\" run db:nightly-sync >> \"$LOG_FILE\" 2>&1"
 
 # Check if already installed
 if crontab -l 2>/dev/null | grep -q "nightly-sync"; then
