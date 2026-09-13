@@ -15,7 +15,9 @@
     "db:sync-daily": "tsx scripts/sync-daily-metrics.ts",
     "db:backfill-history": "tsx scripts/backfill-history.ts",
     "db:nightly-sync": "tsx scripts/nightly-sync.ts",
-    "db:setup-indexes": "tsx scripts/setup-performance-indexes.ts"
+    "db:setup-indexes": "tsx scripts/setup-performance-indexes.ts",
+    "tiktok:invoice": "tsx scripts/download-tiktok-invoice.ts",
+    "tiktok:invoice:daily": "tsx scripts/generate-daily-invoice.ts"
   },
   "dependencies": {
     "@google/genai": "^2.9.0",
@@ -29,7 +31,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
-    "html-to-image": "^1.11.13",
+    "html2canvas-pro": "^2.4.2",
     "jose": "^6.2.9",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",

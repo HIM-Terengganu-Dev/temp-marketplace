@@ -154,6 +154,58 @@ export default function Home() {
     // Chart data (daily/hourly breakdown for the aggregate performance chart)
     const [chartData, setChartData] = useState<PerformanceDataPoint[]>([]);
     const [chartPlatform, setChartPlatform] = useState<"ALL" | "TIKTOK" | "SHOPEE">("ALL");
+    const [isDownloadingChart, setIsDownloadingChart] = useState(false);
+    const chartRef = useRef<HTMLDivElement>(null);
+
+    const downloadChart = async () => {
+        if (!chartRef.current) return;
+        setIsDownloadingChart(true);
+        try {
+            const { default: html2canvas } = await import('html2canvas-pro');
+            const el = chartRef.current;
+            const PADDING = 24;
+
+            // Detect actual page background to match padding color
+            const pageBg = getComputedStyle(document.documentElement)
+                .getPropertyValue('--background').trim() || '#ffffff';
+
+            const canvas = await html2canvas(el, {
+                backgroundColor: pageBg,
+                scale: 2,
+                useCORS: true,
+                logging: false,
+            });
+
+            // Composite onto a padded canvas
+            const padded = document.createElement('canvas');
+            const scaledPad = PADDING * 2;
+            padded.width  = canvas.width  + scaledPad * 2;
+            padded.height = canvas.height + scaledPad * 2;
+            const ctx = padded.getContext('2d')!;
+            ctx.fillStyle = pageBg;
+            ctx.fillRect(0, 0, padded.width, padded.height);
+            ctx.drawImage(canvas, scaledPad, scaledPad);
+
+            padded.toBlob((blob) => {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                const platformLabel =
+                    chartPlatform === 'ALL' ? 'All' :
+                    chartPlatform === 'TIKTOK' ? 'TikTok' : 'Shopee';
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `performance-chart-${platformLabel}-${startDate}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                setIsDownloadingChart(false);
+            }, 'image/png');
+        } catch (e) {
+            console.error('Chart download failed', e);
+            setIsDownloadingChart(false);
+        }
+    };
 
     // Selected shop for the detail modal
     const [selectedShop, setSelectedShop] = useState<ShopData | null>(null);
@@ -1574,6 +1626,7 @@ export default function Home() {
 
             {/* Performance Chart (hidden in Lite Mode) */}
             {!isLiteMode && (
+            <div ref={chartRef}>
             <Card className="border-border/50 bg-card/40 backdrop-blur-sm">
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 gap-3">
                     <div>
@@ -1628,6 +1681,20 @@ export default function Home() {
                                 Shopee
                             </button>
                         </div>
+                        <button
+                            type="button"
+                            onClick={downloadChart}
+                            disabled={isDownloadingChart || chartData.length === 0}
+                            title="Download chart as PNG"
+                            className={cn(
+                                "flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all",
+                                "border-border/50 bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground",
+                                "disabled:opacity-40 disabled:cursor-not-allowed"
+                            )}
+                        >
+                            <Download className={cn("h-3.5 w-3.5", isDownloadingChart && "animate-bounce")} />
+                            {isDownloadingChart ? "Saving..." : "PNG"}
+                        </button>
                     </div>
                 </CardHeader>
                 <CardContent className="pt-0 pb-4">
@@ -1643,6 +1710,7 @@ export default function Home() {
                     )}
                 </CardContent>
             </Card>
+            </div>
             )}
 
             {/* Livestream Performance Leaderboard Section (hidden in Lite Mode) */}
