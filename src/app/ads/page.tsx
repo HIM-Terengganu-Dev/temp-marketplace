@@ -21,12 +21,14 @@ import {
     FolderOpen,
     AlertCircle,
     X,
-    Eye
+    Eye,
+    Sparkles
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SimpleDatePicker, DatePreset } from "@/components/dashboard/SimpleDatePicker";
+import { ProductCreativesModal } from "@/components/ads/ProductCreativesModal";
 import dynamic from "next/dynamic";
 
 const ResponsiveContainer = dynamic(() => import("recharts").then(m => m.ResponsiveContainer), { ssr: false });
@@ -140,6 +142,7 @@ export default function AdAccountsPage() {
         product: any[];
         manual: any[];
     }>({ live: [], product: [], manual: [] });
+    const [selectedCreativeCampaign, setSelectedCreativeCampaign] = useState<{ id: string; name: string; shopNumber: string } | null>(null);
 
     // Get allowed shops from NextAuth session
     const allowedTiktokShops: number[] = (session?.user as any)?.allowed_tiktok_shops || [1, 2, 3, 4];
@@ -984,6 +987,21 @@ export default function AdAccountsPage() {
                                                                 <span className="font-extrabold text-green-400 font-mono">{c.roi.toFixed(2)}x</span>
                                                             </div>
                                                         </div>
+                                                        <div className="pt-2 border-t border-border/30">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => setSelectedCreativeCampaign({ 
+                                                                    id: c.campaignId, 
+                                                                    name: c.campaignName, 
+                                                                    shopNumber: String(selectedShopId) 
+                                                                })}
+                                                                className="w-full h-7 text-[11px] font-semibold text-pink-400 border-pink-500/30 bg-pink-500/5 hover:bg-pink-500/15 hover:text-pink-300 flex items-center justify-center gap-1.5 transition-all"
+                                                            >
+                                                                <Sparkles className="h-3 w-3" />
+                                                                View Creatives
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -1032,6 +1050,17 @@ export default function AdAccountsPage() {
                         })()}
                     </CardContent>
                 </Card>
+            )}
+
+            {selectedCreativeCampaign && (
+                <ProductCreativesModal
+                    campaignId={selectedCreativeCampaign.id}
+                    campaignName={selectedCreativeCampaign.name}
+                    shopNumber={selectedCreativeCampaign.shopNumber}
+                    startDate={startDate}
+                    endDate={endDate}
+                    onClose={() => setSelectedCreativeCampaign(null)}
+                />
             )}
 
             <p className="text-[11px] text-muted-foreground/80 mt-4 leading-normal">

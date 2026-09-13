@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Play, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
 import { SimpleDatePicker, DatePreset } from "@/components/dashboard/SimpleDatePicker";
@@ -68,6 +68,10 @@ export default function DebugTableIkramPage() {
     // Track loading state for live sessions
     const [loadingLiveSessions, setLoadingLiveSessions] = useState<Set<string>>(new Set());
 
+    // Store creative items for Product GMV Max campaigns (fetched on-demand)
+    const [campaignCreatives, setCampaignCreatives] = useState<Record<string, any[]>>({});
+    const [loadingCreatives, setLoadingCreatives] = useState<Set<string>>(new Set());
+
     // Function to jump to yesterday
     const jumpToYesterday = () => {
         const yesterday = getYesterdayGMT8();
@@ -108,7 +112,7 @@ export default function DebugTableIkramPage() {
         });
         
         // If expanding and we don't have live sessions data yet, fetch it
-        if (!isCurrentlyExpanded && !campaignLiveSessions[campaignId]) {
+        if (!isCurrentlyExpanded && selectedMetric === 'live_gmv_max' && !campaignLiveSessions[campaignId]) {
             setLoadingLiveSessions(prev => new Set(prev).add(campaignId));
             
             try {
@@ -134,6 +138,40 @@ export default function DebugTableIkramPage() {
                 }));
             } finally {
                 setLoadingLiveSessions(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(campaignId);
+                    return newSet;
+                });
+            }
+        }
+
+        // If expanding and Product GMV Max, fetch creative data
+        if (!isCurrentlyExpanded && selectedMetric === 'product_gmv_max' && !campaignCreatives[campaignId]) {
+            setLoadingCreatives(prev => new Set(prev).add(campaignId));
+            
+            try {
+                const res = await fetch(
+                    `/api/tiktok/gmv-max/creatives?startDate=${startDate}&endDate=${endDate}&campaignId=${campaignId}&shopNumber=${selectedShop}`
+                );
+                
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Failed to fetch creatives');
+                }
+                
+                const result = await res.json();
+                setCampaignCreatives(prev => ({
+                    ...prev,
+                    [campaignId]: result.creatives || []
+                }));
+            } catch (error: any) {
+                console.error('Error fetching creatives:', error);
+                setCampaignCreatives(prev => ({
+                    ...prev,
+                    [campaignId]: []
+                }));
+            } finally {
+                setLoadingCreatives(prev => {
                     const newSet = new Set(prev);
                     newSet.delete(campaignId);
                     return newSet;
@@ -1002,6 +1040,7 @@ export default function DebugTableIkramPage() {
                                                                         <table className="w-full text-xs">
                                                                             <thead className="bg-muted/50">
                                                                                 <tr>
+                                                                                    <th className="p-2 border-b w-8"></th>
                                                                                     <th className="p-2 border-b text-left">Campaign Name</th>
                                                                                     <th className="p-2 border-b text-right">Cost</th>
                                                                                     <th className="p-2 border-b text-right">GMV</th>
@@ -1010,23 +1049,153 @@ export default function DebugTableIkramPage() {
                                                                                 </tr>
                                                                             </thead>
                                                                             <tbody>
-                                                                                {accountCampaigns.map((campaign: any, campIdx: number) => (
-                                                                                    <tr key={campIdx} className="hover:bg-muted/30">
-                                                                                        <td className="p-2 border-b font-medium text-xs">
-                                                                                            {campaign.campaignName}
-                                                                                        </td>
-                                                                                        <td className="p-2 border-b font-mono text-right">
-                                                                                            {campaign.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                                                        </td>
-                                                                                        <td className="p-2 border-b font-mono text-right">
-                                                                                            {campaign.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                                                        </td>
-                                                                                        <td className="p-2 border-b font-mono text-right">{campaign.orders}</td>
-                                                                                        <td className="p-2 border-b font-mono text-right font-bold text-green-600">
-                                                                                            {campaign.roi?.toFixed(2)}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                                                {accountCampaigns.map((campaign: any, campIdx: number) => {
+                                                                                    const isCampExpanded = expandedCampaigns.has(campaign.campaignId);
+                                                                                    const creatives = campaignCreatives[campaign.campaignId] || [];
+                                                                                    const isLoadingCreatives = loadingCreatives.has(campaign.campaignId);
+
+                                                                                    return (
+                                                                                        <React.Fragment key={campIdx}>
+                                                                                            <tr 
+                                                                                                className="hover:bg-muted/30 cursor-pointer select-none transition-colors"
+                                                                                                onClick={(e) => {
+                                                                                                    e.preventDefault();
+                                                                                                    e.stopPropagation();
+                                                                                                    if (campaign.campaignId) toggleCampaignExpansion(campaign.campaignId);
+                                                                                                }}
+                                                                                            >
+                                                                                                <td className="p-2 border-b">
+                                                                                                    {isCampExpanded ? (
+                                                                                                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                                                                                    ) : (
+                                                                                                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td className="p-2 border-b font-medium text-xs">
+                                                                                                    <div className="flex items-center gap-2">
+                                                                                                        <span>{campaign.campaignName}</span>
+                                                                                                        <span className="text-[10px] text-pink-500 bg-pink-500/10 px-1.5 py-0.5 rounded font-mono">
+                                                                                                            {isCampExpanded ? "Hide Creatives" : "View Creatives"}
+                                                                                                        </span>
+                                                                                                    </div>
+                                                                                                </td>
+                                                                                                <td className="p-2 border-b font-mono text-right">
+                                                                                                    {campaign.cost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                                                </td>
+                                                                                                <td className="p-2 border-b font-mono text-right">
+                                                                                                    {campaign.gmv?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                                                </td>
+                                                                                                <td className="p-2 border-b font-mono text-right">{campaign.orders}</td>
+                                                                                                <td className="p-2 border-b font-mono text-right font-bold text-green-600">
+                                                                                                    {campaign.roi?.toFixed(2)}
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                            {isCampExpanded && (
+                                                                                                <tr>
+                                                                                                    <td colSpan={6} className="p-0 bg-muted/10">
+                                                                                                        <div className="p-3">
+                                                                                                            <div className="flex items-center justify-between mb-2">
+                                                                                                                <h4 className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                                                                                                                    <Sparkles className="h-3.5 w-3.5 text-pink-400" />
+                                                                                                                    Product Creatives for {campaign.campaignName} ({creatives.length})
+                                                                                                                </h4>
+                                                                                                            </div>
+                                                                                                            {isLoadingCreatives ? (
+                                                                                                                <div className="p-4 text-center text-xs text-muted-foreground">
+                                                                                                                    Loading creative analytics from TikTok Marketing API...
+                                                                                                                </div>
+                                                                                                            ) : creatives.length > 0 ? (
+                                                                                                                <div className="border rounded-lg overflow-hidden bg-background">
+                                                                                                                    <table className="w-full text-[11px]">
+                                                                                                                        <thead className="bg-muted/40 text-muted-foreground">
+                                                                                                                            <tr>
+                                                                                                                                <th className="p-2 border-b text-left">Post ID / Asset</th>
+                                                                                                                                <th className="p-2 border-b text-left">Type</th>
+                                                                                                                                <th className="p-2 border-b text-right">Cost (RM)</th>
+                                                                                                                                <th className="p-2 border-b text-right">Revenue (RM)</th>
+                                                                                                                                <th className="p-2 border-b text-right">Orders</th>
+                                                                                                                                <th className="p-2 border-b text-right">ROAS</th>
+                                                                                                                                <th className="p-2 border-b text-right">Impressions</th>
+                                                                                                                                <th className="p-2 border-b text-right">Clicks</th>
+                                                                                                                                <th className="p-2 border-b text-right">CTR</th>
+                                                                                                                                <th className="p-2 border-b text-center">Video</th>
+                                                                                                                            </tr>
+                                                                                                                        </thead>
+                                                                                                                        <tbody className="divide-y divide-border/30 font-mono">
+                                                                                                                            {creatives.map((c: any, cIdx: number) => (
+                                                                                                                                <tr key={cIdx} className="hover:bg-muted/20">
+                                                                                                                                    <td className="p-2 text-left font-medium">
+                                                                                                                                        {c.isCatalog ? (
+                                                                                                                                            <span className="text-blue-500 font-sans font-semibold text-[10px]">
+                                                                                                                                                Product Catalog Cards
+                                                                                                                                            </span>
+                                                                                                                                        ) : (
+                                                                                                                                            <span className="select-all">{c.itemId}</span>
+                                                                                                                                        )}
+                                                                                                                                    </td>
+                                                                                                                                    <td className="p-2 text-left font-sans">
+                                                                                                                                        {c.isCatalog ? (
+                                                                                                                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 font-bold">
+                                                                                                                                                Catalog
+                                                                                                                                            </span>
+                                                                                                                                        ) : (
+                                                                                                                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-pink-500/10 text-pink-400 font-bold">
+                                                                                                                                                Video
+                                                                                                                                            </span>
+                                                                                                                                        )}
+                                                                                                                                    </td>
+                                                                                                                                    <td className="p-2 text-right font-bold">
+                                                                                                                                        {c.cost?.toFixed(2)}
+                                                                                                                                    </td>
+                                                                                                                                    <td className="p-2 text-right text-blue-500 font-semibold">
+                                                                                                                                        {c.grossRevenue?.toFixed(2)}
+                                                                                                                                    </td>
+                                                                                                                                    <td className="p-2 text-right font-semibold">{c.orders}</td>
+                                                                                                                                    <td className="p-2 text-right font-bold text-green-600">
+                                                                                                                                        {c.roi?.toFixed(2)}x
+                                                                                                                                    </td>
+                                                                                                                                    <td className="p-2 text-right text-muted-foreground">
+                                                                                                                                        {c.impressions?.toLocaleString()}
+                                                                                                                                    </td>
+                                                                                                                                    <td className="p-2 text-right text-muted-foreground">
+                                                                                                                                        {c.clicks?.toLocaleString()}
+                                                                                                                                    </td>
+                                                                                                                                    <td className="p-2 text-right text-muted-foreground">
+                                                                                                                                        {c.ctr ? `${c.ctr.toFixed(2)}%` : "-"}
+                                                                                                                                    </td>
+                                                                                                                                    <td className="p-2 text-center">
+                                                                                                                                        {c.videoUrl ? (
+                                                                                                                                            <a
+                                                                                                                                                href={c.videoUrl}
+                                                                                                                                                target="_blank"
+                                                                                                                                                rel="noopener noreferrer"
+                                                                                                                                                className="inline-flex items-center gap-1 text-[10px] text-pink-400 hover:text-pink-300 font-sans"
+                                                                                                                                            >
+                                                                                                                                                <Play className="h-2.5 w-2.5 fill-pink-400" />
+                                                                                                                                                Watch
+                                                                                                                                                <ExternalLink className="h-2.5 w-2.5" />
+                                                                                                                                            </a>
+                                                                                                                                        ) : (
+                                                                                                                                            <span className="text-[10px] text-muted-foreground font-sans">-</span>
+                                                                                                                                        )}
+                                                                                                                                    </td>
+                                                                                                                                </tr>
+                                                                                                                            ))}
+                                                                                                                        </tbody>
+                                                                                                                    </table>
+                                                                                                                </div>
+                                                                                                            ) : (
+                                                                                                                <div className="p-4 text-center text-xs text-muted-foreground border rounded-lg bg-background">
+                                                                                                                    No active creative spend or impressions found for this period.
+                                                                                                                </div>
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    </td>
+                                                                                                </tr>
+                                                                                            )}
+                                                                                        </React.Fragment>
+                                                                                    );
+                                                                                })}
                                                                             </tbody>
                                                                         </table>
                                                                     </div>
