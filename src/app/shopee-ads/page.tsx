@@ -39,6 +39,7 @@ const YAxis = dynamic(() => import("recharts").then(m => m.YAxis), { ssr: false 
 const Tooltip = dynamic(() => import("recharts").then(m => m.Tooltip), { ssr: false });
 const CartesianGrid = dynamic(() => import("recharts").then(m => m.CartesianGrid), { ssr: false });
 import { cn } from "@/lib/utils";
+import { MetaCpasManager } from "@/components/shopee-ads/MetaCpasManager";
 
 interface ShopeeShop {
     id: number;
@@ -642,6 +643,13 @@ export default function ShopeeAdsPage() {
                             </p>
                         </CardContent>
                     </Card>
+                </div>
+            )}
+
+            {/* Meta CPAS Campaign Drilldown, AdSet Controller & Media Swapper */}
+            {activeAdTab === "cpas" && (
+                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <MetaCpasManager currentShopId={selectedShopId} />
                 </div>
             )}
 
