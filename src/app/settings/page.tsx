@@ -56,6 +56,7 @@ const FEATURES = [
     { id: "shopee", name: "Shopee Shop Page" },
     { id: "ads", name: "Ads Dashboards (TikTok & Shopee)" },
     { id: "analytics", name: "Analytics Page" },
+    { id: "test_field", name: "Test Field (Meta Ads Sandbox)" },
     { id: "debug", name: "Debug Tables (TikTok)" },
     { id: "refresh_token", name: "Refresh Token Manager" },
     { id: "settings", name: "Settings (RBAC Controls)" },

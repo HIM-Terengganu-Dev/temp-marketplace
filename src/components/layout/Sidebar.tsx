@@ -17,6 +17,7 @@ import {
     X,
     Bug,
     MessageSquarePlus,
+    FlaskConical,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -27,6 +28,7 @@ const navigation = [
     { name: "TikTok Ads",         href: "/ads",                 icon: Megaphone,       feature: "ads"           },
     { name: "Shopee Ads",         href: "/shopee-ads",          icon: Megaphone,       feature: "ads"           },
     { name: "Analytics",          href: "/analytics",           icon: BarChart3,       feature: "analytics"     },
+    { name: "Test Field",         href: "/test-field",          icon: FlaskConical,    feature: "test_field"    },
     { name: "Feedback",           href: "/feedback",            icon: MessageSquarePlus, feature: "feedback"    },
     { name: "Debug Table",        href: "/debug-table",         icon: Bug,             feature: "debug"         },
     { name: "Debug (Ikram)",      href: "/debug-table-ikram",   icon: Bug,             feature: "debug"         },
@@ -52,12 +54,16 @@ export function Sidebar({
     const pathname = usePathname();
     const { data: session } = useSession();
 
+    const userRole = (session?.user as any)?.role;
     const allowedFeatures =
         (session?.user as { allowed_features?: string[] } | undefined)
-            ?.allowed_features || ["overview", "tiktok", "shopee", "ads", "analytics", "feedback"];
+            ?.allowed_features || ["overview", "tiktok", "shopee", "ads", "analytics", "feedback", "test_field"];
 
     const filteredNavigation = navigation.filter(item =>
-        item.feature === "feedback" || allowedFeatures.includes(item.feature)
+        item.feature === "feedback" ||
+        item.feature === "test_field" || // Available for playground testing
+        allowedFeatures.includes(item.feature) ||
+        userRole === "admin"
     );
 
     return (

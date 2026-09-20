@@ -30,6 +30,9 @@ export default withAuth(
     if (path.startsWith("/refresh-token") && !allowedFeatures.includes("refresh_token")) {
       return NextResponse.rewrite(new URL("/unauthorized", req.url));
     }
+    if (path.startsWith("/test-field") && !allowedFeatures.includes("test_field") && (token as any)?.role !== "admin") {
+      return NextResponse.rewrite(new URL("/unauthorized", req.url));
+    }
     
     return NextResponse.next();
   },

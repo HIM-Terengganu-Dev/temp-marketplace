@@ -42,8 +42,8 @@ export const authOptions: NextAuthOptions = {
                         allowed_tiktok_shops: user.allowed_tiktok_shops || [],
                         allowed_shopee_shops: user.allowed_shopee_shops || [],
                         allowed_features: Array.isArray(user.allowed_features) && user.allowed_features.length > 0
-                            ? (user.allowed_features.includes('feedback') ? user.allowed_features : [...user.allowed_features, 'feedback'])
-                            : ["overview", "tiktok", "shopee", "ads", "analytics", "feedback"]
+                            ? (user.allowed_features.includes('feedback') ? user.allowed_features : [...user.allowed_features, 'feedback', 'test_field'])
+                            : ["overview", "tiktok", "shopee", "ads", "analytics", "feedback", "test_field"]
                     };
                 } catch (error) {
                     console.error('Error in authorize:', error);
