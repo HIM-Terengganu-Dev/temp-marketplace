@@ -384,11 +384,18 @@ export default function TestFieldPage() {
 
     // Open Editor for an Ad
     const handleOpenAdEditor = (ad: AdItem) => {
+        // Extract embedded URL if present
+        let initialUrl = ad.destinationUrl;
+        if (!initialUrl && ad.body) {
+            const match = ad.body.match(/https?:\/\/[^\s\n\r]+/i);
+            if (match) initialUrl = match[0].trim();
+        }
+
         setEditingAd(ad);
         setEditForm({
             headline: ad.headline || "",
             body: ad.body || "",
-            destinationUrl: ad.destinationUrl || "https://shopee.com.my",
+            destinationUrl: initialUrl || "https://shopee.com.my",
             selectedMedia: null, // by default keep existing unless swapped
             callToAction: "SHOP_NOW"
         });

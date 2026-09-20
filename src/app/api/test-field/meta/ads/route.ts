@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
     try {
         const target = adSetId ? adSetId : campaignId;
-        const fields = 'id,name,status,effective_status,adset_id,creative{id,name,title,body,image_url,thumbnail_url,video_id,image_hash,object_story_spec,asset_feed_spec},created_time,updated_time';
+        const fields = 'id,name,status,effective_status,adset_id,creative{id,name,title,body,link_url,image_url,thumbnail_url,video_id,image_hash,object_story_spec,asset_feed_spec,call_to_action_type},created_time,updated_time';
         const url = `https://graph.facebook.com/v19.0/${target}/ads?fields=${fields}&limit=50&access_token=${token}`;
 
         const response = await axios.get(url);
@@ -25,14 +25,32 @@ export async function GET(request: Request) {
 
         const formatted = ads.map((ad: any) => {
             const cr = ad.creative || {};
-            // Extract media info from object_story_spec if present
             const storySpec = cr.object_story_spec || {};
             const linkData = storySpec.link_data || {};
             const videoData = storySpec.video_data || {};
 
             const headline = cr.title || linkData.name || videoData.title || '';
             const body = cr.body || linkData.message || videoData.message || '';
-            const link = linkData.link || videoData.call_to_action?.value?.link || '';
+
+            // Extract exact destination URL:
+            // 1. Creative link_url
+            // 2. object_story_spec.link_data.link
+            // 3. video call_to_action link
+            // 4. asset_feed_spec link_urls
+            // 5. Extract embedded URL directly from the ad body copy (e.g. Shopee store link)
+            let link = cr.link_url || linkData.link || videoData.call_to_action?.value?.link || '';
+            
+            if (!link && cr.asset_feed_spec?.link_urls?.length > 0) {
+                link = cr.asset_feed_spec.link_urls[0].website_url || '';
+            }
+
+            if (!link && body) {
+                const urlMatch = body.match(/https?:\/\/[^\s\n\r]+/i);
+                if (urlMatch) {
+                    link = urlMatch[0].trim();
+                }
+            }
+
             const thumbnail = cr.thumbnail_url || cr.image_url || videoData.image_url || linkData.picture || '';
             const isVideo = !!(cr.video_id || videoData.video_id || cr.thumbnail_url?.includes('fbcdn.net'));
 
