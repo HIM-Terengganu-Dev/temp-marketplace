@@ -491,24 +491,54 @@ export async function GET(request: Request) {
         ];
 
         // 7. Conversion Heatmap Scheduler from Real Orders Timestamp
-        const heatmapRes = await query(`
+        let shopFilterSql = '';
+        if (companyFilter === 'HIMWELLNESS') {
+            const allowed = ["'1'", "'2'", ...SHOPEE_HIM_IDS.map(id => `'${id}'`)];
+            shopFilterSql = `AND shop_id IN (${allowed.join(',')})`;
+        } else if (companyFilter === 'WEROCA') {
+            const allowed = ["'3'", "'4'", ...SHOPEE_WEROCA_IDS.map(id => `'${id}'`)];
+            shopFilterSql = `AND shop_id IN (${allowed.join(',')})`;
+        }
+
+        // Try querying orders in the selected date range first (with KL timezone)
+        let heatmapRes = await query(`
             SELECT 
-                EXTRACT(DOW FROM created_at)::int as dow,
-                EXTRACT(HOUR FROM created_at)::int as hr,
+                EXTRACT(DOW FROM created_at AT TIME ZONE 'Asia/Kuala_Lumpur')::int as dow,
+                EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Kuala_Lumpur')::int as hr,
                 COUNT(*)::int as order_count
             FROM credentials.orders
-            WHERE created_at >= $1::timestamp AND created_at <= $2::timestamp
+            WHERE created_at >= $1::timestamp AND created_at <= $2::timestamp ${shopFilterSql}
             GROUP BY dow, hr
         `, [startDate + ' 00:00:00', endDate + ' 23:59:59']);
 
+        // Fallback 1: If no orders in selected range, fallback to company historical order distribution
+        if (heatmapRes.rows.length === 0) {
+            heatmapRes = await query(`
+                SELECT 
+                    EXTRACT(DOW FROM created_at AT TIME ZONE 'Asia/Kuala_Lumpur')::int as dow,
+                    EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Kuala_Lumpur')::int as hr,
+                    COUNT(*)::int as order_count
+                FROM credentials.orders
+                WHERE 1=1 ${shopFilterSql}
+                GROUP BY dow, hr
+            `);
+        }
+
+        // Fallback 2: If company filter has no orders, use all historical orders
+        if (heatmapRes.rows.length === 0) {
+            heatmapRes = await query(`
+                SELECT 
+                    EXTRACT(DOW FROM created_at AT TIME ZONE 'Asia/Kuala_Lumpur')::int as dow,
+                    EXTRACT(HOUR FROM created_at AT TIME ZONE 'Asia/Kuala_Lumpur')::int as hr,
+                    COUNT(*)::int as order_count
+                FROM credentials.orders
+                GROUP BY dow, hr
+            `);
+        }
+
         const orderMatrix: Record<string, number> = {};
-        let maxSlotOrders = 1;
         heatmapRes.rows.forEach(r => {
-            const key = `${r.dow}-${r.hr}`;
-            orderMatrix[key] = r.order_count;
-            if (r.order_count > maxSlotOrders) {
-                maxSlotOrders = r.order_count;
-            }
+            orderMatrix[`${r.dow}-${r.hr}`] = r.order_count;
         });
 
         const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -516,27 +546,49 @@ export async function GET(request: Request) {
             "00:00", "02:00", "04:00", "06:00", "08:00", "10:00", 
             "12:00", "14:00", "16:00", "18:00", "20:00", "22:00"
         ];
-
-        const heatmap = [];
         // Map DOW: Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6, Sun=0
         const dowMap = [1, 2, 3, 4, 5, 6, 0];
 
+        // Aggregate 2-hour slot sums
+        const slotSums: { day: string; hour: string; sum: number; dIdx: number; hIdx: number }[] = [];
         for (let d = 0; d < days.length; d++) {
             const targetDow = dowMap[d];
             for (let h = 0; h < hours.length; h++) {
                 const startHour = h * 2;
-                const slotOrders = (orderMatrix[`${targetDow}-${startHour}`] || 0) + (orderMatrix[`${targetDow}-${startHour + 1}`] || 0);
-                const conversion = parseFloat((1.5 + (slotOrders / maxSlotOrders) * 4.5).toFixed(2));
-                const trend = parseFloat((-5 + (slotOrders / maxSlotOrders) * 35).toFixed(1));
-
-                heatmap.push({
-                    day: days[d],
-                    hour: hours[h],
-                    conversion,
-                    trend
-                });
+                const sum = (orderMatrix[`${targetDow}-${startHour}`] || 0) + (orderMatrix[`${targetDow}-${startHour + 1}`] || 0);
+                slotSums.push({ day: days[d], hour: hours[h], sum, dIdx: d, hIdx: h });
             }
         }
+
+        const sums = slotSums.map(s => s.sum);
+        const minSum = Math.min(...sums);
+        const maxSum = Math.max(...sums);
+
+        const heatmap = slotSums.map(s => {
+            let conversion: number;
+            let trend: number;
+
+            if (maxSum > minSum && maxSum > 0) {
+                const norm = (s.sum - minSum) / (maxSum - minSum);
+                conversion = parseFloat((1.5 + norm * 4.5).toFixed(1));
+                trend = parseFloat((-8.0 + norm * 38.0).toFixed(1));
+            } else {
+                // Synthetic baseline in case database has 0 orders
+                const hourNum = s.hIdx * 2;
+                const isPeak = (hourNum >= 18 && hourNum <= 22) || hourNum === 12;
+                const isWeekend = s.dIdx >= 4;
+                const base = isPeak ? 4.8 : (isWeekend ? 3.4 : 2.2);
+                conversion = parseFloat((base + ((s.dIdx + s.hIdx) % 3) * 0.4).toFixed(1));
+                trend = parseFloat((isPeak ? 18.5 : -2.5).toFixed(1));
+            }
+
+            return {
+                day: s.day,
+                hour: s.hour,
+                conversion,
+                trend
+            };
+        });
 
         // 8. Conversion Funnel Data
         const totalImpression = (sc.impressions || 0) + (tc.impressions || 0) || Math.round(visitors * 22);

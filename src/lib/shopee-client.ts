@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import axios from 'axios';
 import { query } from './db';
+import { getValidMetaToken } from './meta-token';
 import { format, parseISO, differenceInDays, subDays } from 'date-fns';
 
 const PARTNER_ID = parseInt(process.env.SHOPEE_PARTNER_ID || '0', 10);
@@ -594,10 +595,11 @@ export async function fetchMetaCPASSpendForDate(
         return 0; // No CPAS allowed for other shops
     }
 
-    const accessToken = process.env.FB_ACCESS_TOKEN;
+    const metaTokenResult = await getValidMetaToken();
+    const accessToken = metaTokenResult.token;
     console.log(`[trace] fetchMetaCPASSpendForDate: shopId=${shopId} (numeric=${numericShopId}), dateStr=${dateStr}, tokenLength=${accessToken ? accessToken.length : 'undefined'}`);
     if (!accessToken) {
-        return 0; // Meta Ads not configured, fail-silent
+        return 0; // Meta Ads not configured or token expired, fail-silent
     }
 
     const SHOPEE_FB_AD_ACCOUNTS: Record<number, string> = {
@@ -670,6 +672,203 @@ export async function fetchMetaCPASSpendForDate(
         return 0;
     }
 }
+
+export interface MetaCPASInsights {
+    impressions: number;
+    thruplay: number;
+    linkClicks: number;
+    spend: number;
+    campaigns: Array<{
+        campaignId: string;
+        campaignName: string;
+        impressions: number;
+        thruplay: number;
+        linkClicks: number;
+        spend: number;
+    }>;
+    daily: Record<string, {
+        impressions: number;
+        thruplay: number;
+        linkClicks: number;
+        spend: number;
+    }>;
+    status: 'success' | 'token_expired' | 'unconfigured' | 'error';
+    error?: string;
+}
+
+/**
+ * Fetches comprehensive Meta CPAS insights (impressions, thruplay, link clicks, spend)
+ * for a date range, grouped by campaign and day.
+ */
+export async function fetchMetaCPASInsightsForRange(
+    shopId: number | 'ALL',
+    startDateStr: string,
+    endDateStr: string
+): Promise<MetaCPASInsights> {
+    const metaTokenResult = await getValidMetaToken();
+    const accessToken = metaTokenResult.token;
+    if (!accessToken) {
+        return {
+            impressions: 0,
+            thruplay: 0,
+            linkClicks: 0,
+            spend: 0,
+            campaigns: [],
+            daily: {},
+            status: metaTokenResult.status === 'token_expired' ? 'token_expired' : 'unconfigured',
+            error: metaTokenResult.message || 'FB_ACCESS_TOKEN is not configured in environment.'
+        };
+    }
+
+    const SHOPEE_FB_AD_ACCOUNTS: Record<number, string> = {
+        1298030530: process.env.SHOPEE_FB_AD_ACCOUNT_1298030530 || '1462603651298383', // HIM by Dr Samhan
+        1077500606: process.env.SHOPEE_FB_AD_ACCOUNT_1077500606 || '1199749218961620', // HIM by Dr Samhan 1
+        1256177782: process.env.SHOPEE_FB_AD_ACCOUNT_1256177782 || '1199749218961620', // HIM by Dr Samhan 2
+    };
+
+    const SHOPEE_FB_CAMPAIGN_FILTERS: Record<number, string> = {
+        1077500606: 'HIM.DRSAMHAN1',
+        1256177782: 'HIM.DRSAMHAN2'
+    };
+
+    // Determine target accounts and filters
+    const targets: Array<{ adAccountId: string; campaignFilter?: string }> = [];
+
+    if (shopId !== 'ALL') {
+        const numericShopId = parseInt(shopId as any, 10);
+        let accId = SHOPEE_FB_AD_ACCOUNTS[numericShopId];
+        if (!accId) {
+            return {
+                impressions: 0,
+                thruplay: 0,
+                linkClicks: 0,
+                spend: 0,
+                campaigns: [],
+                daily: {},
+                status: 'unconfigured',
+                error: `No Meta Ad Account mapped for Shopee Shop ${shopId}.`
+            };
+        }
+        if (!accId.startsWith('act_')) accId = `act_${accId}`;
+        targets.push({
+            adAccountId: accId,
+            campaignFilter: SHOPEE_FB_CAMPAIGN_FILTERS[numericShopId]
+        });
+    } else {
+        // Query distinct ad accounts
+        targets.push({ adAccountId: 'act_1462603651298383' });
+        targets.push({ adAccountId: 'act_1199749218961620' });
+    }
+
+    const result: MetaCPASInsights = {
+        impressions: 0,
+        thruplay: 0,
+        linkClicks: 0,
+        spend: 0,
+        campaigns: [],
+        daily: {},
+        status: 'success'
+    };
+
+    const campaignMap: Record<string, {
+        campaignId: string;
+        campaignName: string;
+        impressions: number;
+        thruplay: number;
+        linkClicks: number;
+        spend: number;
+    }> = {};
+
+    try {
+        const timeRange = JSON.stringify({ since: startDateStr, until: endDateStr });
+
+        for (const target of targets) {
+            const url = `https://graph.facebook.com/v19.0/${target.adAccountId}/insights?access_token=${accessToken}&level=campaign&fields=campaign_name,campaign_id,spend,impressions,clicks,inline_link_clicks,actions&time_range=${encodeURIComponent(timeRange)}&time_increment=1&limit=200`;
+
+            const response = await axios.get(url);
+            const data = response.data?.data || [];
+
+            for (const item of data) {
+                const campaignName = item.campaign_name || '';
+                if (target.campaignFilter && !campaignName.toUpperCase().includes(target.campaignFilter.toUpperCase())) {
+                    continue;
+                }
+
+                const day = item.date_start;
+                const imp = parseInt(item.impressions || '0', 10);
+                const spend = parseFloat(item.spend || '0');
+
+                // Extract ThruPlay from actions
+                let thruplay = 0;
+                if (Array.isArray(item.actions)) {
+                    const tpAction = item.actions.find((a: any) => 
+                        a.action_type === 'video_thruplay_watched_actions' || 
+                        a.action_type === 'video_view' ||
+                        a.action_type === 'video_continuous_2s_watched_actions'
+                    );
+                    if (tpAction) thruplay = parseInt(tpAction.value || '0', 10);
+                }
+
+                // Extract Link Clicks
+                let linkClicks = 0;
+                if (Array.isArray(item.actions)) {
+                    const lcAction = item.actions.find((a: any) => a.action_type === 'link_click');
+                    if (lcAction) linkClicks = parseInt(lcAction.value || '0', 10);
+                }
+                if (linkClicks === 0) {
+                    linkClicks = parseInt(item.inline_link_clicks || item.clicks || '0', 10);
+                }
+
+                // Overall accumulator
+                result.impressions += imp;
+                result.thruplay += thruplay;
+                result.linkClicks += linkClicks;
+                result.spend += spend;
+
+                // Daily accumulator
+                if (!result.daily[day]) {
+                    result.daily[day] = { impressions: 0, thruplay: 0, linkClicks: 0, spend: 0 };
+                }
+                result.daily[day].impressions += imp;
+                result.daily[day].thruplay += thruplay;
+                result.daily[day].linkClicks += linkClicks;
+                result.daily[day].spend += spend;
+
+                // Campaign accumulator
+                const cId = item.campaign_id || campaignName;
+                if (!campaignMap[cId]) {
+                    campaignMap[cId] = {
+                        campaignId: cId,
+                        campaignName,
+                        impressions: 0,
+                        thruplay: 0,
+                        linkClicks: 0,
+                        spend: 0
+                    };
+                }
+                campaignMap[cId].impressions += imp;
+                campaignMap[cId].thruplay += thruplay;
+                campaignMap[cId].linkClicks += linkClicks;
+                campaignMap[cId].spend += spend;
+            }
+        }
+
+        result.campaigns = Object.values(campaignMap);
+        result.spend = parseFloat(result.spend.toFixed(2));
+        return result;
+    } catch (error: any) {
+        const errorData = error.response?.data?.error;
+        const isExpired = errorData?.code === 190 || error.response?.status === 401;
+
+        console.warn(`Meta CPAS insights fetch error: ${errorData?.message || error.message}`);
+        return {
+            ...result,
+            status: isExpired ? 'token_expired' : 'error',
+            error: errorData?.message || error.message || 'Failed to fetch Meta insights'
+        };
+    }
+}
+
 
 /**
  * High-level orchestrator fetching both Order details and CPC Ad spends timezone-safely,

@@ -48,6 +48,20 @@ export async function POST(request: Request) {
             const data = longLivedResponse.data;
             
             console.log('Facebook long-lived token generated successfully!');
+
+            // Automatically persist to database
+            try {
+                const { saveMetaToken } = await import('@/lib/meta-token');
+                await saveMetaToken({
+                    accessToken: data.access_token,
+                    expiresIn: data.expires_in,
+                    appId: finalClientId,
+                    tokenType: data.token_type
+                });
+            } catch (saveErr: any) {
+                console.warn('Failed to persist token to database:', saveErr.message);
+            }
+
             return NextResponse.json({
                 access_token: data.access_token,
                 token_type: data.token_type,

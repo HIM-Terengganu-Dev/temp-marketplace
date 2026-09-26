@@ -1098,7 +1098,8 @@ export function FunnelOverviewTab({
 
                                 {/* Heatmap Rows */}
                                 {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day: string) => {
-                                    const dayBlocks = generatedData.heatmap.filter((b: any) => b.day === day);
+                                    const heatmapList: any[] = generatedData?.heatmap || [];
+                                    const dayBlocks = heatmapList.filter((b: any) => b.day === day);
                                     return (
                                         <div key={day} className="grid grid-cols-13 gap-1.5 items-center">
                                             {/* Day Label */}
@@ -1106,24 +1107,30 @@ export function FunnelOverviewTab({
                                             
                                             {/* Hour Blocks */}
                                             {dayBlocks.map((block: any, bIdx: number) => {
-                                                const rate = block.conversion;
-                                                const opacity = Math.min(rate / 8.0, 1.0);
+                                                const rate = block.conversion || 0;
+                                                const intensity = Math.min(Math.max((rate - 1.5) / 4.0, 0), 1.0);
                                                 
-                                                let blockBgClass = "bg-muted/50 dark:bg-muted/30";
-                                                let borderClass = "border-border dark:border-border/80";
+                                                let blockBgClass = "";
+                                                let borderClass = "border-border/60 dark:border-border/80";
                                                 let textClass = "text-muted-foreground dark:text-muted-foreground font-medium";
                                                 let customStyle: React.CSSProperties = {};
 
-                                                if (rate > 5) {
-                                                    blockBgClass = "";
-                                                    borderClass = "border-emerald-400/30 dark:border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.05)] dark:shadow-[0_0_8px_rgba(16,185,129,0.1)]";
-                                                    textClass = "text-emerald-600 dark:text-emerald-300 font-extrabold";
-                                                    customStyle = { backgroundColor: `rgba(16, 185, 129, ${opacity * 0.45})` };
-                                                } else if (rate > 3) {
-                                                    blockBgClass = "";
-                                                    borderClass = "border-emerald-400/20 dark:border-emerald-600/20";
-                                                    textClass = "text-emerald-600 dark:text-emerald-400 font-semibold";
-                                                    customStyle = { backgroundColor: `rgba(16, 185, 129, ${opacity * 0.25})` };
+                                                if (rate >= 4.5) {
+                                                    borderClass = "border-emerald-400/40 dark:border-emerald-500/50 shadow-[0_0_8px_rgba(16,185,129,0.12)]";
+                                                    textClass = "text-emerald-700 dark:text-emerald-300 font-extrabold";
+                                                    customStyle = { backgroundColor: `rgba(16, 185, 129, ${0.28 + intensity * 0.32})` };
+                                                } else if (rate >= 3.0) {
+                                                    borderClass = "border-emerald-500/30 dark:border-emerald-600/30";
+                                                    textClass = "text-emerald-700 dark:text-emerald-400 font-bold";
+                                                    customStyle = { backgroundColor: `rgba(16, 185, 129, ${0.14 + intensity * 0.20})` };
+                                                } else if (rate >= 2.0) {
+                                                    borderClass = "border-emerald-500/20 dark:border-emerald-600/20";
+                                                    textClass = "text-emerald-800/80 dark:text-emerald-400/80 font-semibold";
+                                                    customStyle = { backgroundColor: `rgba(16, 185, 129, ${0.06 + intensity * 0.12})` };
+                                                } else {
+                                                    blockBgClass = "bg-muted/40 dark:bg-muted/25";
+                                                    borderClass = "border-border/50 dark:border-border/60";
+                                                    textClass = "text-muted-foreground font-normal";
                                                 }
 
                                                 return (
@@ -1145,12 +1152,12 @@ export function FunnelOverviewTab({
                                                             <div className="font-extrabold text-foreground">{day} • {block.hour}</div>
                                                             <div className="flex justify-between">
                                                                 <span>Conversion:</span>
-                                                                <span className="font-bold text-emerald-400">{rate}%</span>
+                                                                <span className="font-bold text-emerald-400">{rate.toFixed(1)}%</span>
                                                             </div>
                                                             <div className="flex justify-between">
-                                                                <span>YoY Growth:</span>
-                                                                <span className={cn("font-bold", block.trend >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                                                                    {block.trend >= 0 ? "+" : ""}{block.trend}%
+                                                                <span>Trend:</span>
+                                                                <span className={cn("font-bold", (block.trend ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                                                                    {(block.trend ?? 0) >= 0 ? "+" : ""}{block.trend}%
                                                                 </span>
                                                             </div>
                                                         </div>
