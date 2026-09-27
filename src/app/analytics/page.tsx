@@ -175,6 +175,33 @@ export default function AnalyticsPage() {
         };
     }, [startDate, endDate, companyFilter, reloadKey]);
 
+    // Fetch & synchronize target from database whenever targetMonth or mtdCompany changes
+    useEffect(() => {
+        let isMounted = true;
+        const fetchTarget = async () => {
+            try {
+                const res = await fetch(`/api/analytics/mtd-target?targetMonth=${targetMonth}&company=${mtdCompany}`);
+                if (res.ok) {
+                    const tData = await res.json();
+                    if (isMounted && tData) {
+                        if (typeof tData.monthlyTarget === 'number') {
+                            setMonthlyTarget(tData.monthlyTarget);
+                        }
+                        if (typeof tData.tiktokTargetVal === 'number') {
+                            setTiktokTargetVal(tData.tiktokTargetVal);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching MTD target:", err);
+            }
+        };
+        fetchTarget();
+        return () => {
+            isMounted = false;
+        };
+    }, [targetMonth, mtdCompany]);
+
     // Load MTD Data
     useEffect(() => {
         if (currentTab !== "mtd") return;
@@ -199,6 +226,14 @@ export default function AnalyticsPage() {
                 const result = await response.json();
                 if (isMounted) {
                     setMtdData(result);
+                    if (result?.target) {
+                        if (typeof result.target.monthlyTarget === 'number') {
+                            setMonthlyTarget(result.target.monthlyTarget);
+                        }
+                        if (typeof result.target.tiktokTargetVal === 'number') {
+                            setTiktokTargetVal(result.target.tiktokTargetVal);
+                        }
+                    }
                 }
             } catch (err: any) {
                 console.error("Error loading MTD report data:", err);

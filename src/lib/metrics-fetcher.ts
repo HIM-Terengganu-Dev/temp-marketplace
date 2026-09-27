@@ -874,7 +874,8 @@ export async function fetchShopLivePerformance(shopNumber: number, startDateStr:
                 endTime: item.end_time ? new Date(parseInt(item.end_time, 10) * 1000) : null,
                 orderCount: parseInt(item.sales_performance?.sku_orders || '0', 10),
                 gmv: parseFloat(item.sales_performance?.gmv?.amount || '0.00'),
-                viewerCount: parseInt(item.sales_performance?.customers || '0', 10)
+                viewerCount: parseInt(item.sales_performance?.customers || '0', 10),
+                commentCount: parseInt(item.comment_count || item.engagement?.comment_count || '0', 10)
             }));
 
             // Filter sessions to only those that fall on the requested KL date(s)
@@ -905,8 +906,8 @@ export async function syncLivestreamMetricsForDate(shopNumber: number, dateStr: 
         for (const stream of streams) {
             await query(`
                 INSERT INTO credentials.shop_livestream_performance (
-                    shop_number, live_id, live_title, start_time, end_time, order_count, gmv, viewer_count, updated_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+                    shop_number, live_id, live_title, start_time, end_time, order_count, gmv, viewer_count, comment_count, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
                 ON CONFLICT (shop_number, live_id) DO UPDATE SET
                     live_title = EXCLUDED.live_title,
                     start_time = EXCLUDED.start_time,
@@ -914,8 +915,9 @@ export async function syncLivestreamMetricsForDate(shopNumber: number, dateStr: 
                     order_count = EXCLUDED.order_count,
                     gmv = EXCLUDED.gmv,
                     viewer_count = EXCLUDED.viewer_count,
+                    comment_count = EXCLUDED.comment_count,
                     updated_at = CURRENT_TIMESTAMP
-            `, [shopNumber, stream.liveId, stream.liveTitle, stream.startTime, stream.endTime, stream.orderCount, stream.gmv, stream.viewerCount]);
+            `, [shopNumber, stream.liveId, stream.liveTitle, stream.startTime, stream.endTime, stream.orderCount, stream.gmv, stream.viewerCount, stream.commentCount]);
         }
         console.log(`[Sync] Synced ${streams.length} livestreams for shop ${shopNumber} on ${dateStr}`);
     } catch (e: any) {

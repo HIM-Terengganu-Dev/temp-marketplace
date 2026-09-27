@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { getMtdTarget } from '@/lib/mtd-target';
 
 // Shop ID mappings
 // Shopee: HIM = 562396517, 1077500606, 1256177782, 1285322524, 1290223366, 1298030530
@@ -225,11 +226,14 @@ export async function GET(request: Request) {
                 };
             });
 
+        const target = await getMtdTarget(targetMonth, companyFilter);
+
         return NextResponse.json({
             currentMonthData,
             monthlyTrend,
             comparisons,
-            dayRangeEnd
+            dayRangeEnd,
+            target
         });
 
     } catch (e: any) {

@@ -32,6 +32,7 @@ export async function GET(request: Request) {
                 order_count, 
                 gmv, 
                 viewer_count,
+                comment_count,
                 updated_at
             FROM credentials.shop_livestream_performance
             WHERE start_time::date >= $1::date
@@ -46,6 +47,7 @@ export async function GET(request: Request) {
         const totalGMV = result.rows.reduce((sum, row) => sum + parseFloat(row.gmv || '0'), 0);
         const totalOrders = result.rows.reduce((sum, row) => sum + parseInt(row.order_count || '0', 10), 0);
         const totalViewers = result.rows.reduce((sum, row) => sum + parseInt(row.viewer_count || '0', 10), 0);
+        const totalComments = result.rows.reduce((sum, row) => sum + parseInt(row.comment_count || '0', 10), 0);
 
         return NextResponse.json({
             success: true,
@@ -53,7 +55,8 @@ export async function GET(request: Request) {
                 totalStreams,
                 totalGMV,
                 totalOrders,
-                totalViewers
+                totalViewers,
+                totalComments
             },
             leaderboard: result.rows
         }, {

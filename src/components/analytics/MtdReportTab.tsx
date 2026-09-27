@@ -23,15 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-// Dynamic import of MtdCharts (Recharts BarChart)
-const MtdCharts = dynamic(() => import("./MtdCharts"), {
-    ssr: false,
-    loading: () => (
-        <div className="h-[220px] animate-pulse bg-muted/40 rounded-xl flex items-center justify-center text-xs text-muted-foreground">
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Loading sales visualizer...
-        </div>
-    )
-});
+import MtdCharts from "./MtdCharts";
 
 interface MtdReportTabProps {
     targetMonth: string;
@@ -71,26 +63,61 @@ export function MtdReportTab({
     const [targetInput, setTargetInput] = useState<number | null>(null);
     const [tiktokTargetValInput, setTiktokTargetValInput] = useState<number | null>(null);
     const [targetSaved, setTargetSaved] = useState(false);
+    const [isSavingTarget, setIsSavingTarget] = useState(false);
     const [showWaModal, setShowWaModal] = useState(false);
     const [waPreviewUrl, setWaPreviewUrl] = useState<string | null>(null);
     const [waPreviewLoading, setWaPreviewLoading] = useState(false);
     const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('dark');
     const mtdReportRef = useRef<HTMLDivElement>(null);
 
-    const handleSaveTarget = useCallback(() => {
-        const val = targetInput !== null ? targetInput : monthlyTarget;
-        const splitVal = tiktokTargetValInput !== null ? tiktokTargetValInput : tiktokTargetVal;
-        setMonthlyTarget(val);
-        setTiktokTargetVal(splitVal);
+    // Reset local uncommitted inputs when month or stream changes
+    useEffect(() => {
         setTargetInput(null);
         setTiktokTargetValInput(null);
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('mtd_monthly_target', String(val));
-            localStorage.setItem('mtd_tiktok_target_val', String(splitVal));
+    }, [targetMonth, mtdCompany]);
+
+    const handleSaveTarget = useCallback(async () => {
+        const val = targetInput !== null ? targetInput : monthlyTarget;
+        const splitVal = tiktokTargetValInput !== null ? tiktokTargetValInput : tiktokTargetVal;
+        
+        setIsSavingTarget(true);
+        try {
+            const res = await fetch('/api/analytics/mtd-target', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    targetMonth,
+                    company: mtdCompany,
+                    monthlyTarget: val,
+                    tiktokTargetVal: splitVal
+                })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `HTTP ${res.status}`);
+            }
+
+            const data = await res.json();
+            setMonthlyTarget(data.monthlyTarget);
+            setTiktokTargetVal(data.tiktokTargetVal);
+            setTargetInput(null);
+            setTiktokTargetValInput(null);
+
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('mtd_monthly_target', String(data.monthlyTarget));
+                localStorage.setItem('mtd_tiktok_target_val', String(data.tiktokTargetVal));
+            }
+
+            setTargetSaved(true);
+            setTimeout(() => setTargetSaved(false), 2500);
+        } catch (err: any) {
+            console.error('Failed to save MTD target to database:', err);
+            alert(`Error saving target: ${err.message || 'Unknown error'}`);
+        } finally {
+            setIsSavingTarget(false);
         }
-        setTargetSaved(true);
-        setTimeout(() => setTargetSaved(false), 2000);
-    }, [targetInput, tiktokTargetValInput, monthlyTarget, tiktokTargetVal, setMonthlyTarget, setTiktokTargetVal]);
+    }, [targetInput, tiktokTargetValInput, monthlyTarget, tiktokTargetVal, targetMonth, mtdCompany, setMonthlyTarget, setTiktokTargetVal]);
 
     // Theme detector for WhatsApp preview styling
     useEffect(() => {
@@ -193,6 +220,8 @@ export function MtdReportTab({
                                 if (/^\d*$/.test(val)) setTargetInput(Number(val));
                             }}
                             className="w-32 bg-card dark:bg-card border border-border dark:border-border text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary text-right font-mono font-semibold"
+                            placeholder="Target"
+                            title="Total Monthly Target (RM)"
                         />
                         <span className="text-sm font-semibold text-foreground/70 dark:text-foreground ml-1">TikTok Split:</span>
                         <input
@@ -203,18 +232,36 @@ export function MtdReportTab({
                                 if (/^\d*$/.test(val)) setTiktokTargetValInput(Number(val));
                             }}
                             className="w-32 bg-card dark:bg-card border border-border dark:border-border text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary text-right font-mono font-semibold"
+                            placeholder="TikTok Target"
+                            title="TikTok Shop Target Allocation (RM)"
                         />
+                        {/* Auto-computed Shopee Target preview */}
+                        <div 
+                            className="hidden lg:flex items-center px-2.5 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-[11px] font-mono font-semibold text-orange-600 dark:text-orange-400 whitespace-nowrap"
+                            title="Shopee split computed automatically (Total Target - TikTok Split)"
+                        >
+                            Shopee: RM {Math.max(0, (targetInput !== null ? targetInput : monthlyTarget) - (tiktokTargetValInput !== null ? tiktokTargetValInput : tiktokTargetVal)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </div>
                         <button
                             onClick={handleSaveTarget}
+                            disabled={isSavingTarget}
+                            title={mtdData?.target?.updatedBy ? `Saved in DB. Last updated by ${mtdData.target.updatedBy}` : 'Save target configuration to database for all users'}
                             className={cn(
-                                "flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-lg transition-all duration-300 cursor-pointer border",
+                                "flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg transition-all duration-300 cursor-pointer border",
                                 targetSaved
                                     ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
-                                    : "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+                                    : "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20",
+                                isSavingTarget && "opacity-60 cursor-not-allowed"
                             )}
                         >
-                            {targetSaved ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-                            {targetSaved ? "Saved!" : "Save"}
+                            {isSavingTarget ? (
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : targetSaved ? (
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                            ) : (
+                                <Save className="h-3.5 w-3.5" />
+                            )}
+                            {isSavingTarget ? "Saving..." : targetSaved ? "Saved to DB!" : "Save"}
                         </button>
                     </div>
 
@@ -300,280 +347,23 @@ export function MtdReportTab({
                 const spSales = mtdData.currentMonthData?.shopee?.sales || 0;
 
                 const tkPacingMet = tkEstCumulative > 0 ? (tkSales / tkEstCumulative) * 100 : 0;
-                const spPacingMet = spEstCumulative > 0 ? (spSales / spEstCumulative) * 100 : 0;
                 const totalPacingMet = estCumulative > 0 ? (actualSales / estCumulative) * 100 : 0;
 
                 return (
                     <div className="space-y-6" ref={mtdReportRef}>
-                        {/* Road to Target KPI Grid */}
-                        <div id="mtd-road-to-target" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                            {/* 1. Monthly Target */}
-                            <Card className="border-border/50 bg-card dark:bg-card/40 backdrop-blur-sm relative overflow-hidden group hover:border-border dark:hover:border-border transition-all duration-300">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Target Bulan</CardTitle>
-                                    <Target className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                                </CardHeader>
-                                <CardContent className="space-y-1.5">
-                                    <div className="text-2xl font-bold flex items-baseline gap-2 text-foreground">
-                                        <span>RM {monthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        Est. Daily: <span className="font-mono text-foreground/70 dark:text-foreground">RM {estDaily.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                    </div>
-                                    <p className="text-[10px] text-muted-foreground font-medium pt-1">
-                                        Active target set for overall ecommerce pipeline
-                                    </p>
-                                </CardContent>
-                            </Card>
+                        {/* Executive MTD Performance Report Segment (Exact layout from WhatsApp Export) */}
+                        <MtdReportGraphic 
+                            mtdData={mtdData} 
+                            targetMonth={targetMonth} 
+                            dayRangeEnd={dayRangeEnd} 
+                            mtdCompany={mtdCompany} 
+                            monthlyTarget={monthlyTarget} 
+                            tiktokTargetVal={tiktokTargetVal}
+                            isExport={false}
+                        />
 
-                            {/* 2. Cumulative Target */}
-                            <Card className="border-border/50 bg-card dark:bg-card/40 backdrop-blur-sm relative overflow-hidden group hover:border-border dark:hover:border-border transition-all duration-300">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Est. Cumulative Target</CardTitle>
-                                    <Calendar className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                                </CardHeader>
-                                <CardContent className="space-y-1.5">
-                                    <div className="text-2xl font-bold flex items-baseline gap-2 text-foreground">
-                                        <span>RM {estCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        Days Elapsed: <span className="font-mono font-bold text-foreground/80 dark:text-foreground">{daysElapsed} Days</span>
-                                    </div>
-                                    <p className="text-[10px] text-muted-foreground font-medium pt-1">
-                                        Required target up to Day {daysElapsed}
-                                    </p>
-                                </CardContent>
-                            </Card>
-
-                            {/* 3. Actual Performance */}
-                            <Card className="border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 dark:to-indigo-950/5 backdrop-blur-sm relative overflow-hidden group hover:border-primary/40 transition-all duration-300">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-xs font-semibold text-primary uppercase tracking-wider">Actual MTD Sales</CardTitle>
-                                    <TrendingUp className="h-4 w-4 text-primary" />
-                                </CardHeader>
-                                <CardContent className="space-y-1.5">
-                                    <div className="text-2xl font-bold text-primary flex items-baseline gap-2">
-                                        <span>RM {actualSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                    </div>
-                                    <div className="text-xs text-indigo-600 dark:text-indigo-300 font-semibold flex items-center gap-1">
-                                        Avg. Daily: <span className="font-mono">RM {avgDaily.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                    </div>
-                                    <p className="text-[10px] text-indigo-600 dark:text-indigo-300 font-medium pt-1 flex justify-between items-center">
-                                        <span>Performance Index:</span>
-                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{performancePct.toFixed(1)}%</span>
-                                    </p>
-                                </CardContent>
-                            </Card>
-
-                            {/* 4. BTG Gap */}
-                            <Card className={cn(
-                                "backdrop-blur-sm relative overflow-hidden group transition-all duration-300 border",
-                                gap >= 0 ? "border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-950/5 hover:border-emerald-500/40" : "border-rose-500/20 bg-rose-500/5 dark:bg-rose-950/5 hover:border-rose-500/40"
-                            )}>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className={cn("text-xs font-semibold uppercase tracking-wider", gap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
-                                        BTG (Target Gap)
-                                    </CardTitle>
-                                    {gap >= 0 ? (
-                                        <ArrowUpRight className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                                    ) : (
-                                        <TrendingDown className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                                    )}
-                                </CardHeader>
-                                <CardContent className="space-y-1.5">
-                                    <div className={cn("text-2xl font-bold font-mono", gap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
-                                        {gap >= 0 ? "+" : "-"}RM {Math.abs(gap).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {gap >= 0 ? "Ahead of pace" : "Behind target pace"}
-                                    </div>
-                                    <p className="text-[10px] text-muted-foreground font-medium pt-1">
-                                        Actual Sales vs Cumulative Target
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* Platform MTD Summary Table — TikTok FIRST */}
-                        <Card id="mtd-platform-table" className="border-border/50 bg-card dark:bg-card/40 backdrop-blur-sm overflow-hidden">
-                            <CardHeader className="border-b border-border/30 pb-4">
-                                <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
-                                    Platform MTD Contribution
-                                </CardTitle>
-                                <CardDescription>
-                                    Breakdown of aggregated sales, spend, and ROAS for active platforms (Day 1–{dayRangeEnd}).
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <div className="overflow-x-auto scrollbar-thin touch-scroll">
-                                    <table className="w-full min-w-[640px] text-left text-sm border-collapse">
-                                        <thead>
-                                            <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
-                                                <th className="py-3 px-4">Platform</th>
-                                                <th className="py-3 px-4 text-right">Actual Sales (GMV)</th>
-                                                <th className="py-3 px-4 text-right">Target MTD (Month)</th>
-                                                <th className="py-3 px-4 text-right">Spent (Ad Cost)</th>
-                                                <th className="py-3 px-4 text-center">MTD ROAS</th>
-                                                <th className="py-3 px-4 text-center">Pacing Met %</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {/* TikTok Shop — FIRST */}
-                                            <tr className="border-b border-border/10 hover:bg-muted/10 transition-colors">
-                                                <td className="py-3.5 px-4 font-bold text-foreground/80 dark:text-foreground">
-                                                    <span className="inline-flex items-center gap-2">
-                                                        <span className="text-base">🛒</span> Ecommerce (TikTok Shop)
-                                                    </span>
-                                                </td>
-                                                <td className="py-3.5 px-4 text-right font-mono font-semibold text-foreground/70 dark:text-foreground">
-                                                    RM {tkSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-foreground/70 dark:text-foreground">
-                                                    <div className="flex flex-col items-end">
-                                                        <span>RM {tkEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                                        <span className="text-[10px] text-muted-foreground font-semibold">Month: RM {tkMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-muted-foreground dark:text-foreground">
-                                                    RM {(mtdData.currentMonthData?.tiktok?.spend ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </td>
-                                                <td className="py-3.5 px-4 text-center font-mono font-bold text-pink-600 dark:text-pink-400">
-                                                    {(mtdData.currentMonthData?.tiktok?.roas ?? 0).toFixed(2)}x
-                                                </td>
-                                                <td className="py-3.5 px-4 text-center">
-                                                    <span className={cn(
-                                                        "font-bold px-2.5 py-1 rounded-full text-xs font-mono border",
-                                                        tkPacingMet >= 100 
-                                                            ? "border-emerald-500/20 text-emerald-600 dark:text-emerald-450 bg-emerald-500/5 dark:bg-emerald-950/10" 
-                                                            : "border-rose-500/20 text-rose-600 dark:text-rose-450 bg-rose-500/5 dark:bg-rose-950/10"
-                                                    )}>
-                                                        {tkPacingMet.toFixed(1)}%
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                            {/* Shopee — SECOND */}
-                                            <tr className="border-b border-border/10 hover:bg-muted/10 transition-colors">
-                                                <td className="py-3.5 px-4 font-bold text-foreground/80 dark:text-foreground">
-                                                    <span className="inline-flex items-center gap-2">
-                                                        <span className="text-base">🛍</span> Market Place (Shopee)
-                                                    </span>
-                                                </td>
-                                                <td className="py-3.5 px-4 text-right font-mono font-semibold text-foreground/70 dark:text-foreground">
-                                                    RM {spSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-foreground/70 dark:text-foreground">
-                                                    <div className="flex flex-col items-end">
-                                                        <span>RM {spEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                                        <span className="text-[10px] text-muted-foreground font-semibold">Month: RM {spMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-muted-foreground dark:text-foreground">
-                                                    RM {(mtdData.currentMonthData?.shopee?.spend ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </td>
-                                                <td className="py-3.5 px-4 text-center font-mono font-bold text-orange-600 dark:text-orange-400">
-                                                    {(mtdData.currentMonthData?.shopee?.roas ?? 0).toFixed(2)}x
-                                                </td>
-                                                <td className="py-3.5 px-4 text-center">
-                                                    <span className={cn(
-                                                        "font-bold px-2.5 py-1 rounded-full text-xs font-mono border",
-                                                        spPacingMet >= 100 
-                                                            ? "border-emerald-500/20 text-emerald-600 dark:text-emerald-450 bg-emerald-500/5 dark:bg-emerald-950/10" 
-                                                            : "border-rose-500/20 text-rose-600 dark:text-rose-450 bg-rose-500/5 dark:bg-rose-950/10"
-                                                    )}>
-                                                        {spPacingMet.toFixed(1)}%
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                            {/* Total */}
-                                            <tr className="border-b border-border/10 hover:bg-muted/10 transition-colors bg-primary/5 font-extrabold">
-                                                <td className="py-3.5 px-4 text-primary">Total</td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-primary font-bold">
-                                                    RM {(mtdData.currentMonthData?.total?.sales ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-primary">
-                                                    <div className="flex flex-col items-end">
-                                                        <span>RM {estCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                                        <span className="text-[10px] text-primary/75 font-semibold">Month: RM {monthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="py-3.5 px-4 text-right font-mono text-foreground/70 dark:text-foreground/60">
-                                                    RM {(mtdData.currentMonthData?.total?.spend ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                                </td>
-                                                <td className="py-3.5 px-4 text-center font-mono text-primary font-extrabold">
-                                                    {(mtdData.currentMonthData?.total?.roas ?? 0).toFixed(2)}x
-                                                </td>
-                                                <td className="py-3.5 px-4 text-center">
-                                                    <span className={cn(
-                                                        "font-extrabold px-2.5 py-1 rounded-full text-xs font-mono border",
-                                                        totalPacingMet >= 100 
-                                                            ? "border-emerald-500/30 text-emerald-700 dark:text-emerald-450 bg-emerald-500/10" 
-                                                            : "border-rose-500/30 text-rose-700 dark:text-rose-455 bg-rose-500/10"
-                                                    )}>
-                                                        {totalPacingMet.toFixed(1)}%
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Ringkasan Bulanan — TikTok column FIRST */}
-                        <div id="mtd-ringkasan" className="grid gap-6 md:grid-cols-3">
-                            <Card id="mtd-ringkasan-table" className="border-border/50 bg-card dark:bg-card/40 backdrop-blur-sm overflow-hidden md:col-span-2">
-                                <CardHeader className="border-b border-border/30 pb-4">
-                                    <CardTitle className="text-base font-bold text-foreground">Ringkasan Bulanan (MTD Trend)</CardTitle>
-                                    <CardDescription>
-                                        Comparison of Day 1 – Day {dayRangeEnd} aggregated performance across historical months.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    <div className="overflow-x-auto scrollbar-thin touch-scroll">
-                                        <table className="w-full min-w-[640px] text-left text-sm border-collapse">
-                                            <thead>
-                                                <tr className="border-b border-border/30 bg-muted/20 text-xs font-semibold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">
-                                                    <th className="py-3 px-4">Month</th>
-                                                    <th className="py-3 px-4 text-right">🛒 TikTok Sales</th>
-                                                    <th className="py-3 px-4 text-right">🛍 Shopee Sales</th>
-                                                    <th className="py-3 px-4 text-right">Total MTD Sales</th>
-                                                    <th className="py-3 px-4 text-right">Total Spent</th>
-                                                    <th className="py-3 px-4 text-center">ROAS</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {mtdData.monthlyTrend.map((m: any, idx: number) => (
-                                                    <tr key={idx} className={cn(
-                                                        "border-b border-border/10 hover:bg-muted/10 transition-colors",
-                                                        m.monthKey === targetMonth ? "bg-primary/5" : ""
-                                                    )}>
-                                                        <td className="py-3.5 px-4 font-bold text-foreground/80 dark:text-foreground">
-                                                            {m.monthLabel} {m.monthKey === targetMonth && "⭐"}
-                                                        </td>
-                                                        <td className="py-3.5 px-4 text-right font-mono text-pink-600 dark:text-pink-300">
-                                                            RM {m.tiktok.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                                        </td>
-                                                        <td className="py-3.5 px-4 text-right font-mono text-orange-600 dark:text-orange-300">
-                                                            RM {m.shopee.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                                        </td>
-                                                        <td className="py-3.5 px-4 text-right font-mono font-bold text-foreground/80 dark:text-foreground">
-                                                            RM {m.totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                                        </td>
-                                                        <td className="py-3.5 px-4 text-right font-mono text-muted-foreground dark:text-foreground">
-                                                            RM {m.totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                                        </td>
-                                                        <td className="py-3.5 px-4 text-center font-mono font-bold text-blue-600 dark:text-blue-400">
-                                                            {m.roas.toFixed(2)}x
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Bar Chart (Dynamically Imported) */}
+                        {/* Sales Visualizer Bar Chart */}
+                        <div id="mtd-ringkasan-chart-container">
                             <MtdCharts monthlyTrend={mtdData.monthlyTrend} dayRangeEnd={dayRangeEnd} />
                         </div>
 
@@ -771,6 +561,7 @@ export function MtdReportTab({
                             mtdCompany={mtdCompany} 
                             monthlyTarget={monthlyTarget} 
                             tiktokTargetVal={tiktokTargetVal}
+                            isExport={true}
                         />
                     </div>
                 </div>
@@ -779,13 +570,24 @@ export function MtdReportTab({
     );
 }
 
+interface MtdReportGraphicProps {
+    mtdData: any;
+    targetMonth: string;
+    dayRangeEnd: number;
+    mtdCompany: 'ALL' | 'HIMWELLNESS' | 'WEROCA';
+    monthlyTarget: number;
+    tiktokTargetVal: number;
+    isExport?: boolean;
+}
+
 function MtdReportGraphic({
     mtdData,
     targetMonth,
     dayRangeEnd,
     mtdCompany,
     monthlyTarget,
-    tiktokTargetVal
+    tiktokTargetVal,
+    isExport = false
 }: MtdReportGraphicProps) {
     if (!mtdData) return null;
 
@@ -846,19 +648,30 @@ function MtdReportGraphic({
 
     const trendItems = mtdData.monthlyTrend ? mtdData.monthlyTrend.slice(-3).reverse() : [];
 
+    // When exporting, use fixed 1080x1080 canvas for WhatsApp export. When on-screen, use full-width responsive card.
     return (
-        <div className="light w-[1080px] h-[1080px] p-12 bg-white text-black font-sans flex flex-col justify-between select-none border border-border">
+        <div 
+            className={cn(
+                "select-none font-sans flex flex-col justify-between transition-colors",
+                isExport
+                    ? "light w-[1080px] h-[1080px] p-12 bg-white text-black border border-border shrink-0"
+                    : "w-full bg-card dark:bg-card/40 border border-border/60 rounded-2xl p-5 sm:p-7 text-foreground shadow-sm backdrop-blur-sm gap-6"
+            )}
+        >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-border dark:border-border pb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-border/60 pb-5 gap-3">
                 <div className="flex flex-col gap-1">
-                    <span className="text-xs font-black tracking-widest text-indigo-650 dark:text-indigo-400 uppercase">
+                    <span className="text-xs font-black tracking-widest text-indigo-600 dark:text-indigo-400 uppercase">
                         HIM & WEROCA ANALYTICS
                     </span>
-                    <h1 className="text-3xl font-black uppercase tracking-wider text-foreground/80 dark:text-white">
+                    <h1 className={cn(
+                        "font-black uppercase tracking-wider",
+                        isExport ? "text-3xl text-foreground/80 dark:text-white" : "text-2xl sm:text-3xl text-foreground"
+                    )}>
                         MTD Performance Report
                     </h1>
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-2">
                     <span className="text-xs font-mono font-bold px-3.5 py-1 rounded-lg bg-muted/60 dark:bg-muted text-muted-foreground dark:text-foreground">
                         {dateLabel}
                     </span>
@@ -873,63 +686,102 @@ function MtdReportGraphic({
                 </div>
             </div>
 
-            {/* Target Card */}
-            <div className="bg-white dark:bg-muted/30 border border-border dark:border-border/60 rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+            {/* Target Card: Target Pacing Analysis */}
+            <div className={cn(
+                "rounded-2xl p-5 sm:p-6 shadow-sm flex flex-col gap-4 border",
+                isExport ? "bg-white border-border" : "bg-muted/20 dark:bg-muted/20 border-border/60"
+            )}>
                 <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-indigo-500" />
-                    <span className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground dark:text-muted-foreground">Target Pacing Analysis</span>
+                    <div className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
+                    <span className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground dark:text-muted-foreground">
+                        Target Pacing Analysis
+                    </span>
                 </div>
                 
-                <div className="grid grid-cols-4 gap-5">
+                <div className={cn(
+                    "gap-5",
+                    isExport ? "grid grid-cols-4" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+                )}>
+                    {/* Target Bulanan */}
                     <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">Target Bulanan</span>
-                        <span className="text-2xl font-black font-mono text-foreground/80 dark:text-foreground">RM {monthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                        <span className="text-[10px] font-semibold text-muted-foreground dark:text-muted-foreground font-mono">Est. Daily Target: RM {estDaily.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Target Bulanan</span>
+                        <span className={cn("text-2xl font-black font-mono", isExport ? "text-foreground/80 dark:text-foreground" : "text-foreground")}>
+                            RM {monthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                        <span className="text-[10px] font-semibold text-muted-foreground font-mono">
+                            Est. Daily Target: RM {estDaily.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
                     </div>
                     
-                    <div className="flex flex-col gap-1 border-x border-border dark:border-border/60 px-5">
-                        <span className="text-[10px] font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">Actual MTD Sales</span>
+                    {/* Actual MTD Sales */}
+                    <div className={cn(
+                        "flex flex-col gap-1",
+                        isExport 
+                            ? "border-x border-border dark:border-border/60 px-5" 
+                            : "sm:border-l lg:border-x border-border/60 sm:pl-5 lg:px-5"
+                    )}>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Actual MTD Sales</span>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-black font-mono text-foreground/80 dark:text-foreground">RM {actualSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                            <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">({progressPct.toFixed(1)}%)</span>
+                            <span className={cn("text-2xl font-black font-mono", isExport ? "text-foreground/80 dark:text-foreground" : "text-foreground")}>
+                                RM {actualSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </span>
+                            <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
+                                ({progressPct.toFixed(1)}%)
+                            </span>
                         </div>
-                        <div className="w-full bg-muted/50 dark:bg-muted h-2.5 rounded-full overflow-hidden mt-1.5">
-                            <div className="h-full bg-indigo-600 dark:bg-indigo-500 rounded-full" style={{ width: `${progressPct}%` }} />
+                        <div className="w-full bg-muted/60 dark:bg-muted h-2.5 rounded-full overflow-hidden mt-1.5">
+                            <div className="h-full bg-indigo-600 dark:bg-indigo-500 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, progressPct))}%` }} />
                         </div>
                     </div>
 
-                    <div className="flex flex-col gap-1 border-r border-border dark:border-border/60 pr-5">
-                        <span className="text-[10px] font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">Est. Total Month Sales</span>
+                    {/* Est. Total Month Sales */}
+                    <div className={cn(
+                        "flex flex-col gap-1",
+                        isExport 
+                            ? "border-r border-border dark:border-border/60 pr-5" 
+                            : "lg:border-r border-border/60 lg:pr-5"
+                    )}>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Est. Total Month Sales</span>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-black font-mono text-foreground/80 dark:text-foreground">RM {estTotalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            <span className={cn("text-2xl font-black font-mono", isExport ? "text-foreground/80 dark:text-foreground" : "text-foreground")}>
+                                RM {estTotalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </span>
                             <span className={cn(
                                 "text-xs font-extrabold font-mono",
                                 estTotalVsTarget >= 100 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-500 dark:text-amber-400"
-                            )}>({estTotalVsTarget.toFixed(1)}%)</span>
+                            )}>
+                                ({estTotalVsTarget.toFixed(1)}%)
+                            </span>
                         </div>
-                        <span className="text-[10px] font-semibold text-muted-foreground dark:text-muted-foreground font-mono">Avg daily: RM {avgDailySales.toLocaleString(undefined, { maximumFractionDigits: 0 })} × {daysInTargetMonth}d</span>
+                        <span className="text-[10px] font-semibold text-muted-foreground font-mono">
+                            Avg daily: RM {avgDailySales.toLocaleString(undefined, { maximumFractionDigits: 0 })} × {daysInTargetMonth}d
+                        </span>
                     </div>
                     
-                    <div className="flex flex-col gap-1 pl-0">
-                        <span className="text-[10px] font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider">Gap vs Est. Cumulative</span>
+                    {/* Gap vs Est. Cumulative */}
+                    <div className={cn(
+                        "flex flex-col gap-1",
+                        isExport ? "pl-0" : "sm:border-l lg:border-l-0 border-border/60 sm:pl-5 lg:pl-0"
+                    )}>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Gap vs Est. Cumulative</span>
                         <span className={cn(
                             "text-2xl font-black font-mono",
                             gap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                         )}>
                             {gap >= 0 ? '+' : '-'}RM {Math.abs(gap).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </span>
-                        <span className="text-[10px] font-semibold text-muted-foreground dark:text-muted-foreground">
-                            {gap >= 0 ? 'Pacing ahead of target' : `Behind pacing by -${Math.abs(gap / estCumulative * 100).toFixed(1)}%`}
+                        <span className="text-[10px] font-semibold text-muted-foreground">
+                            {gap >= 0 ? 'Pacing ahead of target' : `Behind pacing by -${estCumulative > 0 ? Math.abs(gap / estCumulative * 100).toFixed(1) : '0.0'}%`}
                         </span>
                     </div>
                 </div>
             </div>
 
-            {/* Platform Comparison Split */}
-            <div className="grid grid-cols-2 gap-6">
-                {/* TikTok - ALWAYS first/top */}
-                <div className="bg-pink-500/5 dark:bg-pink-950/10 border border-pink-500/15 dark:border-pink-500/20 rounded-2xl p-6 flex flex-col justify-between">
-                    <div className="flex items-center justify-between border-b border-pink-500/10 pb-3.5 mb-4">
+            {/* Platform Comparison Split: TikTok Shop & Shopee Shop */}
+            <div className={cn("gap-6", isExport ? "grid grid-cols-2" : "grid grid-cols-1 lg:grid-cols-2")}>
+                {/* TikTok Shop - ALWAYS FIRST */}
+                <div className="bg-pink-500/5 dark:bg-pink-950/15 border border-pink-500/20 rounded-2xl p-5 sm:p-6 flex flex-col justify-between">
+                    <div className="flex items-center justify-between border-b border-pink-500/15 pb-3.5 mb-4">
                         <div className="flex items-center gap-2">
                             <span className="text-xl">🛒</span>
                             <span className="text-sm font-black text-pink-700 dark:text-pink-400 tracking-wide">TikTok Shop</span>
@@ -939,7 +791,7 @@ function MtdReportGraphic({
                                 "flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded border font-mono",
                                 tkDeltaSales >= 0 
                                     ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
-                                    : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-455"
+                                    : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
                             )}>
                                 {tkDeltaSales >= 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
                                 {Math.abs(tkDeltaSalesPct).toFixed(1)}% MoM
@@ -947,53 +799,67 @@ function MtdReportGraphic({
                         )}
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                    <div className={cn("gap-x-4 gap-y-3.5", isExport ? "grid grid-cols-3" : "grid grid-cols-2 sm:grid-cols-3")}>
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Target (MTD Pacing)</span>
                             <div className="flex flex-col">
-                                <span className="text-lg font-black font-mono text-black">RM {tkEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                <span className="text-[9px] font-bold text-gray-500 font-mono mt-0.5">({(tkEstCumulative > 0 ? (tkSales / tkEstCumulative) * 100 : 0).toFixed(0)}% met of RM {tkMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
+                                <span className="text-lg font-black font-mono text-foreground">
+                                    RM {tkEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </span>
+                                <span className="text-[9px] font-bold text-muted-foreground font-mono mt-0.5">
+                                    ({(tkEstCumulative > 0 ? (tkSales / tkEstCumulative) * 100 : 0).toFixed(0)}% met of RM {tkMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })})
+                                </span>
                             </div>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-pink-700 uppercase">Sales (GMV)</span>
-                            <span className="text-lg font-black font-mono text-black">RM {tkSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Sales (GMV)</span>
+                            <span className="text-lg font-black font-mono text-foreground">
+                                RM {tkSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </span>
                         </div>
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-pink-700 uppercase">Gap</span>
+                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Gap</span>
                             <span className={cn(
                                 "text-lg font-black font-mono",
-                                tkGap >= 0 ? "text-emerald-700" : "text-rose-700"
+                                tkGap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                             )}>
                                 {tkGap >= 0 ? '+' : '-'}RM {Math.abs(tkGap).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </span>
                         </div>
-                        <div className="flex flex-col border-t border-pink-500/10 pt-2.5">
-                            <span className="text-[10px] font-bold text-pink-700 uppercase">Ad Spend</span>
-                            <span className="text-lg font-black font-mono text-black">RM {tkSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        <div className="flex flex-col border-t border-pink-500/15 pt-2.5">
+                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Ad Spend</span>
+                            <span className="text-lg font-black font-mono text-foreground">
+                                RM {tkSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </span>
                         </div>
-                        <div className="flex flex-col border-t border-pink-500/10 pt-2.5">
-                            <span className="text-[10px] font-bold text-pink-700 uppercase">ROAS</span>
-                            <span className="text-lg font-black font-mono text-pink-800">{tkRoas.toFixed(2)}x</span>
+                        <div className="flex flex-col border-t border-pink-500/15 pt-2.5">
+                            <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">ROAS</span>
+                            <span className="text-lg font-black font-mono text-pink-600 dark:text-pink-400">
+                                {tkRoas.toFixed(2)}x
+                            </span>
                         </div>
-                        <div className="flex flex-col border-t border-pink-500/10 pt-2.5">
+                        <div className="flex flex-col border-t border-pink-500/15 pt-2.5">
                             <span className="text-[10px] font-bold text-pink-700 dark:text-pink-400 uppercase">Est. Total Month</span>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-lg font-black font-mono text-foreground/80 dark:text-foreground">RM {(tkSales / dayRangeEnd * daysInTargetMonth).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                <span className="text-lg font-black font-mono text-foreground">
+                                    RM {dayRangeEnd > 0 ? (tkSales / dayRangeEnd * daysInTargetMonth).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0}
+                                </span>
                                 <span className={cn(
                                     "text-[9px] font-extrabold font-mono",
-                                    (tkMonthlyTarget > 0 ? (tkSales / dayRangeEnd * daysInTargetMonth) / tkMonthlyTarget * 100 : 0) >= 100
+                                    (tkMonthlyTarget > 0 && dayRangeEnd > 0 ? (tkSales / dayRangeEnd * daysInTargetMonth) / tkMonthlyTarget * 100 : 0) >= 100
                                         ? "text-emerald-600 dark:text-emerald-400"
                                         : "text-amber-500 dark:text-amber-400"
-                                )}>({tkMonthlyTarget > 0 ? ((tkSales / dayRangeEnd * daysInTargetMonth) / tkMonthlyTarget * 100).toFixed(0) : 0}%)</span>
+                                )}>
+                                    ({tkMonthlyTarget > 0 && dayRangeEnd > 0 ? ((tkSales / dayRangeEnd * daysInTargetMonth) / tkMonthlyTarget * 100).toFixed(0) : 0}%)
+                                </span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Shopee */}
-                <div className="bg-orange-500/5 dark:bg-orange-950/10 border border-orange-500/15 dark:border-orange-500/20 rounded-2xl p-6 flex flex-col justify-between">
-                    <div className="flex items-center justify-between border-b border-orange-500/10 pb-3.5 mb-4">
+                {/* Shopee Shop - SECOND */}
+                <div className="bg-orange-500/5 dark:bg-orange-950/15 border border-orange-500/20 rounded-2xl p-5 sm:p-6 flex flex-col justify-between">
+                    <div className="flex items-center justify-between border-b border-orange-500/15 pb-3.5 mb-4">
                         <div className="flex items-center gap-2">
                             <span className="text-xl">🛍</span>
                             <span className="text-sm font-black text-orange-700 dark:text-orange-400 tracking-wide">Shopee Shop</span>
@@ -1003,7 +869,7 @@ function MtdReportGraphic({
                                 "flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded border font-mono",
                                 spDeltaSales >= 0 
                                     ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
-                                    : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-455"
+                                    : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
                             )}>
                                 {spDeltaSales >= 0 ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
                                 {Math.abs(spDeltaSalesPct).toFixed(1)}% MoM
@@ -1011,45 +877,59 @@ function MtdReportGraphic({
                         )}
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-x-4 gap-y-3">
+                    <div className={cn("gap-x-4 gap-y-3.5", isExport ? "grid grid-cols-3" : "grid grid-cols-2 sm:grid-cols-3")}>
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Target (MTD Pacing)</span>
                             <div className="flex flex-col">
-                                <span className="text-lg font-black font-mono text-foreground/80 dark:text-foreground">RM {spEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                                <span className="text-[9px] font-bold text-muted-foreground font-mono mt-0.5">({(spEstCumulative > 0 ? (spSales / spEstCumulative) * 100 : 0).toFixed(0)}% met of RM {spMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
+                                <span className="text-lg font-black font-mono text-foreground">
+                                    RM {spEstCumulative.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </span>
+                                <span className="text-[9px] font-bold text-muted-foreground font-mono mt-0.5">
+                                    ({(spEstCumulative > 0 ? (spSales / spEstCumulative) * 100 : 0).toFixed(0)}% met of RM {spMonthlyTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })})
+                                </span>
                             </div>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Sales (GMV)</span>
-                            <span className="text-lg font-black font-mono text-foreground/80 dark:text-foreground">RM {spSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            <span className="text-lg font-black font-mono text-foreground">
+                                RM {spSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </span>
                         </div>
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Gap</span>
                             <span className={cn(
                                 "text-lg font-black font-mono",
-                                spGap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-455"
+                                spGap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                             )}>
                                 {spGap >= 0 ? '+' : '-'}RM {Math.abs(spGap).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </span>
                         </div>
-                        <div className="flex flex-col border-t border-orange-500/10 pt-2.5">
+                        <div className="flex flex-col border-t border-orange-500/15 pt-2.5">
                             <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Ad Spend</span>
-                            <span className="text-lg font-black font-mono text-foreground/80 dark:text-foreground">RM {spSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            <span className="text-lg font-black font-mono text-foreground">
+                                RM {spSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </span>
                         </div>
-                        <div className="flex flex-col border-t border-orange-500/10 pt-2.5">
+                        <div className="flex flex-col border-t border-orange-500/15 pt-2.5">
                             <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">ROAS</span>
-                            <span className="text-lg font-black font-mono text-orange-700 dark:text-orange-450">{spRoas.toFixed(2)}x</span>
+                            <span className="text-lg font-black font-mono text-orange-600 dark:text-orange-400">
+                                {spRoas.toFixed(2)}x
+                            </span>
                         </div>
-                        <div className="flex flex-col border-t border-orange-500/10 pt-2.5">
+                        <div className="flex flex-col border-t border-orange-500/15 pt-2.5">
                             <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Est. Total Month</span>
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-lg font-black font-mono text-foreground/80 dark:text-foreground">RM {(spSales / dayRangeEnd * daysInTargetMonth).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                <span className="text-lg font-black font-mono text-foreground">
+                                    RM {dayRangeEnd > 0 ? (spSales / dayRangeEnd * daysInTargetMonth).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0}
+                                </span>
                                 <span className={cn(
                                     "text-[9px] font-extrabold font-mono",
-                                    (spMonthlyTarget > 0 ? (spSales / dayRangeEnd * daysInTargetMonth) / spMonthlyTarget * 100 : 0) >= 100
+                                    (spMonthlyTarget > 0 && dayRangeEnd > 0 ? (spSales / dayRangeEnd * daysInTargetMonth) / spMonthlyTarget * 100 : 0) >= 100
                                         ? "text-emerald-600 dark:text-emerald-400"
                                         : "text-amber-500 dark:text-amber-400"
-                                )}>({spMonthlyTarget > 0 ? ((spSales / dayRangeEnd * daysInTargetMonth) / spMonthlyTarget * 100).toFixed(0) : 0}%)</span>
+                                )}>
+                                    ({spMonthlyTarget > 0 && dayRangeEnd > 0 ? ((spSales / dayRangeEnd * daysInTargetMonth) / spMonthlyTarget * 100).toFixed(0) : 0}%)
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -1057,22 +937,27 @@ function MtdReportGraphic({
             </div>
 
             {/* Section 3: Ringkasan Bulanan Table */}
-            <div className="bg-white dark:bg-muted/30 border border-border dark:border-border/60 rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col gap-4">
+            <div className={cn(
+                "rounded-2xl p-4 sm:p-6 shadow-sm flex flex-col gap-4 border",
+                isExport ? "bg-white border-border" : "bg-muted/20 dark:bg-muted/20 border-border/60"
+            )}>
                 <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-indigo-500" />
-                    <span className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground dark:text-muted-foreground font-mono">Ringkasan Bulanan (MTD Day 1 - {dayRangeEnd})</span>
+                    <div className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
+                    <span className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground font-mono">
+                        Ringkasan Bulanan (MTD Day 1 - {dayRangeEnd})
+                    </span>
                 </div>
                 
                 <div className="overflow-x-auto scrollbar-thin touch-scroll">
-                    <table className="w-full min-w-[600px] text-left border-collapse">
+                    <table className="w-full min-w-[580px] text-left border-collapse">
                         <thead>
-                            <tr className="border-b border-border dark:border-border text-[10px] text-muted-foreground dark:text-muted-foreground font-extrabold uppercase tracking-wider">
-                                <th className="py-2 px-4">Month</th>
-                                <th className="py-2 px-4 text-right">TikTok Sales</th>
-                                <th className="py-2 px-4 text-right">Shopee Sales</th>
-                                <th className="py-2 px-4 text-right">Total Sales</th>
-                                <th className="py-2 px-4 text-right">Ad Spend</th>
-                                <th className="py-2 px-4 text-right">Blended ROAS</th>
+                            <tr className="border-b border-border/60 text-[10px] text-muted-foreground font-extrabold uppercase tracking-wider">
+                                <th className="py-2.5 px-4">Month</th>
+                                <th className="py-2.5 px-4 text-right">TikTok Sales</th>
+                                <th className="py-2.5 px-4 text-right">Shopee Sales</th>
+                                <th className="py-2.5 px-4 text-right">Total Sales</th>
+                                <th className="py-2.5 px-4 text-right">Ad Spend</th>
+                                <th className="py-2.5 px-4 text-right">Blended ROAS</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1082,11 +967,11 @@ function MtdReportGraphic({
                                     <tr 
                                         key={item.monthKey} 
                                         className={cn(
-                                            "border-b border-border/50 dark:border-border/50 hover:bg-muted/20 dark:hover:bg-muted/30 text-xs font-semibold",
-                                            isCurrent && "bg-indigo-500/5 dark:bg-indigo-950/10 font-bold border-l-2 border-l-indigo-600 dark:border-l-indigo-400"
+                                            "border-b border-border/40 hover:bg-muted/20 text-xs font-semibold transition-colors",
+                                            isCurrent && "bg-indigo-500/10 dark:bg-indigo-950/20 font-bold border-l-2 border-l-indigo-600 dark:border-l-indigo-400"
                                         )}
                                     >
-                                        <td className="py-3 px-4 font-mono font-bold text-foreground dark:text-foreground">
+                                        <td className="py-3 px-4 font-mono font-bold text-foreground">
                                             {item.monthLabel}
                                         </td>
                                         <td className="py-3 px-4 text-right font-mono text-pink-600 dark:text-pink-400 font-bold">
@@ -1098,7 +983,7 @@ function MtdReportGraphic({
                                         <td className="py-3 px-4 text-right font-mono text-indigo-600 dark:text-indigo-400 font-bold">
                                             RM {item.totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                         </td>
-                                        <td className="py-3 px-4 text-right font-mono text-muted-foreground dark:text-foreground">
+                                        <td className="py-3 px-4 text-right font-mono text-foreground/80 dark:text-foreground">
                                             RM {item.totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                         </td>
                                         <td className="py-3 px-4 text-right font-mono text-emerald-600 dark:text-emerald-400 font-bold">
@@ -1113,11 +998,11 @@ function MtdReportGraphic({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between border-t border-border dark:border-border pt-6">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+            <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/60 pt-5 gap-2 text-muted-foreground">
+                <span className="text-[10px] font-bold uppercase tracking-widest">
                     HIMWELLNESS & WEROCA ECOMMERCE GROUP
                 </span>
-                <span className="text-[9px] font-mono text-muted-foreground dark:text-muted-foreground">
+                <span className="text-[9px] font-mono">
                     Generated on {new Date().toLocaleString('en-MY', {
                         timeZone: 'Asia/Kuala_Lumpur',
                         dateStyle: 'medium',
@@ -1136,6 +1021,7 @@ interface MtdReportGraphicProps {
     mtdCompany: 'ALL' | 'HIMWELLNESS' | 'WEROCA';
     monthlyTarget: number;
     tiktokTargetVal: number;
+    isExport?: boolean;
 }
 
 export default MtdReportTab;
