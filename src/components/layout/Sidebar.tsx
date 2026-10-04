@@ -21,6 +21,10 @@ import {
     MessageSquarePlus,
     FlaskConical,
     Code2,
+    Database,
+    Layers,
+    TrendingUp,
+    Calendar,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -71,6 +75,20 @@ const navigation: NavItem[] = [
         feature: "analytics",
     },
     {
+        name: "Centralised Data",
+        icon: Layers,
+        children: [
+            { name: "Reality Sales Department", href: "/centralised-data/reality-sales", icon: TrendingUp, feature: "reality_sales" },
+            { name: "Event Analysis", href: "/centralised-data/event-analysis", icon: Calendar, feature: "event_analysis" },
+        ],
+    },
+    {
+        name: "Connected Systems",
+        href: "/connected-systems",
+        icon: Database,
+        feature: "connected_systems",
+    },
+    {
         name: "Developer Tools",
         icon: Code2,
         children: [
@@ -116,11 +134,11 @@ export function Sidebar({
     const userRole = (session?.user as any)?.role;
     const allowedFeatures =
         (session?.user as { allowed_features?: string[] } | undefined)
-            ?.allowed_features || ["overview", "tiktok", "shopee", "ads", "analytics", "feedback", "test_field"];
+            ?.allowed_features || ["overview", "tiktok", "shopee", "ads", "analytics", "connected_systems", "reality_sales", "event_analysis", "feedback", "test_field"];
 
     const isFeatureAllowed = (feature?: string) => {
         if (!feature) return true;
-        if (feature === "feedback" || feature === "test_field") return true;
+        if (feature === "feedback" || feature === "test_field" || feature === "connected_systems" || feature === "reality_sales" || feature === "event_analysis") return true;
         if (userRole === "admin") return true;
         return allowedFeatures.includes(feature);
     };
