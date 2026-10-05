@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { name, startDate, endDate, targetAmount, platform, departments, customCosts, notes } = body;
+        const { name, startDate, endDate, targetAmount, platform, departments, customCosts, notes, platformCostRate } = body;
 
         if (!name || !startDate || !endDate) {
             return NextResponse.json(
@@ -66,6 +66,7 @@ export async function POST(request: Request) {
             departments: departments || ['marketing', 'livehost', 'affiliate', 'orders'],
             customCosts: Array.isArray(customCosts) ? customCosts : [],
             notes: notes || '',
+            platformCostRate: platformCostRate !== undefined ? parseFloat(platformCostRate) : 25,
         });
 
         const metrics = await calculateEventMetrics(newEvent);
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { id, name, startDate, endDate, targetAmount, platform, departments, customCosts, notes } = body;
+        const { id, name, startDate, endDate, targetAmount, platform, departments, customCosts, notes, platformCostRate } = body;
 
         if (!id) {
             return NextResponse.json(
@@ -105,6 +106,7 @@ export async function PUT(request: Request) {
             departments,
             customCosts,
             notes,
+            platformCostRate: platformCostRate !== undefined ? parseFloat(platformCostRate) : undefined,
         });
 
         if (!updated) {

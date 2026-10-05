@@ -46,9 +46,12 @@ export async function ensureEventsTable(): Promise<void> {
             departments JSONB DEFAULT '["marketing", "livehost", "affiliate", "orders"]'::jsonb,
             custom_costs JSONB DEFAULT '[]'::jsonb,
             notes TEXT,
+            platform_cost_rate NUMERIC(5, 2) DEFAULT 25.0,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
+        ALTER TABLE credentials.campaign_events 
+        ADD COLUMN IF NOT EXISTS platform_cost_rate NUMERIC(5, 2) DEFAULT 25.0;
     `);
 }
 
@@ -68,6 +71,7 @@ export async function getAllEvents(): Promise<CampaignEvent[]> {
             departments,
             custom_costs as "customCosts",
             notes,
+            platform_cost_rate::float as "platformCostRate",
             created_at as "createdAt",
             updated_at as "updatedAt"
         FROM credentials.campaign_events
@@ -84,6 +88,7 @@ export async function getAllEvents(): Promise<CampaignEvent[]> {
         departments: (Array.isArray(row.departments) ? row.departments : []) as EventDepartment[],
         customCosts: (Array.isArray(row.customCosts) ? row.customCosts : []) as CustomCostItem[],
         notes: row.notes || '',
+        platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     }));
@@ -106,6 +111,7 @@ export async function getEventById(id: string): Promise<CampaignEvent | null> {
             departments,
             custom_costs as "customCosts",
             notes,
+            platform_cost_rate::float as "platformCostRate",
             created_at as "createdAt",
             updated_at as "updatedAt"
         FROM credentials.campaign_events
@@ -126,6 +132,7 @@ export async function getEventById(id: string): Promise<CampaignEvent | null> {
         departments: (Array.isArray(row.departments) ? row.departments : []) as EventDepartment[],
         customCosts: (Array.isArray(row.customCosts) ? row.customCosts : []) as CustomCostItem[],
         notes: row.notes || '',
+        platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     };
@@ -143,6 +150,7 @@ export async function createEvent(data: {
     departments?: EventDepartment[];
     customCosts?: CustomCostItem[];
     notes?: string;
+    platformCostRate?: number;
 }): Promise<CampaignEvent> {
     await ensureEventsTable();
     const targetAmount = data.targetAmount || 0;
@@ -150,6 +158,7 @@ export async function createEvent(data: {
     const departments = data.departments || ['marketing', 'livehost', 'affiliate', 'orders'];
     const customCosts = data.customCosts || [];
     const notes = data.notes || '';
+    const platformCostRate = data.platformCostRate !== undefined ? data.platformCostRate : 25;
 
     const res = await localPool.query(
         `
@@ -161,9 +170,10 @@ export async function createEvent(data: {
             platform, 
             departments, 
             custom_costs, 
-            notes
+            notes,
+            platform_cost_rate
         )
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)
         RETURNING 
             id,
             name,
@@ -174,6 +184,7 @@ export async function createEvent(data: {
             departments,
             custom_costs as "customCosts",
             notes,
+            platform_cost_rate::float as "platformCostRate",
             created_at as "createdAt",
             updated_at as "updatedAt";
     `,
@@ -186,6 +197,7 @@ export async function createEvent(data: {
             JSON.stringify(departments),
             JSON.stringify(customCosts),
             notes,
+            platformCostRate,
         ]
     );
 
@@ -200,6 +212,7 @@ export async function createEvent(data: {
         departments: row.departments as EventDepartment[],
         customCosts: row.customCosts as CustomCostItem[],
         notes: row.notes,
+        platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     };
@@ -219,6 +232,7 @@ export async function updateEvent(
         departments?: EventDepartment[];
         customCosts?: CustomCostItem[];
         notes?: string;
+        platformCostRate?: number;
     }
 ): Promise<CampaignEvent | null> {
     await ensureEventsTable();
@@ -233,6 +247,7 @@ export async function updateEvent(
     const departments = data.departments !== undefined ? data.departments : current.departments;
     const customCosts = data.customCosts !== undefined ? data.customCosts : current.customCosts;
     const notes = data.notes !== undefined ? data.notes : current.notes;
+    const platformCostRate = data.platformCostRate !== undefined ? data.platformCostRate : (current.platformCostRate ?? 25);
 
     const res = await localPool.query(
         `
@@ -246,8 +261,9 @@ export async function updateEvent(
             departments = $6::jsonb,
             custom_costs = $7::jsonb,
             notes = $8,
+            platform_cost_rate = $9,
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $9
+        WHERE id = $10
         RETURNING 
             id,
             name,
@@ -258,6 +274,7 @@ export async function updateEvent(
             departments,
             custom_costs as "customCosts",
             notes,
+            platform_cost_rate::float as "platformCostRate",
             created_at as "createdAt",
             updated_at as "updatedAt";
     `,
@@ -270,6 +287,7 @@ export async function updateEvent(
             JSON.stringify(departments),
             JSON.stringify(customCosts),
             notes,
+            platformCostRate,
             id,
         ]
     );
@@ -286,6 +304,7 @@ export async function updateEvent(
         departments: row.departments as EventDepartment[],
         customCosts: row.customCosts as CustomCostItem[],
         notes: row.notes,
+        platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     };
@@ -432,6 +451,7 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
                 WHERE channel = 'External'
                   AND DATE(report_date) >= $1
                   AND DATE(report_date) <= $2
+                  AND (LOWER(shop) LIKE '%dr%samhan%' OR LOWER(shop) LIKE '%drsamhan%' OR LOWER(shop) LIKE '%himclinic%')
                   ${pClause}
                 GROUP BY LOWER(platform);
             `,
@@ -638,11 +658,15 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
     // Determine total orders
     const totalOrders = stockOrdersCount > 0 ? stockOrdersCount : shopeeStoreOrders + tiktokStoreOrders;
 
-    // 7. Custom Costs
+    // 7. Platform Cost (default 25% from total sales, user configurable)
+    const platformCostRate = typeof event.platformCostRate === 'number' ? event.platformCostRate : 25;
+    const platformCost = (totalSales * platformCostRate) / 100;
+
+    // 8. Custom Costs
     const totalCustomCosts = customCosts.reduce((sum, item) => sum + (parseFloat(item.amount as any) || 0), 0);
 
-    // 8. Profit Calculation: Sales - Ad Spend - Total COGS - Custom Costs
-    const profit = totalSales - totalSpend - totalCogs - totalCustomCosts;
+    // 9. Profit Calculation: Sales - Ad Spend - Total COGS - Platform Cost - Custom Costs
+    const profit = totalSales - totalSpend - totalCogs - platformCost - totalCustomCosts;
     const profitMargin = totalSales > 0 ? (profit / totalSales) * 100 : 0;
     const roas = totalSpend > 0 ? totalSales / totalSpend : 0;
     const netRoas = totalSpend > 0 ? profit / totalSpend : 0;
@@ -665,6 +689,8 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
         winningSkus,
         totalCogs: parseFloat(totalCogs.toFixed(2)),
         cogsPercentage: parseFloat(cogsPercentage.toFixed(1)),
+        platformCost: parseFloat(platformCost.toFixed(2)),
+        platformCostRate: parseFloat(platformCostRate.toFixed(1)),
         customCosts,
         totalCustomCosts: parseFloat(totalCustomCosts.toFixed(2)),
         profit: parseFloat(profit.toFixed(2)),

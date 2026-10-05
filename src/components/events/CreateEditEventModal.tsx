@@ -16,7 +16,8 @@ import {
     Megaphone,
     Radio,
     Share2,
-    Boxes
+    Boxes,
+    Percent
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +49,7 @@ export default function CreateEditEventModal({
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [targetAmount, setTargetAmount] = useState<string>("100000");
+    const [platformCostRate, setPlatformCostRate] = useState<string>("25");
     const [platform, setPlatform] = useState<EventPlatform>("combine");
     const [departments, setDepartments] = useState<EventDepartment[]>([
         "marketing",
@@ -71,6 +73,9 @@ export default function CreateEditEventModal({
             setStartDate(eventToEdit.startDate || "");
             setEndDate(eventToEdit.endDate || "");
             setTargetAmount(eventToEdit.targetAmount?.toString() || "0");
+            setPlatformCostRate(
+                eventToEdit.platformCostRate !== undefined ? eventToEdit.platformCostRate.toString() : "25"
+            );
             setPlatform(eventToEdit.platform || "combine");
             setDepartments(eventToEdit.departments || ["marketing", "livehost", "affiliate", "orders"]);
             setCustomCosts(eventToEdit.customCosts ? [...eventToEdit.customCosts] : []);
@@ -82,6 +87,7 @@ export default function CreateEditEventModal({
             setStartDate(today);
             setEndDate(today);
             setTargetAmount("200000");
+            setPlatformCostRate("25");
             setPlatform("combine");
             setDepartments(["marketing", "livehost", "affiliate", "orders"]);
             setCustomCosts([]);
@@ -154,6 +160,12 @@ export default function CreateEditEventModal({
             return;
         }
 
+        const costRate = parseFloat(platformCostRate);
+        if (isNaN(costRate) || costRate < 0 || costRate > 100) {
+            setError("Platform cost percentage must be between 0% and 100%");
+            return;
+        }
+
         setLoading(true);
         try {
             const url = "/api/centralised-data/events";
@@ -163,6 +175,7 @@ export default function CreateEditEventModal({
                 startDate,
                 endDate,
                 targetAmount: target,
+                platformCostRate: costRate,
                 platform,
                 departments,
                 customCosts,
@@ -193,6 +206,7 @@ export default function CreateEditEventModal({
     };
 
     const totalCustomCost = customCosts.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const estimatedPlatformCost = ((parseFloat(targetAmount) || 0) * (parseFloat(platformCostRate) || 0)) / 100;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in-0 duration-200">
@@ -208,7 +222,7 @@ export default function CreateEditEventModal({
                                 {isEditing ? "Edit Campaign Event" : "Create New Campaign Event"}
                             </h2>
                             <p className="text-xs text-muted-foreground">
-                                Configure date range, target, platforms, included departments, and custom costs.
+                                Configure date range, target, platform costs, channels, included departments, and custom costs.
                             </p>
                         </div>
                     </div>
@@ -247,8 +261,8 @@ export default function CreateEditEventModal({
                         />
                     </div>
 
-                    {/* Date Range & Target */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Date Range */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                             <Label htmlFor="startDate" className="text-xs font-semibold">
                                 Start Date <span className="text-destructive">*</span>
@@ -276,7 +290,10 @@ export default function CreateEditEventModal({
                                 className="h-9 text-xs font-mono"
                             />
                         </div>
+                    </div>
 
+                    {/* Target Sales & Platform Cost */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                             <Label htmlFor="targetAmount" className="text-xs font-semibold">
                                 Target Sales (RM)
@@ -290,12 +307,43 @@ export default function CreateEditEventModal({
                                     type="number"
                                     min="0"
                                     step="1000"
-                                    placeholder="500000"
+                                    placeholder="200000"
                                     value={targetAmount}
                                     onChange={(e) => setTargetAmount(e.target.value)}
                                     className="h-9 pl-9 text-xs font-mono font-semibold"
                                 />
                             </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="platformCostRate" className="text-xs font-semibold flex items-center gap-1">
+                                    <Percent className="h-3 w-3 text-sky-400" />
+                                    <span>Platform Cost (%)</span>
+                                </Label>
+                                <span className="text-[10px] font-mono text-sky-400 font-medium">
+                                    Est. RM {estimatedPlatformCost.toLocaleString("en-MY", { minimumFractionDigits: 2 })}
+                                </span>
+                            </div>
+                            <div className="relative">
+                                <Input
+                                    id="platformCostRate"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.5"
+                                    placeholder="25"
+                                    value={platformCostRate}
+                                    onChange={(e) => setPlatformCostRate(e.target.value)}
+                                    className="h-9 pr-8 text-xs font-mono font-semibold"
+                                />
+                                <span className="absolute right-3 top-2 text-xs font-bold text-muted-foreground">
+                                    %
+                                </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                                Currently 25% from total sales. Can increase or decrease.
+                            </p>
                         </div>
                     </div>
 

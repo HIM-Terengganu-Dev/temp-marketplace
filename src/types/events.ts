@@ -16,6 +16,7 @@ export interface CampaignEvent {
     platform: EventPlatform;
     departments: EventDepartment[];
     customCosts: CustomCostItem[];
+    platformCostRate?: number;
     notes?: string;
     createdAt?: string;
     updatedAt?: string;
@@ -44,9 +45,11 @@ export interface EventAnalysisMetrics {
     winningSkus: WinningSkuItem[];
     totalCogs: number;
     cogsPercentage: number; // (totalCogs / sales) * 100
+    platformCost: number; // totalSales * (platformCostRate / 100)
+    platformCostRate: number; // percentage (e.g. 25)
     customCosts: CustomCostItem[];
     totalCustomCosts: number;
-    profit: number; // sales - spend - totalCogs - totalCustomCosts
+    profit: number; // sales - spend - totalCogs - platformCost - totalCustomCosts
     profitMargin: number; // (profit / sales) * 100
     netRoas: number; // profit / spend
     departmentBreakdown: {

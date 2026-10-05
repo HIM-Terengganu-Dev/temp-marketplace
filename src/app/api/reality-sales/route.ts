@@ -395,6 +395,7 @@ async function fetchAffiliateDepartment(month: string, startDate: string, endDat
                 COALESCE(SUM(orders::numeric), 0)::int as total_orders
             FROM affiliate_records
             WHERE channel = 'External'
+              AND (LOWER(shop) LIKE '%dr%samhan%' OR LOWER(shop) LIKE '%drsamhan%' OR LOWER(shop) LIKE '%himclinic%')
               AND DATE(report_date) >= $1
               AND DATE(report_date) <= $2
             GROUP BY platform;
@@ -432,6 +433,7 @@ async function fetchAffiliateDepartment(month: string, startDate: string, endDat
                 COALESCE(SUM(orders::numeric), 0)::int as total_orders
             FROM affiliate_records
             WHERE channel = 'External'
+              AND (LOWER(shop) LIKE '%dr%samhan%' OR LOWER(shop) LIKE '%drsamhan%' OR LOWER(shop) LIKE '%himclinic%')
               AND DATE(report_date) >= $1
               AND DATE(report_date) <= $2
             GROUP BY username, platform, tier

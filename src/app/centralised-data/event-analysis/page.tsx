@@ -22,7 +22,8 @@ import {
     Loader2,
     ArrowUpRight,
     ArrowDownRight,
-    HelpCircle
+    HelpCircle,
+    Percent
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -287,6 +288,12 @@ export default function EventAnalysisPage() {
                                                 {formatCurrency(e.targetAmount)}
                                             </span>
                                         </div>
+                                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                            <span>Platform Fee:</span>
+                                            <span className="font-mono font-semibold text-sky-400">
+                                                {e.platformCostRate ?? 25}%
+                                            </span>
+                                        </div>
                                     </div>
 
                                     {/* Action buttons on card hover */}
@@ -354,6 +361,9 @@ export default function EventAnalysisPage() {
                                 <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
                                     {selectedEvent.startDate} &mdash; {selectedEvent.endDate}
                                 </Badge>
+                                <Badge variant="outline" className="text-[10px] font-mono text-sky-400 border-sky-500/30 bg-sky-500/10">
+                                    Platform Fee: {selectedEvent.platformCostRate ?? 25}%
+                                </Badge>
                             </div>
                             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                 <span>Active Departments:</span>
@@ -382,11 +392,12 @@ export default function EventAnalysisPage() {
                     </div>
 
                     {/* ========================================================= */}
-                    {/* 8 PRIMARY EXECUTIVE METRIC CARDS REQUIRED BY USER        */}
-                    {/* 1. sales, 2. target, 3. spend, 4. total order,            */}
-                    {/* 5. winning skus, 6. total COGS, 7. custom cost, 8. Profit  */}
+                    {/* PRIMARY EXECUTIVE METRIC CARDS                            */}
+                    {/* 1. sales, 2. target, 3. total order, 4. spend,            */}
+                    {/* 5. total COGS, 6. platform cost, 7. custom cost,          */}
+                    {/* 8. winning skus, 9. Net Profit                             */}
                     {/* ========================================================= */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* 1. SALES */}
                         <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-primary/50 transition-all">
                             <CardHeader className="p-4 pb-1">
@@ -440,30 +451,11 @@ export default function EventAnalysisPage() {
                             </CardContent>
                         </Card>
 
-                        {/* 3. SPEND (FROM THIS SYSTEM AD COST) */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-red-500/50 transition-all">
-                            <CardHeader className="p-4 pb-1">
-                                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                                    <span>3. Ad Spend</span>
-                                    <DollarSign className="h-4 w-4 text-red-400" />
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-4 pt-1 space-y-1">
-                                <div className="text-2xl font-black font-mono text-red-400">
-                                    {formatCurrency(metrics.spend)}
-                                </div>
-                                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                                    <span>ROAS: <strong className="text-foreground">{metrics.roas.toFixed(2)}x</strong></span>
-                                    <span>From this system metrics</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* 4. TOTAL ORDER */}
+                        {/* 3. TOTAL ORDER */}
                         <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-sky-500/50 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                                    <span>4. Total Orders</span>
+                                    <span>3. Total Orders</span>
                                     <ShoppingBag className="h-4 w-4 text-sky-400" />
                                 </CardTitle>
                             </CardHeader>
@@ -478,30 +470,30 @@ export default function EventAnalysisPage() {
                             </CardContent>
                         </Card>
 
-                        {/* 5. WINNING SKUS */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-purple-500/50 transition-all">
+                        {/* 4. SPEND (FROM THIS SYSTEM AD COST) */}
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-red-500/50 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                                    <span>5. Winning SKU</span>
-                                    <Award className="h-4 w-4 text-purple-400" />
+                                    <span>4. Ad Spend</span>
+                                    <DollarSign className="h-4 w-4 text-red-400" />
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-1 space-y-1">
-                                <div className="text-lg font-bold font-mono text-purple-400 truncate" title={topWinningSku?.sku || "N/A"}>
-                                    {topWinningSku ? topWinningSku.sku : "No SKU data"}
+                                <div className="text-2xl font-black font-mono text-red-400">
+                                    {formatCurrency(metrics.spend)}
                                 </div>
                                 <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                                    <span>Units: <strong className="text-foreground">{topWinningSku?.unitsSold.toLocaleString() || 0}</strong></span>
-                                    <span>{metrics.winningSkus.length} active SKUs</span>
+                                    <span>ROAS: <strong className="text-foreground">{metrics.roas.toFixed(2)}x</strong></span>
+                                    <span>From this system metrics</span>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        {/* 6. TOTAL COGS */}
+                        {/* 5. TOTAL COGS */}
                         <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-amber-500/50 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                                    <span>6. Total COGS</span>
+                                    <span>5. Total COGS</span>
                                     <Boxes className="h-4 w-4 text-amber-500" />
                                 </CardTitle>
                             </CardHeader>
@@ -512,6 +504,25 @@ export default function EventAnalysisPage() {
                                 <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                                     <span>COGS %: <strong className="text-foreground">{metrics.cogsPercentage.toFixed(1)}%</strong></span>
                                     <span>Exploded recipes</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* 6. PLATFORM COST */}
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-sky-500/50 transition-all">
+                            <CardHeader className="p-4 pb-1">
+                                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                                    <span>6. Platform Cost ({metrics.platformCostRate}%)</span>
+                                    <Percent className="h-4 w-4 text-sky-400" />
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 pt-1 space-y-1">
+                                <div className="text-2xl font-black font-mono text-sky-400">
+                                    {formatCurrency(metrics.platformCost)}
+                                </div>
+                                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                    <span>Rate: <strong className="text-foreground">{metrics.platformCostRate}%</strong> of Sales</span>
+                                    <span>Channel deduction</span>
                                 </div>
                             </CardContent>
                         </Card>
@@ -535,11 +546,30 @@ export default function EventAnalysisPage() {
                             </CardContent>
                         </Card>
 
-                        {/* 8. PROFIT */}
+                        {/* 8. WINNING SKUS */}
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-purple-500/50 transition-all">
+                            <CardHeader className="p-4 pb-1">
+                                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                                    <span>8. Winning SKU</span>
+                                    <Award className="h-4 w-4 text-purple-400" />
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-4 pt-1 space-y-1">
+                                <div className="text-lg font-bold font-mono text-purple-400 truncate" title={topWinningSku?.sku || "N/A"}>
+                                    {topWinningSku ? topWinningSku.sku : "No SKU data"}
+                                </div>
+                                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                    <span>Units: <strong className="text-foreground">{topWinningSku?.unitsSold.toLocaleString() || 0}</strong></span>
+                                    <span>{metrics.winningSkus.length} active SKUs</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* 9. PROFIT */}
                         <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-xs relative overflow-hidden group hover:border-emerald-500/60 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
-                                    <span>8. Net Profit</span>
+                                    <span>9. Net Profit</span>
                                     <Wallet className="h-4 w-4 text-emerald-400" />
                                 </CardTitle>
                             </CardHeader>

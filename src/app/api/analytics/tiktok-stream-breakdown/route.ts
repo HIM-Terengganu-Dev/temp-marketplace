@@ -132,6 +132,7 @@ export async function GET(request: Request) {
             FROM affiliate_records
             WHERE platform = 'TikTok Shop'
               AND channel = 'External'
+              AND (LOWER(shop) LIKE '%dr%samhan%' OR LOWER(shop) LIKE '%drsamhan%' OR LOWER(shop) LIKE '%himclinic%')
               AND DATE(report_date) >= $1 
               AND DATE(report_date) <= $2
             GROUP BY TO_CHAR(report_date, 'YYYY-MM-DD')
@@ -148,6 +149,7 @@ export async function GET(request: Request) {
             FROM affiliate_records
             WHERE platform = 'TikTok Shop'
               AND channel = 'External'
+              AND (LOWER(shop) LIKE '%dr%samhan%' OR LOWER(shop) LIKE '%drsamhan%' OR LOWER(shop) LIKE '%himclinic%')
               AND DATE(report_date) >= $1 
               AND DATE(report_date) <= $2
             GROUP BY username
