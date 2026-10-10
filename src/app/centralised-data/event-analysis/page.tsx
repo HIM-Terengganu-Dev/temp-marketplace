@@ -29,10 +29,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import CreateEditEventModal from "@/components/events/CreateEditEventModal";
+import EventCompareView from "@/components/events/EventCompareView";
 import CustomCostsCard from "@/components/events/CustomCostsCard";
 import WinningSkusCard from "@/components/events/WinningSkusCard";
 import DepartmentTelemetryCard from "@/components/events/DepartmentTelemetryCard";
+import CustomerRetentionCard from "@/components/events/CustomerRetentionCard";
 import ProfitWaterfallCard from "@/components/events/ProfitWaterfallCard";
+
 import {
     CampaignEvent,
     EventAnalysisMetrics,
@@ -103,6 +106,7 @@ function buildSourceTips(
 export default function EventAnalysisPage() {
     const [events, setEvents] = useState<CampaignEvent[]>([]);
     const [selectedEventId, setSelectedEventId] = useState<string>("");
+    const [mode, setMode] = useState<"analysis" | "compare">("analysis");
     const [metrics, setMetrics] = useState<EventAnalysisMetrics | null>(null);
 
     const [loading, setLoading] = useState(true);
@@ -272,6 +276,25 @@ export default function EventAnalysisPage() {
                 </div>
             )}
 
+            {/* Mode toggle */}
+            <div className="inline-flex rounded-lg border border-border/60 bg-card p-1 text-xs font-semibold">
+                {(["analysis", "compare"] as const).map((m) => (
+                    <button
+                        key={m}
+                        onClick={() => setMode(m)}
+                        className={`px-4 py-1.5 rounded-md transition ${
+                            mode === m ? "bg-purple-600 text-white shadow" : "text-muted-foreground hover:text-foreground"
+                        }`}
+                    >
+                        {m === "analysis" ? "Analysis" : "Compare Events"}
+                    </button>
+                ))}
+            </div>
+
+            {mode === "compare" ? (
+                <EventCompareView events={events} initialA={selectedEventId} />
+            ) : (
+            <>
             {/* Event Selector Strip / Cards */}
             <div>
                 <div className="flex items-center justify-between mb-3">
@@ -662,7 +685,11 @@ export default function EventAnalysisPage() {
                     {/* Department Telemetry Breakdown */}
                     <DepartmentTelemetryCard metrics={metrics} />
 
+                    {/* Customer Acquisition & Retention Cohort */}
+                    <CustomerRetentionCard metrics={metrics} platform={selectedEvent?.platform} />
+
                     {/* Winning SKUs Leaderboard */}
+
                     <WinningSkusCard
                         winningSkus={metrics.winningSkus}
                         totalCogs={metrics.totalCogs}
@@ -679,6 +706,8 @@ export default function EventAnalysisPage() {
                     />
                 </div>
             ) : null}
+            </>
+            )}
 
             {/* Create / Edit Modal */}
             <CreateEditEventModal

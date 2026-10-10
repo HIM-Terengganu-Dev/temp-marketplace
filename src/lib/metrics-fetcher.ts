@@ -81,6 +81,62 @@ export async function autoDiscoverSKUs(marketplace: string, shopId: string, line
     }
 }
 
+export async function autoPersistOrders(orders: any[], shopNumber: number) {
+    if (!orders || orders.length === 0) return;
+    try {
+        const chunkSize = 100;
+        for (let i = 0; i < orders.length; i += chunkSize) {
+            const chunk = orders.slice(i, i + chunkSize);
+            const values: any[] = [];
+            const valueClauses: string[] = [];
+
+            chunk.forEach((order, idx) => {
+                const offset = idx * 9;
+                const buyerUserId = order.buyer_user_id || order.user_id || null;
+                let orderTotal = 0;
+                if (order.line_items && Array.isArray(order.line_items)) {
+                    order.line_items.forEach((item: any) => {
+                        orderTotal += parseFloat(item.sale_price || '0') + parseFloat(item.platform_discount || '0');
+                    });
+                } else if (order.payment?.total_amount) {
+                    orderTotal = parseFloat(order.payment.total_amount);
+                }
+
+                const createdAt = order.create_time ? new Date(order.create_time * 1000) : new Date();
+                const cancelledAt = order.cancel_time ? new Date(order.cancel_time * 1000) : null;
+                const updatedAt = order.update_time ? new Date(order.update_time * 1000) : new Date();
+
+                valueClauses.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9})`);
+                values.push(
+                    order.id,
+                    String(shopNumber),
+                    'tiktok',
+                    orderTotal,
+                    order.status || 'UNKNOWN',
+                    createdAt,
+                    cancelledAt,
+                    updatedAt,
+                    buyerUserId
+                );
+            });
+
+            await query(`
+                INSERT INTO credentials.orders (
+                    order_sn, shop_id, marketplace, gmv, order_status, created_at, cancelled_at, updated_at, buyer_user_id
+                ) VALUES ${valueClauses.join(', ')}
+                ON CONFLICT (order_sn) DO UPDATE SET
+                    order_status = EXCLUDED.order_status,
+                    gmv = EXCLUDED.gmv,
+                    buyer_user_id = COALESCE(EXCLUDED.buyer_user_id, credentials.orders.buyer_user_id),
+                    cancelled_at = EXCLUDED.cancelled_at,
+                    updated_at = EXCLUDED.updated_at
+            `, values);
+        }
+    } catch (e: any) {
+        console.error('[autoPersistOrders Error]:', e.message);
+    }
+}
+
 export async function fetchShopGMV(shopNumber: number, startDateStr: string, endDateStr: string) {
     const cogsRes = await query('SELECT sku_id, cogs_cost FROM credentials.sku_cogs', []);
     const cogsMap: Record<string, number> = {};
@@ -175,6 +231,13 @@ export async function fetchShopGMV(shopNumber: number, startDateStr: string, end
 
         nextPageToken = data.next_page_token;
         hasMore = !!nextPageToken;
+    }
+
+    // Persist orders and buyer_user_id to credentials.orders in background
+    if (allOrders.length > 0) {
+        autoPersistOrders(allOrders, shopNumber).catch(err =>
+            console.error('[Order DB Sync Error]:', err.message)
+        );
     }
 
     const uniqueBuyerIds = new Set<string>();

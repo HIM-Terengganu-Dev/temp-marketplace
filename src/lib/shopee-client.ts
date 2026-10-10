@@ -318,6 +318,56 @@ function parseDateGMT8(dateStr: string, hour: number, minute: number, second: nu
 }
 
 /**
+ * Automatically persists Shopee orders and buyer_user_id to credentials.orders table
+ */
+async function autoPersistShopeeOrders(shopId: number, orders: any[]) {
+    if (!orders || orders.length === 0) return;
+    try {
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < orders.length; i += BATCH_SIZE) {
+            const batch = orders.slice(i, i + BATCH_SIZE);
+            const valueClauses: string[] = [];
+            const values: any[] = [];
+
+            batch.forEach((o, index) => {
+                const offset = index * 9;
+                const createdAt = o.createTime ? new Date(o.createTime * 1000) : new Date();
+                const updatedAt = new Date();
+                const buyerUserId = o.buyerUserId ? String(o.buyerUserId) : null;
+                const cancelledAt = (o.status === 'CANCELLED' || o.status === 'TO_RETURN') ? updatedAt : null;
+
+                valueClauses.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9})`);
+                values.push(
+                    o.id,
+                    String(shopId),
+                    'shopee',
+                    o.gmv || 0,
+                    o.status || 'UNKNOWN',
+                    createdAt,
+                    cancelledAt,
+                    updatedAt,
+                    buyerUserId
+                );
+            });
+
+            await query(`
+                INSERT INTO credentials.orders (
+                    order_sn, shop_id, marketplace, gmv, order_status, created_at, cancelled_at, updated_at, buyer_user_id
+                ) VALUES ${valueClauses.join(', ')}
+                ON CONFLICT (order_sn) DO UPDATE SET
+                    order_status = EXCLUDED.order_status,
+                    gmv = EXCLUDED.gmv,
+                    buyer_user_id = COALESCE(EXCLUDED.buyer_user_id, credentials.orders.buyer_user_id),
+                    cancelled_at = EXCLUDED.cancelled_at,
+                    updated_at = EXCLUDED.updated_at
+            `, values);
+        }
+    } catch (e: any) {
+        console.error('[autoPersistShopeeOrders Error]:', e.message);
+    }
+}
+
+/**
  * Fetches order list and details, calculating timezone-safe GMV and order count.
  */
 export async function fetchShopeeGMVAndOrders(
@@ -477,6 +527,11 @@ export async function fetchShopeeGMVAndOrders(
             // Fallback is okay
         }
 
+        // Persist orders and buyer_user_id to credentials.orders in background
+        autoPersistShopeeOrders(shopId, ordersDetails).catch((e) =>
+            console.error('[autoPersistShopeeOrders background error]:', e)
+        );
+
         return {
             shopName: fetchedShopName,
             gmv: totalGMV,
@@ -485,6 +540,7 @@ export async function fetchShopeeGMVAndOrders(
             uniqueCustomers: uniqueBuyers.size,
             orders: ordersDetails
         };
+
     };
 
     try {

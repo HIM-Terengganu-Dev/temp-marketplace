@@ -14,7 +14,10 @@
     "db:populate": "tsx scripts/populate-tokens.ts",
     "db:sync-daily": "tsx scripts/sync-daily-metrics.ts",
     "db:backfill-history": "tsx scripts/backfill-history.ts",
+    "db:backfill-orders": "tsx scripts/backfill-tiktok-orders.ts",
+    "db:backfill-shopee-orders": "tsx scripts/backfill-shopee-orders.ts",
     "db:nightly-sync": "tsx scripts/nightly-sync.ts",
+
     "db:setup-indexes": "tsx scripts/setup-performance-indexes.ts",
     "tiktok:invoice": "tsx scripts/download-tiktok-invoice.ts",
     "tiktok:invoice:daily": "tsx scripts/generate-daily-invoice.ts"

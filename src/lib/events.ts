@@ -9,6 +9,8 @@ import {
     EventAnalysisMetrics,
     WinningSkuItem,
 } from '@/types/events';
+import { getCustomerCohortStats } from '@/lib/customer-cohort';
+
 
 if (typeof window === 'undefined') {
     dotenv.config({ path: '.env.local' });
@@ -691,7 +693,8 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
     const totalCustomCosts = customCosts.reduce((sum, item) => sum + (parseFloat(item.amount as any) || 0), 0);
 
     // 9. Profit Calculation: Sales - Ad Spend - Total COGS - Platform Cost - Custom Costs
-    const profit = totalSales - totalSpend - totalCogs - platformCost - totalCustomCosts;
+    const totalCost = totalSpend + totalCogs + platformCost + totalCustomCosts;
+    const profit = totalSales - totalCost;
     const profitMargin = totalSales > 0 ? (profit / totalSales) * 100 : 0;
     const roas = totalSpend > 0 ? totalSales / totalSpend : 0;
     const netRoas = totalSpend > 0 ? profit / totalSpend : 0;
@@ -699,6 +702,34 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
     const cogsPercentage = totalSales > 0 ? (totalCogs / totalSales) * 100 : 0;
     const targetAttainment = targetAmount > 0 ? (totalSales / targetAmount) * 100 : 0;
     const targetVariance = totalSales - targetAmount;
+
+    // 10. Customer Cohort (New vs Repeat Customers - TikTok, Shopee, or Combined)
+    let customerCohort: EventAnalysisMetrics['customerCohort'] = undefined;
+    const cohortMarketplace = platform === 'combine' ? 'all' : platform;
+    try {
+        const cohortStats = await getCustomerCohortStats({
+            startDate,
+            endDate,
+            marketplace: cohortMarketplace,
+        });
+        customerCohort = {
+            totalCustomers: cohortStats.summary.totalCustomers,
+            newCustomers: cohortStats.summary.newCustomers,
+            returningCustomers: cohortStats.summary.returningCustomers,
+            returnCustomerRate: cohortStats.summary.returnCustomerRate,
+            totalOrders: cohortStats.summary.totalOrders,
+            newOrders: cohortStats.summary.newOrders,
+            returningOrders: cohortStats.summary.returningOrders,
+            totalGmv: cohortStats.summary.totalGmv,
+            newGmv: cohortStats.summary.newGmv,
+            returningGmv: cohortStats.summary.returningGmv,
+            newAov: cohortStats.summary.newAov,
+            returningAov: cohortStats.summary.returningAov,
+        };
+    } catch (err) {
+        console.error('[events-calc] Customer cohort calculation error:', err);
+    }
+
 
     return {
         sales: parseFloat(totalSales.toFixed(2)),
@@ -719,10 +750,13 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
         platformCostRate: parseFloat(platformCostRate.toFixed(1)),
         customCosts,
         totalCustomCosts: parseFloat(totalCustomCosts.toFixed(2)),
+        totalCost: parseFloat(totalCost.toFixed(2)),
         profit: parseFloat(profit.toFixed(2)),
         profitMargin: parseFloat(profitMargin.toFixed(1)),
         netRoas: parseFloat(netRoas.toFixed(2)),
+        customerCohort,
         departmentBreakdown: {
+
             marketing: {
                 gmv: parseFloat(marketingGmv.toFixed(2)),
                 videos: marketingVideos,

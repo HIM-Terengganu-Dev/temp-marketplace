@@ -16,7 +16,9 @@ import { cn } from "@/lib/utils";
 import { SyncIndicator } from "@/components/dashboard/SyncIndicator";
 import { LiveCountdownTimer } from "@/components/dashboard/LiveCountdownTimer";
 import { AiAnalysis } from "@/components/dashboard/AiAnalysis";
+import { CustomerCohortCard } from "@/components/dashboard/CustomerCohortCard";
 import { useLiteMode } from "@/context/LiteModeContext";
+
 
 /* ── helpers ────────────────────────────────────────────────────────────── */
 
@@ -122,6 +124,7 @@ interface DashboardCacheEntry {
     cogsData: { totalCogs: number; source: 'dynamic' | 'fallback'; mappedSkuCount: number };
     prevTotals: { gmv: number; spend: number; roas: number };
     chartData: PerformanceDataPoint[];
+    cohortData?: any;
     dataSource: string;
 }
 
@@ -145,11 +148,15 @@ export default function Home() {
     const [isLoading, setIsLoading] = useState(false);
     const [dataSource, setDataSource] = useState<string>("");
 
+    // Customer Cohort Data (New vs Repeat Customers)
+    const [cohortData, setCohortData] = useState<any | null>(null);
+
     // COGS data from dynamic SKU catalog (or 28% fallback)
     const [cogsData, setCogsData] = useState<{ totalCogs: number; source: 'dynamic' | 'fallback'; mappedSkuCount: number }>({ totalCogs: 0, source: 'fallback', mappedSkuCount: 0 });
 
     // Comparison (previous period) totals
     const [prevTotals, setPrevTotals] = useState({ gmv: 0, spend: 0, roas: 0 });
+
 
     // Chart data (daily/hourly breakdown for the aggregate performance chart)
     const [chartData, setChartData] = useState<PerformanceDataPoint[]>([]);
@@ -390,8 +397,10 @@ export default function Home() {
             setCogsData(cached.cogsData);
             setPrevTotals(cached.prevTotals);
             setChartData(cached.chartData);
+            setCohortData(cached.cohortData || null);
             setDataSource(cached.dataSource);
             setIsLoading(false);
+
             // Silent background revalidation proceeds below
         } else {
             setIsLoading(true);
@@ -761,12 +770,37 @@ export default function Home() {
                 })()
                 : Promise.resolve(null);
 
+            const cohortPromise = (async () => {
+                try {
+                    let shopParam = '';
+                    if (companyFilter === 'HIMWELLNESS') {
+                        shopParam = '&shopId=1,2,1298030530,1077500606,1256177782,1285322524,1290223366,562396517';
+                    } else if (companyFilter === 'WEROCA') {
+                        shopParam = '&shopId=3,4,1245549673,793855746';
+                    }
+                    const cohortMarketplace = chartPlatform === 'ALL' ? 'all' : chartPlatform === 'TIKTOK' ? 'tiktok' : 'shopee';
+                    const res = await fetch(
+                        `/api/analytics/customer-cohort?startDate=${startDate}&endDate=${endDate}${shopParam}&marketplace=${cohortMarketplace}`,
+                        { signal }
+                    );
+                    if (res.ok) {
+                        const j = await res.json();
+                        return j.data || null;
+                    }
+                } catch (e: any) {
+                    if (e.name === 'AbortError' || signal.aborted) return null;
+                    console.error("Error fetching customer cohort metrics:", e);
+                }
+                return null;
+            })();
+
             // 7. Resolve all secondary data in parallel
-            const [cogsResult, liveLeaderboard, dailyTrendResult, hourlyResult] = await Promise.all([
+            const [cogsResult, liveLeaderboard, dailyTrendResult, hourlyResult, cohortResult] = await Promise.all([
                 cogsPromise,
                 livePromise,
                 dailyTrendPromise,
-                hourlyPromise
+                hourlyPromise,
+                cohortPromise
             ]);
 
             if (signal.aborted) return;
@@ -780,6 +814,7 @@ export default function Home() {
             setCogsData(cogsResult);
             setLivestreams(liveLeaderboard);
             setChartData(finalChartData);
+            setCohortData(cohortResult);
 
             // 9. Update in-memory cache
             dashboardMemoryCache.set(cacheKey, {
@@ -789,8 +824,10 @@ export default function Home() {
                 cogsData: cogsResult,
                 prevTotals: newPrevTotals,
                 chartData: finalChartData,
+                cohortData: cohortResult,
                 dataSource: newDataSource,
             });
+
 
         } catch (error: any) {
             if (error.name === 'AbortError' || signal.aborted) {
@@ -1290,7 +1327,17 @@ export default function Home() {
                 </Card>
             </div>
 
+            {/* ── Customer Retention & Acquisition Cohort ────────── */}
+            <CustomerCohortCard
+                data={cohortData}
+                isLoading={isLoading}
+                dateLabel={startDate === endDate ? startDate : `${startDate} to ${endDate}`}
+                platform={chartPlatform === 'ALL' ? 'all' : chartPlatform === 'TIKTOK' ? 'tiktok' : 'shopee'}
+                onPlatformChange={(p) => setChartPlatform(p === 'all' ? 'ALL' : p === 'tiktok' ? 'TIKTOK' : 'SHOPEE')}
+            />
+
             {/* ── Row 3: % Contribution by Platform & Store (hidden in Lite Mode) ── */}
+
             {totalRevenue > 0 && !isLiteMode && (
                 <Card className="border-border bg-card/50 backdrop-blur-sm">
                     <CardHeader className="pb-3 border-b border-border/40">

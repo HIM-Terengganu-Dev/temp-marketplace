@@ -32,6 +32,21 @@ export interface WinningSkuItem {
     totalCogs: number;
 }
 
+export interface EventCustomerCohort {
+    totalCustomers: number;
+    newCustomers: number;
+    returningCustomers: number;
+    returnCustomerRate: number; // percentage
+    totalOrders: number;
+    newOrders: number;
+    returningOrders: number;
+    totalGmv: number;
+    newGmv: number;
+    returningGmv: number;
+    newAov: number;
+    returningAov: number;
+}
+
 export interface EventAnalysisMetrics {
     sales: number;
     storeSales: number;
@@ -51,9 +66,11 @@ export interface EventAnalysisMetrics {
     platformCostRate: number; // percentage (e.g. 25)
     customCosts: CustomCostItem[];
     totalCustomCosts: number;
+    totalCost?: number;
     profit: number; // sales - spend - totalCogs - platformCost - totalCustomCosts
     profitMargin: number; // (profit / sales) * 100
     netRoas: number; // profit / spend
+    customerCohort?: EventCustomerCohort;
     departmentBreakdown: {
         marketing: {
             gmv: number;
@@ -92,3 +109,4 @@ export interface EventAnalysisMetrics {
         };
     };
 }
+
