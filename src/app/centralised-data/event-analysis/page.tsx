@@ -38,6 +38,68 @@ import {
     EventAnalysisMetrics,
 } from "@/types/events";
 
+interface SourceInfo {
+    label: string;
+    source: string;
+    dates: string;
+}
+
+/** Hover tooltip (shown when hovering the parent `group` card) listing data sources + data dates. */
+function SourceTip({ items }: { items: SourceInfo[] }) {
+    return (
+        <div
+            role="tooltip"
+            className="pointer-events-none absolute right-3 top-10 z-50 w-80 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-xl opacity-0 translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-0"
+        >
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Data source &amp; date
+            </div>
+            <ul className="space-y-2">
+                {items.map((it, i) => (
+                    <li key={i} className="text-[11px] leading-snug normal-case tracking-normal">
+                        <div className="font-semibold text-foreground">{it.label}</div>
+                        <div className="font-mono text-muted-foreground break-words">{it.source}</div>
+                        <div className="text-sky-400">Date: {it.dates}</div>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+function buildSourceTips(
+    selectedEvent: CampaignEvent,
+    metrics: EventAnalysisMetrics
+) {
+    const range = `${selectedEvent.startDate} → ${selectedEvent.endDate}`;
+    const stockSrc = "Stock system – marketplace orders";
+    const tips = {
+        sales: [
+            { label: "Store sales", source: "Shopee & TikTok daily store sales (our system)", dates: range },
+            { label: "Depts", source: "Marketing videos + Live sessions + Affiliate reports", dates: range },
+        ],
+        target: [{ label: "Campaign target", source: "Entered manually in the campaign setup", dates: range }],
+        orders: [
+            { label: "Total orders", source: stockSrc, dates: range },
+            { label: "Backup if stock has none", source: "Shopee & TikTok daily store orders", dates: range },
+        ],
+        spend: [
+            { label: "Ad spend", source: "Shopee & TikTok daily ad spend (our system)", dates: range },
+            { label: "Extra ad cost", source: "Entered manually in the campaign setup", dates: range },
+        ],
+        cogs: [
+            { label: "Units sold", source: stockSrc, dates: range },
+            { label: "Cost per unit", source: "Stock system – SKU cost list (latest cost)", dates: "Latest, not by sale date" },
+        ],
+        platform: [{ label: "Platform fee", source: `Calculated: Sales × ${metrics.platformCostRate}%`, dates: range }],
+        custom: [{ label: "Custom costs", source: "Entered manually in the campaign setup", dates: range }],
+        sku: [{ label: "Top 20 SKUs by units sold", source: stockSrc, dates: range }],
+        profit: [{ label: "Net profit", source: "Calculated: Sales − Ads − COGS − Platform − Custom", dates: range }],
+    };
+    return tips;
+
+}
+
 export default function EventAnalysisPage() {
     const [events, setEvents] = useState<CampaignEvent[]>([]);
     const [selectedEventId, setSelectedEventId] = useState<string>("");
@@ -399,7 +461,8 @@ export default function EventAnalysisPage() {
                     {/* ========================================================= */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* 1. SALES */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-primary/50 transition-all">
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-primary/50 transition-all">
+                            <SourceTip items={buildSourceTips(selectedEvent, metrics).sales} />
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>1. Total Sales (GMV)</span>
@@ -418,7 +481,8 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 2. TARGET */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-blue-500/50 transition-all">
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-blue-500/50 transition-all">
+                            <SourceTip items={buildSourceTips(selectedEvent, metrics).target} />
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>2. Campaign Target</span>
@@ -452,7 +516,8 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 3. TOTAL ORDER */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-sky-500/50 transition-all">
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-sky-500/50 transition-all">
+                            <SourceTip items={buildSourceTips(selectedEvent, metrics).orders} />
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>3. Total Orders</span>
@@ -471,7 +536,8 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 4. SPEND (FROM THIS SYSTEM AD COST) */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-red-500/50 transition-all">
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-red-500/50 transition-all">
+                            <SourceTip items={buildSourceTips(selectedEvent, metrics).spend} />
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>4. Ad Spend</span>
@@ -490,7 +556,8 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 5. TOTAL COGS */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-amber-500/50 transition-all">
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-amber-500/50 transition-all">
+                            <SourceTip items={buildSourceTips(selectedEvent, metrics).cogs} />
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>5. Total COGS</span>
@@ -509,7 +576,8 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 6. PLATFORM COST */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-sky-500/50 transition-all">
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-sky-500/50 transition-all">
+                            <SourceTip items={buildSourceTips(selectedEvent, metrics).platform} />
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>6. Platform Cost ({metrics.platformCostRate}%)</span>
@@ -528,7 +596,8 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 7. CUSTOM COST */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-purple-500/50 transition-all">
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-purple-500/50 transition-all">
+                            <SourceTip items={buildSourceTips(selectedEvent, metrics).custom} />
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>7. Custom Costs</span>
@@ -547,7 +616,8 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 8. WINNING SKUS */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative overflow-hidden group hover:border-purple-500/50 transition-all">
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-purple-500/50 transition-all">
+                            <SourceTip items={buildSourceTips(selectedEvent, metrics).sku} />
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>8. Winning SKU</span>
@@ -566,7 +636,8 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 9. PROFIT */}
-                        <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-xs relative overflow-hidden group hover:border-emerald-500/60 transition-all">
+                        <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-xs relative group hover:border-emerald-500/60 transition-all">
+                            <SourceTip items={buildSourceTips(selectedEvent, metrics).profit} />
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
                                     <span>9. Net Profit</span>

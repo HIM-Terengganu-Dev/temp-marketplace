@@ -50,6 +50,7 @@ export default function CreateEditEventModal({
     const [endDate, setEndDate] = useState("");
     const [targetAmount, setTargetAmount] = useState<string>("100000");
     const [platformCostRate, setPlatformCostRate] = useState<string>("25");
+    const [additionalAdCost, setAdditionalAdCost] = useState<string>("0");
     const [platform, setPlatform] = useState<EventPlatform>("combine");
     const [departments, setDepartments] = useState<EventDepartment[]>([
         "marketing",
@@ -76,6 +77,7 @@ export default function CreateEditEventModal({
             setPlatformCostRate(
                 eventToEdit.platformCostRate !== undefined ? eventToEdit.platformCostRate.toString() : "25"
             );
+            setAdditionalAdCost((eventToEdit.additionalAdCost ?? 0).toString());
             setPlatform(eventToEdit.platform || "combine");
             setDepartments(eventToEdit.departments || ["marketing", "livehost", "affiliate", "orders"]);
             setCustomCosts(eventToEdit.customCosts ? [...eventToEdit.customCosts] : []);
@@ -88,6 +90,7 @@ export default function CreateEditEventModal({
             setEndDate(today);
             setTargetAmount("200000");
             setPlatformCostRate("25");
+            setAdditionalAdCost("0");
             setPlatform("combine");
             setDepartments(["marketing", "livehost", "affiliate", "orders"]);
             setCustomCosts([]);
@@ -166,6 +169,12 @@ export default function CreateEditEventModal({
             return;
         }
 
+        const adCost = parseFloat(additionalAdCost || "0");
+        if (isNaN(adCost) || adCost < 0) {
+            setError("Additional ad cost must be a valid number >= 0");
+            return;
+        }
+
         setLoading(true);
         try {
             const url = "/api/centralised-data/events";
@@ -176,6 +185,7 @@ export default function CreateEditEventModal({
                 endDate,
                 targetAmount: target,
                 platformCostRate: costRate,
+                additionalAdCost: adCost,
                 platform,
                 departments,
                 customCosts,
@@ -477,6 +487,30 @@ export default function CreateEditEventModal({
                                 <span className="truncate">Store Orders</span>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Additional Ad Costs */}
+                    <div className="space-y-1.5 border-t border-border/40 pt-4">
+                        <Label htmlFor="additionalAdCost" className="text-xs font-semibold flex items-center gap-1.5">
+                            <DollarSign className="h-3.5 w-3.5 text-rose-500" />
+                            <span>Additional Ad Costs</span>
+                        </Label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-2 text-xs text-muted-foreground font-bold">RM</span>
+                            <Input
+                                id="additionalAdCost"
+                                type="number"
+                                min="0"
+                                step="10"
+                                placeholder="0.00"
+                                value={additionalAdCost}
+                                onChange={(e) => setAdditionalAdCost(e.target.value)}
+                                className="h-9 pl-10 text-sm font-mono"
+                            />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                            Extra ad spend not tracked in the system (e.g. KOL boosts, offline ads). Added to total ad cost.
+                        </p>
                     </div>
 
                     {/* Custom Costs Section */}

@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { name, startDate, endDate, targetAmount, platform, departments, customCosts, notes, platformCostRate } = body;
+        const { name, startDate, endDate, targetAmount, platform, departments, customCosts, notes, platformCostRate, additionalAdCost } = body;
 
         if (!name || !startDate || !endDate) {
             return NextResponse.json(
@@ -67,6 +67,7 @@ export async function POST(request: Request) {
             customCosts: Array.isArray(customCosts) ? customCosts : [],
             notes: notes || '',
             platformCostRate: platformCostRate !== undefined ? parseFloat(platformCostRate) : 25,
+            additionalAdCost: additionalAdCost !== undefined ? parseFloat(additionalAdCost) || 0 : 0,
         });
 
         const metrics = await calculateEventMetrics(newEvent);
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { id, name, startDate, endDate, targetAmount, platform, departments, customCosts, notes, platformCostRate } = body;
+        const { id, name, startDate, endDate, targetAmount, platform, departments, customCosts, notes, platformCostRate, additionalAdCost } = body;
 
         if (!id) {
             return NextResponse.json(
@@ -107,6 +108,7 @@ export async function PUT(request: Request) {
             customCosts,
             notes,
             platformCostRate: platformCostRate !== undefined ? parseFloat(platformCostRate) : undefined,
+            additionalAdCost: additionalAdCost !== undefined ? parseFloat(additionalAdCost) || 0 : undefined,
         });
 
         if (!updated) {

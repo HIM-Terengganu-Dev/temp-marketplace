@@ -52,6 +52,8 @@ export async function ensureEventsTable(): Promise<void> {
         );
         ALTER TABLE credentials.campaign_events 
         ADD COLUMN IF NOT EXISTS platform_cost_rate NUMERIC(5, 2) DEFAULT 25.0;
+        ALTER TABLE credentials.campaign_events 
+        ADD COLUMN IF NOT EXISTS additional_ad_cost NUMERIC(15, 2) DEFAULT 0;
     `);
 }
 
@@ -72,6 +74,7 @@ export async function getAllEvents(): Promise<CampaignEvent[]> {
             custom_costs as "customCosts",
             notes,
             platform_cost_rate::float as "platformCostRate",
+            additional_ad_cost::float as "additionalAdCost",
             created_at as "createdAt",
             updated_at as "updatedAt"
         FROM credentials.campaign_events
@@ -89,6 +92,7 @@ export async function getAllEvents(): Promise<CampaignEvent[]> {
         customCosts: (Array.isArray(row.customCosts) ? row.customCosts : []) as CustomCostItem[],
         notes: row.notes || '',
         platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
+        additionalAdCost: parseFloat(row.additionalAdCost || 0),
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     }));
@@ -112,6 +116,7 @@ export async function getEventById(id: string): Promise<CampaignEvent | null> {
             custom_costs as "customCosts",
             notes,
             platform_cost_rate::float as "platformCostRate",
+            additional_ad_cost::float as "additionalAdCost",
             created_at as "createdAt",
             updated_at as "updatedAt"
         FROM credentials.campaign_events
@@ -133,6 +138,7 @@ export async function getEventById(id: string): Promise<CampaignEvent | null> {
         customCosts: (Array.isArray(row.customCosts) ? row.customCosts : []) as CustomCostItem[],
         notes: row.notes || '',
         platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
+        additionalAdCost: parseFloat(row.additionalAdCost || 0),
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     };
@@ -151,6 +157,7 @@ export async function createEvent(data: {
     customCosts?: CustomCostItem[];
     notes?: string;
     platformCostRate?: number;
+    additionalAdCost?: number;
 }): Promise<CampaignEvent> {
     await ensureEventsTable();
     const targetAmount = data.targetAmount || 0;
@@ -159,6 +166,7 @@ export async function createEvent(data: {
     const customCosts = data.customCosts || [];
     const notes = data.notes || '';
     const platformCostRate = data.platformCostRate !== undefined ? data.platformCostRate : 25;
+    const additionalAdCost = data.additionalAdCost !== undefined && !isNaN(data.additionalAdCost) ? data.additionalAdCost : 0;
 
     const res = await localPool.query(
         `
@@ -171,9 +179,10 @@ export async function createEvent(data: {
             departments, 
             custom_costs, 
             notes,
-            platform_cost_rate
+            platform_cost_rate,
+            additional_ad_cost
         )
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10)
         RETURNING 
             id,
             name,
@@ -185,6 +194,7 @@ export async function createEvent(data: {
             custom_costs as "customCosts",
             notes,
             platform_cost_rate::float as "platformCostRate",
+            additional_ad_cost::float as "additionalAdCost",
             created_at as "createdAt",
             updated_at as "updatedAt";
     `,
@@ -198,6 +208,7 @@ export async function createEvent(data: {
             JSON.stringify(customCosts),
             notes,
             platformCostRate,
+            additionalAdCost,
         ]
     );
 
@@ -213,6 +224,7 @@ export async function createEvent(data: {
         customCosts: row.customCosts as CustomCostItem[],
         notes: row.notes,
         platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
+        additionalAdCost: parseFloat(row.additionalAdCost || 0),
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     };
@@ -233,6 +245,7 @@ export async function updateEvent(
         customCosts?: CustomCostItem[];
         notes?: string;
         platformCostRate?: number;
+        additionalAdCost?: number;
     }
 ): Promise<CampaignEvent | null> {
     await ensureEventsTable();
@@ -248,6 +261,10 @@ export async function updateEvent(
     const customCosts = data.customCosts !== undefined ? data.customCosts : current.customCosts;
     const notes = data.notes !== undefined ? data.notes : current.notes;
     const platformCostRate = data.platformCostRate !== undefined ? data.platformCostRate : (current.platformCostRate ?? 25);
+    const additionalAdCost =
+        data.additionalAdCost !== undefined && !isNaN(data.additionalAdCost)
+            ? data.additionalAdCost
+            : (current.additionalAdCost ?? 0);
 
     const res = await localPool.query(
         `
@@ -262,8 +279,9 @@ export async function updateEvent(
             custom_costs = $7::jsonb,
             notes = $8,
             platform_cost_rate = $9,
+            additional_ad_cost = $10,
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $10
+        WHERE id = $11
         RETURNING 
             id,
             name,
@@ -275,6 +293,7 @@ export async function updateEvent(
             custom_costs as "customCosts",
             notes,
             platform_cost_rate::float as "platformCostRate",
+            additional_ad_cost::float as "additionalAdCost",
             created_at as "createdAt",
             updated_at as "updatedAt";
     `,
@@ -288,6 +307,7 @@ export async function updateEvent(
             JSON.stringify(customCosts),
             notes,
             platformCostRate,
+            additionalAdCost,
             id,
         ]
     );
@@ -305,6 +325,7 @@ export async function updateEvent(
         customCosts: row.customCosts as CustomCostItem[],
         notes: row.notes,
         platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
+        additionalAdCost: parseFloat(row.additionalAdCost || 0),
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     };
@@ -491,7 +512,8 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
                     COALESCE(SUM(gmv), 0)::float as gmv,
                     COALESCE(SUM(order_count), 0)::int as orders
                 FROM credentials.daily_shopee_metrics
-                WHERE date >= $1 AND date <= $2;
+                WHERE date >= $1 AND date <= $2
+                  AND shop_id = ANY(ARRAY[1077500606, 1256177782, 1285322524, 1290223366, 1298030530]::bigint[]);
             `,
                 [startDate, endDate]
             );
@@ -514,7 +536,8 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
                     COALESCE(SUM(gmv), 0)::float as gmv,
                     COALESCE(SUM(order_count), 0)::int as orders
                 FROM credentials.daily_shop_metrics
-                WHERE date >= $1 AND date <= $2;
+                WHERE date >= $1 AND date <= $2
+                  AND shop_number IN (1, 2);
             `,
                 [startDate, endDate]
             );
@@ -528,7 +551,9 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
         }
     }
 
-    const totalSpend = shopeeSpend + tiktokSpend;
+    // Additional manually-entered ad cost is included in total ad spend
+    const additionalAdCost = Number(event.additionalAdCost) || 0;
+    const totalSpend = shopeeSpend + tiktokSpend + additionalAdCost;
     const storeSales = shopeeStoreGmv + tiktokStoreGmv;
     const departmentSales = marketingGmv + livehostGmv + affiliateGmv;
 
@@ -683,6 +708,7 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
         targetAttainment: parseFloat(targetAttainment.toFixed(1)),
         targetVariance: parseFloat(targetVariance.toFixed(2)),
         spend: parseFloat(totalSpend.toFixed(2)),
+        additionalAdCost: parseFloat(additionalAdCost.toFixed(2)),
         roas: parseFloat(roas.toFixed(2)),
         totalOrders,
         aov: parseFloat(aov.toFixed(2)),

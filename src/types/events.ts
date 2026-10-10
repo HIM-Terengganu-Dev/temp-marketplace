@@ -17,6 +17,7 @@ export interface CampaignEvent {
     departments: EventDepartment[];
     customCosts: CustomCostItem[];
     platformCostRate?: number;
+    additionalAdCost?: number;
     notes?: string;
     createdAt?: string;
     updatedAt?: string;
@@ -38,7 +39,8 @@ export interface EventAnalysisMetrics {
     target: number;
     targetAttainment: number; // percentage
     targetVariance: number; // sales - target
-    spend: number; // ad cost from this system
+    spend: number; // ad cost from this system + additionalAdCost
+    additionalAdCost: number; // manually entered extra ad cost (included in spend)
     roas: number; // sales / spend
     totalOrders: number;
     aov: number; // sales / totalOrders
