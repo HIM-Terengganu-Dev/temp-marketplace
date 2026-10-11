@@ -25,6 +25,8 @@ import AffiliateDepartmentSection from "@/components/reality-sales/AffiliateDepa
 import StockInventorySection from "@/components/reality-sales/StockInventorySection";
 import EditDepartmentTargetModal from "@/components/reality-sales/EditDepartmentTargetModal";
 import DepartmentAlert from "@/components/reality-sales/DepartmentAlert";
+import MultiMonthPerformanceTrend from "@/components/reality-sales/MultiMonthPerformanceTrend";
+import { isUserTargetPIC } from "@/lib/target-permissions";
 
 type DepartmentTab = "overview" | "marketing" | "livehost" | "affiliate" | "stock";
 
@@ -38,6 +40,7 @@ export default function RealitySalesDepartmentPage() {
     const { data: session } = useSession();
     const userRole = ((session?.user as any)?.role || "").toLowerCase();
     const isAdmin = userRole === "admin" || userRole === "super_admin";
+    const canEditTarget = isAdmin || isUserTargetPIC(userRole);
 
     // Date state
     const [selectedMonth, setSelectedMonth] = useState<string>(() => getMonthKL());
@@ -50,13 +53,20 @@ export default function RealitySalesDepartmentPage() {
 
     // Target modal state
     const [targetModalOpen, setTargetModalOpen] = useState(false);
-    const [targetModalDept, setTargetModalDept] = useState<"marketing" | "livehost" | "affiliate">("marketing");
+    const [targetModalDept, setTargetModalDept] = useState<"overall" | "marketing" | "livehost" | "affiliate">("marketing");
     const [targetModalLabel, setTargetModalLabel] = useState("Marketing");
+    const [targetModalMonth, setTargetModalMonth] = useState<string>(() => getMonthKL());
     const [targetModalCurrent, setTargetModalCurrent] = useState(0);
 
-    const openTargetModal = (dept: "marketing" | "livehost" | "affiliate", label: string, currentVal: number) => {
+    const openTargetModal = (
+        dept: "overall" | "marketing" | "livehost" | "affiliate",
+        label: string,
+        currentVal: number,
+        monthToSet?: string
+    ) => {
         setTargetModalDept(dept);
         setTargetModalLabel(label);
+        setTargetModalMonth(monthToSet || selectedMonth);
         setTargetModalCurrent(currentVal);
         setTargetModalOpen(true);
     };
@@ -379,12 +389,21 @@ export default function RealitySalesDepartmentPage() {
                                 </Card>
                             </div>
 
+                            {/* Multi-Month Historical Trend Graph: Target vs Actual (Bulan 1 -> Latest) */}
+                            <MultiMonthPerformanceTrend
+                                year={parseInt(selectedMonth.split("-")[0], 10) || 2026}
+                                canEditTarget={canEditTarget}
+                                onEditTarget={(dept, label, monthKey, current) => {
+                                    openTargetModal(dept, label, current, monthKey);
+                                }}
+                            />
+
                             {/* Detailed previews */}
                             <div className="space-y-4">
                                 <MarketingDepartmentSection
                                     data={marketingData}
                                     month={selectedMonth}
-                                    isAdmin={isAdmin}
+                                    isAdmin={canEditTarget}
                                     onEditTarget={() => openTargetModal("marketing", "Marketing", marketingData?.targetAmount || 0)}
                                     onRetry={fetchData}
                                 />
@@ -397,7 +416,7 @@ export default function RealitySalesDepartmentPage() {
                         <MarketingDepartmentSection
                             data={marketingData}
                             month={selectedMonth}
-                            isAdmin={isAdmin}
+                            isAdmin={canEditTarget}
                             onEditTarget={() => openTargetModal("marketing", "Marketing", marketingData?.targetAmount || 0)}
                             onRetry={fetchData}
                         />
@@ -408,7 +427,7 @@ export default function RealitySalesDepartmentPage() {
                         <LivehostDepartmentSection
                             data={livehostData}
                             month={selectedMonth}
-                            isAdmin={isAdmin}
+                            isAdmin={canEditTarget}
                             onEditTarget={() => openTargetModal("livehost", "Live Host", livehostData?.targetAmount || 0)}
                             onRetry={fetchData}
                         />
@@ -419,7 +438,7 @@ export default function RealitySalesDepartmentPage() {
                         <AffiliateDepartmentSection
                             data={affiliateData}
                             month={selectedMonth}
-                            isAdmin={isAdmin}
+                            isAdmin={canEditTarget}
                             onEditTarget={() => openTargetModal("affiliate", "Affiliate", affiliateData?.targetAmount || 0)}
                             onRetry={fetchData}
                         />
@@ -435,15 +454,15 @@ export default function RealitySalesDepartmentPage() {
                 </div>
             ) : null}
 
-            {/* Target Modal for Admin */}
-            {isAdmin && (
+            {/* Target Modal for Admin & PIC */}
+            {canEditTarget && (
                 <EditDepartmentTargetModal
                     isOpen={targetModalOpen}
                     onClose={() => setTargetModalOpen(false)}
                     onSaved={fetchData}
                     department={targetModalDept}
                     departmentLabel={targetModalLabel}
-                    month={selectedMonth}
+                    month={targetModalMonth}
                     currentTarget={targetModalCurrent}
                 />
             )}

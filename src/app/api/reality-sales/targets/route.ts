@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { getDepartmentTargets, saveDepartmentTarget, DepartmentKey } from '@/lib/department-targets';
+import { getDepartmentTargets, saveDepartmentTarget, DepartmentKey, isUserTargetPIC } from '@/lib/department-targets';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,13 +36,6 @@ export async function POST(request: Request) {
         }
 
         const userRole = ((session.user as any).role || '').toLowerCase();
-        if (userRole !== 'admin' && userRole !== 'super_admin') {
-            return NextResponse.json(
-                { error: 'Forbidden: Only administrators can configure department targets' },
-                { status: 403 }
-            );
-        }
-
         const body = await request.json();
         const { month, department, targetAmount } = body;
 
@@ -50,8 +43,17 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Valid month (YYYY-MM) is required' }, { status: 400 });
         }
 
-        if (!['marketing', 'livehost', 'affiliate'].includes(department)) {
-            return NextResponse.json({ error: 'Invalid department key' }, { status: 400 });
+        const validDepartments: DepartmentKey[] = ['overall', 'marketing', 'livehost', 'affiliate'];
+        if (!validDepartments.includes(department)) {
+            return NextResponse.json({ error: 'Invalid department key. Must be overall, marketing, livehost, or affiliate.' }, { status: 400 });
+        }
+
+        // PIC / Admin Authorization Check
+        if (!isUserTargetPIC(userRole, department)) {
+            return NextResponse.json(
+                { error: `Forbidden: Only authorized PIC or administrators can configure targets for ${department}` },
+                { status: 403 }
+            );
         }
 
         const parsedAmount = Number(targetAmount);

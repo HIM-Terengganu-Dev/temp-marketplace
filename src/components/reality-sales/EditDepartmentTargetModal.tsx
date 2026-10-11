@@ -8,7 +8,7 @@ interface EditDepartmentTargetModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSaved: () => void;
-    department: 'marketing' | 'livehost' | 'affiliate';
+    department: 'overall' | 'marketing' | 'livehost' | 'affiliate';
     departmentLabel: string;
     month: string;
     currentTarget: number;
@@ -87,7 +87,7 @@ export default function EditDepartmentTargetModal({
                     </div>
                     <div>
                         <h3 className="text-lg font-bold">Configure Monthly Target</h3>
-                        <p className="text-xs text-muted-foreground">Admin Only • {departmentLabel} ({month})</p>
+                        <p className="text-xs text-muted-foreground">Authorized PIC / Admin • {departmentLabel} ({month})</p>
                     </div>
                 </div>
 

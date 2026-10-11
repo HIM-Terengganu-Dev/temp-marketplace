@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { useSession } from "next-auth/react";
 import { 
     TrendingUp, 
     TrendingDown, 
@@ -17,11 +18,13 @@ import {
     ArrowDown, 
     X, 
     Download, 
-    AlertCircle 
+    AlertCircle,
+    Lock
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { isUserTargetPIC } from "@/lib/target-permissions";
 
 import MtdCharts from "./MtdCharts";
 
@@ -172,6 +175,10 @@ export function MtdReportTab({
         };
     }, [showWaModal, mtdData, currentTheme, targetMonth, dayRangeEnd, mtdCompany, monthlyTarget, tiktokTargetVal]);
 
+    const { data: session } = useSession();
+    const userRole = ((session?.user as any)?.role || '').toLowerCase();
+    const canEditTarget = isUserTargetPIC(userRole, 'overall');
+
     return (
         <div className="space-y-6">
             {/* Controls Row */}
@@ -208,32 +215,42 @@ export function MtdReportTab({
                         />
                     </div>
 
-                    {/* Target Input + Save */}
+                    {/* Target Input + Save (PIC Only) */}
                     <div className="flex items-center gap-1.5 flex-wrap">
                         <Target className="h-4 w-4 text-primary" />
                         <span className="text-sm font-semibold text-foreground/70 dark:text-foreground">Target:</span>
                         <input
                             type="text"
+                            disabled={!canEditTarget}
                             value={(targetInput !== null ? targetInput : monthlyTarget).toLocaleString()}
                             onChange={(e) => {
+                                if (!canEditTarget) return;
                                 const val = e.target.value.replace(/,/g, '');
                                 if (/^\d*$/.test(val)) setTargetInput(Number(val));
                             }}
-                            className="w-32 bg-card dark:bg-card border border-border dark:border-border text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary text-right font-mono font-semibold"
+                            className={cn(
+                                "w-32 bg-card dark:bg-card border border-border dark:border-border text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary text-right font-mono font-semibold",
+                                !canEditTarget && "opacity-70 cursor-not-allowed bg-muted/40"
+                            )}
                             placeholder="Target"
-                            title="Total Monthly Target (RM)"
+                            title={canEditTarget ? "Total Monthly Target (RM)" : "Read-only: Only authorized PIC can edit target"}
                         />
                         <span className="text-sm font-semibold text-foreground/70 dark:text-foreground ml-1">TikTok Split:</span>
                         <input
                             type="text"
+                            disabled={!canEditTarget}
                             value={(tiktokTargetValInput !== null ? tiktokTargetValInput : tiktokTargetVal).toLocaleString()}
                             onChange={(e) => {
+                                if (!canEditTarget) return;
                                 const val = e.target.value.replace(/,/g, '');
                                 if (/^\d*$/.test(val)) setTiktokTargetValInput(Number(val));
                             }}
-                            className="w-32 bg-card dark:bg-card border border-border dark:border-border text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary text-right font-mono font-semibold"
+                            className={cn(
+                                "w-32 bg-card dark:bg-card border border-border dark:border-border text-foreground text-sm rounded-lg p-2 focus:ring-primary focus:border-primary text-right font-mono font-semibold",
+                                !canEditTarget && "opacity-70 cursor-not-allowed bg-muted/40"
+                            )}
                             placeholder="TikTok Target"
-                            title="TikTok Shop Target Allocation (RM)"
+                            title={canEditTarget ? "TikTok Shop Target Allocation (RM)" : "Read-only: Only authorized PIC can edit target"}
                         />
                         {/* Auto-computed Shopee Target preview */}
                         <div 
@@ -242,27 +259,33 @@ export function MtdReportTab({
                         >
                             Shopee: RM {Math.max(0, (targetInput !== null ? targetInput : monthlyTarget) - (tiktokTargetValInput !== null ? tiktokTargetValInput : tiktokTargetVal)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </div>
-                        <button
-                            onClick={handleSaveTarget}
-                            disabled={isSavingTarget}
-                            title={mtdData?.target?.updatedBy ? `Saved in DB. Last updated by ${mtdData.target.updatedBy}` : 'Save target configuration to database for all users'}
-                            className={cn(
-                                "flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg transition-all duration-300 cursor-pointer border",
-                                targetSaved
-                                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
-                                    : "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20",
-                                isSavingTarget && "opacity-60 cursor-not-allowed"
-                            )}
-                        >
-                            {isSavingTarget ? (
-                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                            ) : targetSaved ? (
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                            ) : (
-                                <Save className="h-3.5 w-3.5" />
-                            )}
-                            {isSavingTarget ? "Saving..." : targetSaved ? "Saved to DB!" : "Save"}
-                        </button>
+                        {canEditTarget ? (
+                            <button
+                                onClick={handleSaveTarget}
+                                disabled={isSavingTarget}
+                                title={mtdData?.target?.updatedBy ? `Saved in DB. Last updated by ${mtdData.target.updatedBy}` : 'Save target configuration to database for all users'}
+                                className={cn(
+                                    "flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg transition-all duration-300 cursor-pointer border",
+                                    targetSaved
+                                        ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                                        : "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20",
+                                    isSavingTarget && "opacity-60 cursor-not-allowed"
+                                )}
+                            >
+                                {isSavingTarget ? (
+                                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                ) : targetSaved ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                ) : (
+                                    <Save className="h-3.5 w-3.5" />
+                                )}
+                                {isSavingTarget ? "Saving..." : targetSaved ? "Saved to DB!" : "Save"}
+                            </button>
+                        ) : (
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/60 py-1.5 px-2 flex items-center gap-1" title="Target configuration is restricted to PIC">
+                                <Lock className="h-3 w-3" /> PIC Only
+                            </Badge>
+                        )}
                     </div>
 
                     {/* Company Stream Filter */}

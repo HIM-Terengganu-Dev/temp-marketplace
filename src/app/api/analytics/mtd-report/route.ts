@@ -130,15 +130,22 @@ export async function GET(request: Request) {
             const totalSales = shopeeSales + tiktokSales;
             const totalSpend = shopeeSpend + tiktokSpend;
             const roas = totalSpend > 0 ? totalSales / totalSpend : 0;
+            const monthKey = `${m.year}-${String(m.month).padStart(2, '0')}`;
+            const mTarget = await getMtdTarget(monthKey, companyFilter);
 
             monthlyTrend.push({
                 monthLabel: m.label,
-                monthKey: `${m.year}-${String(m.month).padStart(2, '0')}`,
+                monthKey,
                 shopee: { sales: shopeeSales, spend: shopeeSpend },
                 tiktok: { sales: tiktokSales, spend: tiktokSpend },
                 totalSales,
                 totalSpend,
-                roas
+                roas,
+                targetSales: mTarget.monthlyTarget,
+                tiktokTarget: mTarget.tiktokTargetVal,
+                shopeeTarget: Math.max(0, mTarget.monthlyTarget - mTarget.tiktokTargetVal),
+                attainmentRate: mTarget.monthlyTarget > 0 ? (totalSales / mTarget.monthlyTarget) * 100 : 0,
+                variance: totalSales - mTarget.monthlyTarget
             });
         }
 
