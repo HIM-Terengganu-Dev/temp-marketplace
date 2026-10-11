@@ -203,16 +203,39 @@ async function runBackfill() {
     console.log(`Found ${connectedShops.length} connected Shopee shops in database:`);
     connectedShops.forEach((s) => console.log(`  - Shop ID: ${s.shop_id} (${s.shop_name || 'unnamed'})`));
 
+    const shopArg = process.argv.find((a) => a.startsWith('--shop=') || a.startsWith('--shopId='));
+    const targetShopId = shopArg ? shopArg.split('=')[1] : null;
+
+    const fromShopArg = process.argv.find((a) => a.startsWith('--from-shop='));
+    const fromShopId = fromShopArg ? fromShopArg.split('=')[1] : null;
+
+    const startChunkArg = process.argv.find((a) => a.startsWith('--start-chunk='));
+    const startChunkIdx = startChunkArg ? Math.max(0, parseInt(startChunkArg.split('=')[1], 10) - 1) : 0;
+
+    let shopsToProcess = connectedShops;
+    if (targetShopId) {
+        shopsToProcess = connectedShops.filter((s) => String(s.shop_id) === targetShopId);
+    } else if (fromShopId) {
+        const fromIdx = connectedShops.findIndex((s) => String(s.shop_id) === fromShopId);
+        if (fromIdx !== -1) {
+            shopsToProcess = connectedShops.slice(fromIdx);
+        }
+    }
+
     // Date range: 2025-01-01 to Today
     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
     const startDateStr = '2025-01-01';
 
     const chunks = generate15DayChunks(startDateStr, todayStr);
     console.log(`\nGenerated ${chunks.length} 15-day chunks from ${startDateStr} to ${todayStr}.`);
+    if (targetShopId) console.log(`Targeting single shop: ${targetShopId}`);
+    if (fromShopId) console.log(`Resuming from shop: ${fromShopId}`);
+    if (startChunkIdx > 0) console.log(`Starting from chunk ${startChunkIdx + 1}/${chunks.length}`);
 
     let grandTotalOrders = 0;
 
-    for (const shop of connectedShops) {
+    for (let shopIdx = 0; shopIdx < shopsToProcess.length; shopIdx++) {
+        const shop = shopsToProcess[shopIdx];
         const shopIdNum = parseInt(shop.shop_id, 10);
         console.log(`\n========================================`);
         console.log(`Starting Shop: ${shop.shop_name} (ID: ${shop.shop_id})`);
@@ -227,8 +250,9 @@ async function runBackfill() {
         }
 
         let shopOrders = 0;
+        const currentStartChunk = shopIdx === 0 ? startChunkIdx : 0;
 
-        for (let i = 0; i < chunks.length; i++) {
+        for (let i = currentStartChunk; i < chunks.length; i++) {
             const chunk = chunks[i];
             process.stdout.write(`  [${i + 1}/${chunks.length}] ${chunk.fromDate} → ${chunk.toDate}: `);
 
