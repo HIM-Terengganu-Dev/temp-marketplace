@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { ArrowRightLeft, Loader2, Trophy, AlertCircle, Users, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -114,6 +114,31 @@ function EventPicker({
     accent: string;
     tag: string;
 }) {
+    const monthGroups = useMemo(() => {
+        const map = new Map<string, { label: string; items: CampaignEvent[] }>();
+        events.forEach((e) => {
+            const key = e.startDate && e.startDate.length >= 7 ? e.startDate.slice(0, 7) : "other";
+            if (!map.has(key)) {
+                let label = "Other Dates";
+                if (key !== "other") {
+                    const [y, m] = key.split("-");
+                    const d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+                    label = d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                }
+                map.set(key, { label, items: [] });
+            }
+            map.get(key)!.items.push(e);
+        });
+
+        return Array.from(map.entries())
+            .sort((a, b) => {
+                if (a[0] === "other") return 1;
+                if (b[0] === "other") return -1;
+                return b[0].localeCompare(a[0]);
+            })
+            .map(([_, v]) => v);
+    }, [events]);
+
     return (
         <div className={`rounded-xl border p-3 ${accent}`}>
             <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{tag}</div>
@@ -123,10 +148,14 @@ function EventPicker({
                 className="w-full h-9 rounded-md border border-border bg-background px-2 text-sm font-semibold"
             >
                 <option value="">Select event…</option>
-                {events.map((e) => (
-                    <option key={e.id} value={e.id}>
-                        {e.name} ({e.startDate} → {e.endDate})
-                    </option>
+                {monthGroups.map((g) => (
+                    <optgroup key={g.label} label={`${g.label} (${g.items.length})`}>
+                        {g.items.map((e) => (
+                            <option key={e.id} value={e.id}>
+                                {e.name} ({e.startDate} → {e.endDate})
+                            </option>
+                        ))}
+                    </optgroup>
                 ))}
             </select>
         </div>

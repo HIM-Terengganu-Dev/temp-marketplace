@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
     Calendar,
     Sparkles,
@@ -23,11 +23,15 @@ import {
     ArrowUpRight,
     ArrowDownRight,
     HelpCircle,
-    Percent
+    Percent,
+    ChevronDown,
+    ChevronUp,
+    Search
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import CreateEditEventModal from "@/components/events/CreateEditEventModal";
 import EventCompareView from "@/components/events/EventCompareView";
 import CustomCostsCard from "@/components/events/CustomCostsCard";
@@ -117,6 +121,95 @@ export default function EventAnalysisPage() {
     const [modalOpen, setModalOpen] = useState(false);
     const [eventToEdit, setEventToEdit] = useState<CampaignEvent | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    // Month categorization & filtering
+    const [monthFilter, setMonthFilter] = useState<string>("all");
+    const [searchQuery, setSearchQuery] = useState<string>("");
+    const [collapsedMonths, setCollapsedMonths] = useState<Record<string, boolean>>({});
+
+    const toggleMonthCollapse = (monthKey: string) => {
+        setCollapsedMonths((prev) => ({
+            ...prev,
+            [monthKey]: !prev[monthKey],
+        }));
+    };
+
+    const monthGroups = useMemo(() => {
+        const groupsMap = new Map<string, CampaignEvent[]>();
+
+        events.forEach((evt) => {
+            const key = evt.startDate && evt.startDate.length >= 7 ? evt.startDate.slice(0, 7) : "other";
+            if (!groupsMap.has(key)) {
+                groupsMap.set(key, []);
+            }
+            groupsMap.get(key)!.push(evt);
+        });
+
+        const sortedKeys = Array.from(groupsMap.keys()).sort((a, b) => {
+            if (a === "other") return 1;
+            if (b === "other") return -1;
+            return b.localeCompare(a); // latest month first
+        });
+
+        return sortedKeys.map((key) => {
+            const evts = [...groupsMap.get(key)!];
+            evts.sort((a, b) => (b.startDate || "").localeCompare(a.startDate || ""));
+
+            let monthLabel = "Other Dates";
+            let shortLabel = "Other";
+
+            if (key !== "other") {
+                const [yStr, mStr] = key.split("-");
+                const y = parseInt(yStr, 10);
+                const m = parseInt(mStr, 10) - 1;
+                if (!isNaN(y) && !isNaN(m)) {
+                    const dateObj = new Date(y, m, 1);
+                    monthLabel = dateObj.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+                    shortLabel = dateObj.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+                } else {
+                    monthLabel = key;
+                    shortLabel = key;
+                }
+            }
+
+            const totalTarget = evts.reduce((sum, e) => sum + (e.targetAmount || 0), 0);
+
+            return {
+                monthKey: key,
+                monthLabel,
+                shortLabel,
+                events: evts,
+                totalTarget,
+            };
+        });
+    }, [events]);
+
+    const filteredMonthGroups = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+
+        return monthGroups
+            .filter((group) => {
+                if (monthFilter !== "all" && group.monthKey !== monthFilter) {
+                    return false;
+                }
+                return true;
+            })
+            .map((group) => {
+                if (!q) return group;
+                const matched = group.events.filter(
+                    (e) =>
+                        e.name.toLowerCase().includes(q) ||
+                        (e.startDate && e.startDate.includes(q)) ||
+                        (e.endDate && e.endDate.includes(q)) ||
+                        (e.platform && e.platform.toLowerCase().includes(q))
+                );
+                return {
+                    ...group,
+                    events: matched,
+                };
+            })
+            .filter((group) => group.events.length > 0);
+    }, [monthGroups, monthFilter, searchQuery]);
 
     const fetchEventData = useCallback(async (evtId?: string, isManual = false) => {
         if (isManual) setRefreshing(true);
@@ -296,18 +389,91 @@ export default function EventAnalysisPage() {
             ) : (
             <>
             {/* Event Selector Strip / Cards */}
-            <div>
-                <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                        <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-                        <span>Campaign Events ({events.length})</span>
-                    </h2>
+            <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                            <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                            <span>Campaign Events ({events.length})</span>
+                        </h2>
+                        {events.length > 0 && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                                Categorized by month &bull; Click any event card to view full 8-metric analysis
+                            </p>
+                        )}
+                    </div>
+
                     {events.length > 0 && (
-                        <span className="text-[11px] text-muted-foreground">
-                            Click an event to view full 8-metric analysis
-                        </span>
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <Input
+                                type="text"
+                                placeholder="Search event or date..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="h-8 pl-8 pr-7 text-xs bg-card/60 border-border/60"
+                            />
+                            {searchQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchQuery("")}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground p-0.5 rounded"
+                                >
+                                    &times;
+                                </button>
+                            )}
+                        </div>
                     )}
                 </div>
+
+                {/* Month Filter Tabs (Pills) */}
+                {events.length > 0 && monthGroups.length > 1 && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                        <button
+                            type="button"
+                            onClick={() => setMonthFilter("all")}
+                            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-xs flex items-center gap-1.5 ${
+                                monthFilter === "all"
+                                    ? "bg-purple-600 text-white shadow-xs font-semibold"
+                                    : "bg-card/70 text-muted-foreground hover:bg-card hover:text-foreground border border-border/50"
+                            }`}
+                        >
+                            <span>All Months</span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                monthFilter === "all" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                            }`}>
+                                {events.length}
+                            </span>
+                        </button>
+                        {monthGroups.map((g) => {
+                            const isActiveMonth = monthFilter === g.monthKey;
+                            const hasSelectedInMonth = g.events.some((e) => e.id === selectedEventId);
+
+                            return (
+                                <button
+                                    key={g.monthKey}
+                                    type="button"
+                                    onClick={() => setMonthFilter(g.monthKey)}
+                                    className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all text-xs flex items-center gap-1.5 ${
+                                        isActiveMonth
+                                            ? "bg-purple-600 text-white shadow-xs font-semibold"
+                                            : "bg-card/70 text-muted-foreground hover:bg-card hover:text-foreground border border-border/50"
+                                    }`}
+                                >
+                                    {hasSelectedInMonth && (
+                                        <span className={`h-1.5 w-1.5 rounded-full ${isActiveMonth ? "bg-white" : "bg-purple-400"}`} />
+                                    )}
+                                    <span>{g.shortLabel}</span>
+                                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                        isActiveMonth ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                                    }`}>
+                                        {g.events.length}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {events.length === 0 && !loading ? (
                     <div className="p-8 text-center rounded-2xl border border-dashed border-border/60 bg-muted/10 space-y-3">
@@ -325,93 +491,176 @@ export default function EventAnalysisPage() {
                             <span>Create Campaign Event</span>
                         </Button>
                     </div>
+                ) : filteredMonthGroups.length === 0 ? (
+                    <div className="p-8 text-center rounded-2xl border border-dashed border-border/60 bg-muted/10 space-y-2">
+                        <Calendar className="h-7 w-7 text-muted-foreground mx-auto" />
+                        <p className="text-xs font-semibold text-foreground">No campaign events match your filter</p>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                setMonthFilter("all");
+                                setSearchQuery("");
+                            }}
+                            className="h-7 text-xs"
+                        >
+                            Reset Filter
+                        </Button>
+                    </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {events.map((e) => {
-                            const isSelected = selectedEventId === e.id;
-                            const platformBadge =
-                                e.platform === "tiktok"
-                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
-                                    : e.platform === "shopee"
-                                    ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
-                                    : "bg-indigo-500/10 text-indigo-400 border-indigo-500/30";
-
-                            const platformLabel =
-                                e.platform === "tiktok"
-                                    ? "TikTok Only"
-                                    : e.platform === "shopee"
-                                    ? "Shopee Only"
-                                    : "Combined";
+                    <div className="space-y-5">
+                        {filteredMonthGroups.map((group) => {
+                            const isCollapsed = !!collapsedMonths[group.monthKey];
+                            const hasSelectedInMonth = group.events.some((e) => e.id === selectedEventId);
 
                             return (
                                 <div
-                                    key={e.id}
-                                    onClick={() => handleSelectEvent(e.id)}
-                                    className={`cursor-pointer rounded-xl border p-4 transition-all duration-200 relative group flex flex-col justify-between ${
-                                        isSelected
-                                            ? "border-purple-500 bg-purple-500/10 shadow-md ring-1 ring-purple-500/40"
-                                            : "border-border/60 bg-card/60 hover:border-border hover:bg-card/90 shadow-xs"
-                                    }`}
+                                    key={group.monthKey}
+                                    className="rounded-2xl border border-border/60 bg-card/25 p-3.5 sm:p-4 space-y-3 shadow-xs"
                                 >
-                                    <div className="space-y-2.5">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${platformBadge}`}>
-                                                {platformLabel}
+                                    {/* Month Group Header */}
+                                    <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 shadow-xs">
+                                                <Calendar className="h-4 w-4" />
+                                            </div>
+                                            <h3 className="text-sm font-bold text-foreground">
+                                                {group.monthLabel}
+                                            </h3>
+                                            <Badge variant="secondary" className="text-[10px] font-mono px-2 py-0.5">
+                                                {group.events.length} {group.events.length === 1 ? "Event" : "Events"}
                                             </Badge>
-                                            <span className="font-mono text-[10px] text-muted-foreground">
-                                                {e.startDate} &rarr; {e.endDate}
-                                            </span>
+                                            {group.totalTarget > 0 && (
+                                                <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                                                    &bull; Target:{" "}
+                                                    <span className="font-mono font-bold text-foreground">
+                                                        {formatCurrency(group.totalTarget)}
+                                                    </span>
+                                                </span>
+                                            )}
+                                            {hasSelectedInMonth && (
+                                                <Badge variant="outline" className="text-[9px] bg-purple-500/10 text-purple-400 border-purple-500/30">
+                                                    Current Active Event
+                                                </Badge>
+                                            )}
                                         </div>
-
-                                        <div className="font-bold text-xs sm:text-sm text-foreground line-clamp-1 group-hover:text-purple-400 transition-colors">
-                                            {e.name}
-                                        </div>
-
-                                        <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
-                                            <span className="text-[11px] text-muted-foreground">Target:</span>
-                                            <span className="font-mono font-bold text-foreground">
-                                                {formatCurrency(e.targetAmount)}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                                            <span>Platform Fee:</span>
-                                            <span className="font-mono font-semibold text-sky-400">
-                                                {e.platformCostRate ?? 25}%
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Action buttons on card hover */}
-                                    <div className="flex items-center justify-end gap-1.5 mt-3 pt-2 border-t border-border/30">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={(ev) => {
-                                                ev.stopPropagation();
-                                                handleOpenEdit(e);
-                                            }}
-                                            className="h-6 px-2 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
-                                        >
-                                            <Edit3 className="h-3 w-3" />
-                                            <span>Edit</span>
-                                        </Button>
 
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            disabled={deletingId === e.id}
-                                            onClick={(ev) => {
-                                                ev.stopPropagation();
-                                                handleDelete(e.id, e.name);
-                                            }}
-                                            className="h-6 px-2 text-[10px] gap-1 text-muted-foreground hover:text-destructive"
+                                            onClick={() => toggleMonthCollapse(group.monthKey)}
+                                            className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
                                         >
-                                            <Trash2 className="h-3 w-3" />
-                                            <span>Delete</span>
+                                            <span>{isCollapsed ? "Show" : "Hide"}</span>
+                                            {isCollapsed ? (
+                                                <ChevronDown className="h-3.5 w-3.5" />
+                                            ) : (
+                                                <ChevronUp className="h-3.5 w-3.5" />
+                                            )}
                                         </Button>
                                     </div>
+
+                                    {/* Month Event Cards Grid */}
+                                    {!isCollapsed && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pt-1">
+                                            {group.events.map((e) => {
+                                                const isSelected = selectedEventId === e.id;
+                                                const platformBadge =
+                                                    e.platform === "tiktok"
+                                                        ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                                                        : e.platform === "shopee"
+                                                        ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
+                                                        : "bg-indigo-500/10 text-indigo-400 border-indigo-500/30";
+
+                                                const platformLabel =
+                                                    e.platform === "tiktok"
+                                                        ? "TikTok Only"
+                                                        : e.platform === "shopee"
+                                                        ? "Shopee Only"
+                                                        : "Combined";
+
+                                                return (
+                                                    <div
+                                                        key={e.id}
+                                                        onClick={() => handleSelectEvent(e.id)}
+                                                        className={`cursor-pointer rounded-xl border p-4 transition-all duration-200 relative group flex flex-col justify-between ${
+                                                            isSelected
+                                                                ? "border-purple-500 bg-purple-500/10 shadow-md ring-1 ring-purple-500/40"
+                                                                : "border-border/60 bg-card/60 hover:border-border hover:bg-card/90 shadow-xs"
+                                                        }`}
+                                                    >
+                                                        <div className="space-y-2.5">
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                                    <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${platformBadge}`}>
+                                                                        {platformLabel}
+                                                                    </Badge>
+                                                                    {isSelected && (
+                                                                        <Badge className="bg-purple-600 text-white text-[9px] px-1.5 py-0 h-4">
+                                                                            Selected
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                                <span className="font-mono text-[10px] text-muted-foreground whitespace-nowrap">
+                                                                    {e.startDate} &rarr; {e.endDate}
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="font-bold text-xs sm:text-sm text-foreground line-clamp-1 group-hover:text-purple-400 transition-colors">
+                                                                {e.name}
+                                                            </div>
+
+                                                            <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
+                                                                <span className="text-[11px] text-muted-foreground">Target:</span>
+                                                                <span className="font-mono font-bold text-foreground">
+                                                                    {formatCurrency(e.targetAmount)}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                                                                <span>Platform Fee:</span>
+                                                                <span className="font-mono font-semibold text-sky-400">
+                                                                    {e.platformCostRate ?? 25}%
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Action buttons on card hover */}
+                                                        <div className="flex items-center justify-end gap-1.5 mt-3 pt-2 border-t border-border/30">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={(ev) => {
+                                                                    ev.stopPropagation();
+                                                                    handleOpenEdit(e);
+                                                                }}
+                                                                className="h-6 px-2 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
+                                                            >
+                                                                <Edit3 className="h-3 w-3" />
+                                                                <span>Edit</span>
+                                                            </Button>
+
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                disabled={deletingId === e.id}
+                                                                onClick={(ev) => {
+                                                                    ev.stopPropagation();
+                                                                    handleDelete(e.id, e.name);
+                                                                }}
+                                                                className="h-6 px-2 text-[10px] gap-1 text-muted-foreground hover:text-destructive"
+                                                            >
+                                                                <Trash2 className="h-3 w-3" />
+                                                                <span>Delete</span>
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
