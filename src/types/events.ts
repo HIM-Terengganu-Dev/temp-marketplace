@@ -18,6 +18,8 @@ export interface CampaignEvent {
     customCosts: CustomCostItem[];
     platformCostRate?: number;
     additionalAdCost?: number;
+    impressionStartDate?: string;
+    impressionEndDate?: string;
     notes?: string;
     createdAt?: string;
     updatedAt?: string;
@@ -57,6 +59,8 @@ export interface EventAnalysisMetrics {
     spend: number; // ad cost from this system + additionalAdCost
     additionalAdCost: number; // manually entered extra ad cost (included in spend)
     roas: number; // sales / spend
+    impressions?: number; // total tracked ad impressions
+    cpm?: number; // cost per 1,000 impressions ((spend / impressions) * 1000)
     totalOrders: number;
     aov: number; // sales / totalOrders
     winningSkus: WinningSkuItem[];
@@ -101,11 +105,15 @@ export interface EventAnalysisMetrics {
             gmv: number;
             spend: number;
             orders: number;
+            impressions?: number;
+            cpm?: number;
         };
         tiktok: {
             gmv: number;
             spend: number;
             orders: number;
+            impressions?: number;
+            cpm?: number;
         };
     };
 }

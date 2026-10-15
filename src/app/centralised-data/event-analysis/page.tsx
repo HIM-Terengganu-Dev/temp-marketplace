@@ -51,25 +51,36 @@ interface SourceInfo {
     dates: string;
 }
 
-/** Hover tooltip (shown when hovering the parent `group` card) listing data sources + data dates. */
+/** Hover tooltip (shown only when hovering the question mark icon) listing data sources + data dates. */
 function SourceTip({ items }: { items: SourceInfo[] }) {
     return (
-        <div
-            role="tooltip"
-            className="pointer-events-none absolute right-3 top-10 z-50 w-80 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-xl opacity-0 translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-0"
-        >
-            <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Data source &amp; date
+        <div className="relative inline-flex items-center group/tip cursor-help">
+            <span
+                role="button"
+                tabIndex={0}
+                aria-label="View data source description"
+                title="View data sources & date range"
+                className="text-muted-foreground/60 hover:text-foreground transition-colors p-0.5 rounded-full hover:bg-muted/60 flex items-center justify-center"
+            >
+                <HelpCircle className="h-3.5 w-3.5" />
+            </span>
+            <div
+                role="tooltip"
+                className="pointer-events-none absolute right-0 top-6 z-50 w-72 sm:w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-xl opacity-0 translate-y-1 transition-all duration-150 group-hover/tip:opacity-100 group-hover/tip:translate-y-0 group-hover/tip:pointer-events-auto before:absolute before:-top-2 before:left-0 before:right-0 before:h-2"
+            >
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Data source &amp; date
+                </div>
+                <ul className="space-y-2">
+                    {items.map((it, i) => (
+                        <li key={i} className="text-[11px] leading-snug normal-case tracking-normal">
+                            <div className="font-semibold text-foreground">{it.label}</div>
+                            <div className="font-mono text-muted-foreground break-words">{it.source}</div>
+                            <div className="text-sky-400">Date: {it.dates}</div>
+                        </li>
+                    ))}
+                </ul>
             </div>
-            <ul className="space-y-2">
-                {items.map((it, i) => (
-                    <li key={i} className="text-[11px] leading-snug normal-case tracking-normal">
-                        <div className="font-semibold text-foreground">{it.label}</div>
-                        <div className="font-mono text-muted-foreground break-words">{it.source}</div>
-                        <div className="text-sky-400">Date: {it.dates}</div>
-                    </li>
-                ))}
-            </ul>
         </div>
     );
 }
@@ -79,6 +90,10 @@ function buildSourceTips(
     metrics: EventAnalysisMetrics
 ) {
     const range = `${selectedEvent.startDate} → ${selectedEvent.endDate}`;
+    const impRange =
+        selectedEvent.impressionStartDate && selectedEvent.impressionEndDate
+            ? `${selectedEvent.impressionStartDate} → ${selectedEvent.impressionEndDate}`
+            : range;
     const stockSrc = "Stock system – marketplace orders";
     const tips = {
         sales: [
@@ -93,6 +108,15 @@ function buildSourceTips(
         spend: [
             { label: "Ad spend", source: "Shopee & TikTok daily ad spend (our system)", dates: range },
             { label: "Extra ad cost", source: "Entered manually in the campaign setup", dates: range },
+            {
+                label: "Impressions",
+                source:
+                    selectedEvent.impressionStartDate && selectedEvent.impressionEndDate
+                        ? "Shopee & TikTok tracked ad impressions (custom date range)"
+                        : "Shopee & TikTok tracked ad impressions",
+                dates: impRange,
+            },
+            { label: "CPM", source: "Cost per 1,000 impressions ((Ad Spend / Impressions) × 1000)", dates: range },
         ],
         cogs: [
             { label: "Units sold", source: stockSrc, dates: range },
@@ -733,12 +757,14 @@ export default function EventAnalysisPage() {
                     {/* ========================================================= */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* 1. SALES */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-primary/50 transition-all">
-                            <SourceTip items={buildSourceTips(selectedEvent, metrics).sales} />
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative hover:border-primary/50 hover:z-30 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>1. Total Sales (GMV)</span>
-                                    <TrendingUp className="h-4 w-4 text-primary" />
+                                    <div className="flex items-center gap-1.5">
+                                        <SourceTip items={buildSourceTips(selectedEvent, metrics).sales} />
+                                        <TrendingUp className="h-4 w-4 text-primary" />
+                                    </div>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-1 space-y-1">
@@ -753,12 +779,14 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 2. TARGET */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-blue-500/50 transition-all">
-                            <SourceTip items={buildSourceTips(selectedEvent, metrics).target} />
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative hover:border-blue-500/50 hover:z-30 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>2. Campaign Target</span>
-                                    <Target className="h-4 w-4 text-blue-400" />
+                                    <div className="flex items-center gap-1.5">
+                                        <SourceTip items={buildSourceTips(selectedEvent, metrics).target} />
+                                        <Target className="h-4 w-4 text-blue-400" />
+                                    </div>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-1 space-y-1.5">
@@ -788,12 +816,14 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 3. TOTAL ORDER */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-sky-500/50 transition-all">
-                            <SourceTip items={buildSourceTips(selectedEvent, metrics).orders} />
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative hover:border-sky-500/50 hover:z-30 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>3. Total Orders</span>
-                                    <ShoppingBag className="h-4 w-4 text-sky-400" />
+                                    <div className="flex items-center gap-1.5">
+                                        <SourceTip items={buildSourceTips(selectedEvent, metrics).orders} />
+                                        <ShoppingBag className="h-4 w-4 text-sky-400" />
+                                    </div>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-1 space-y-1">
@@ -808,32 +838,52 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 4. SPEND (FROM THIS SYSTEM AD COST) */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-red-500/50 transition-all">
-                            <SourceTip items={buildSourceTips(selectedEvent, metrics).spend} />
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative hover:border-red-500/50 hover:z-30 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>4. Ad Spend</span>
-                                    <DollarSign className="h-4 w-4 text-red-400" />
+                                    <div className="flex items-center gap-1.5">
+                                        <SourceTip items={buildSourceTips(selectedEvent, metrics).spend} />
+                                        <DollarSign className="h-4 w-4 text-red-400" />
+                                    </div>
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="p-4 pt-1 space-y-1">
-                                <div className="text-2xl font-black font-mono text-red-400">
-                                    {formatCurrency(metrics.spend)}
+                            <CardContent className="p-4 pt-1 space-y-1.5">
+                                <div className="flex items-baseline justify-between">
+                                    <div className="text-2xl font-black font-mono text-red-400">
+                                        {formatCurrency(metrics.spend)}
+                                    </div>
+                                    <span className="text-xs font-semibold text-muted-foreground">
+                                        ROAS: <strong className="text-foreground font-mono">{metrics.roas.toFixed(2)}x</strong>
+                                    </span>
                                 </div>
-                                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                                    <span>ROAS: <strong className="text-foreground">{metrics.roas.toFixed(2)}x</strong></span>
-                                    <span>From this system metrics</span>
+                                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                                    <span className="flex items-center gap-1.5">
+                                        <span>Impressions:</span>
+                                        <strong className="text-foreground font-mono">{(metrics.impressions ?? 0).toLocaleString()}</strong>
+                                        {selectedEvent?.impressionStartDate && selectedEvent?.impressionEndDate && (
+                                            <span
+                                                className="text-[9px] text-purple-400 bg-purple-500/10 px-1 py-0.5 rounded border border-purple-500/20 font-mono"
+                                                title={`Custom impression dates: ${selectedEvent.impressionStartDate} → ${selectedEvent.impressionEndDate}`}
+                                            >
+                                                Custom
+                                            </span>
+                                        )}
+                                    </span>
+                                    <span>CPM: <strong className="text-foreground font-mono">{formatCurrency(metrics.cpm ?? 0)}</strong></span>
                                 </div>
                             </CardContent>
                         </Card>
 
                         {/* 5. TOTAL COGS */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-amber-500/50 transition-all">
-                            <SourceTip items={buildSourceTips(selectedEvent, metrics).cogs} />
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative hover:border-amber-500/50 hover:z-30 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>5. Total COGS</span>
-                                    <Boxes className="h-4 w-4 text-amber-500" />
+                                    <div className="flex items-center gap-1.5">
+                                        <SourceTip items={buildSourceTips(selectedEvent, metrics).cogs} />
+                                        <Boxes className="h-4 w-4 text-amber-500" />
+                                    </div>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-1 space-y-1">
@@ -848,12 +898,14 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 6. PLATFORM COST */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-sky-500/50 transition-all">
-                            <SourceTip items={buildSourceTips(selectedEvent, metrics).platform} />
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative hover:border-sky-500/50 hover:z-30 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>6. Platform Cost ({metrics.platformCostRate}%)</span>
-                                    <Percent className="h-4 w-4 text-sky-400" />
+                                    <div className="flex items-center gap-1.5">
+                                        <SourceTip items={buildSourceTips(selectedEvent, metrics).platform} />
+                                        <Percent className="h-4 w-4 text-sky-400" />
+                                    </div>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-1 space-y-1">
@@ -868,12 +920,14 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 7. CUSTOM COST */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-purple-500/50 transition-all">
-                            <SourceTip items={buildSourceTips(selectedEvent, metrics).custom} />
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative hover:border-purple-500/50 hover:z-30 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>7. Custom Costs</span>
-                                    <Receipt className="h-4 w-4 text-purple-400" />
+                                    <div className="flex items-center gap-1.5">
+                                        <SourceTip items={buildSourceTips(selectedEvent, metrics).custom} />
+                                        <Receipt className="h-4 w-4 text-purple-400" />
+                                    </div>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-1 space-y-1">
@@ -888,12 +942,14 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 8. WINNING SKUS */}
-                        <Card className="border-border/60 bg-card/70 shadow-xs relative group hover:border-purple-500/50 transition-all">
-                            <SourceTip items={buildSourceTips(selectedEvent, metrics).sku} />
+                        <Card className="border-border/60 bg-card/70 shadow-xs relative hover:border-purple-500/50 hover:z-30 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                                     <span>8. Winning SKU</span>
-                                    <Award className="h-4 w-4 text-purple-400" />
+                                    <div className="flex items-center gap-1.5">
+                                        <SourceTip items={buildSourceTips(selectedEvent, metrics).sku} />
+                                        <Award className="h-4 w-4 text-purple-400" />
+                                    </div>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-1 space-y-1">
@@ -908,12 +964,14 @@ export default function EventAnalysisPage() {
                         </Card>
 
                         {/* 9. PROFIT */}
-                        <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-xs relative group hover:border-emerald-500/60 transition-all">
-                            <SourceTip items={buildSourceTips(selectedEvent, metrics).profit} />
+                        <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-xs relative hover:border-emerald-500/60 hover:z-30 transition-all">
                             <CardHeader className="p-4 pb-1">
                                 <CardTitle className="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
                                     <span>9. Net Profit</span>
-                                    <Wallet className="h-4 w-4 text-emerald-400" />
+                                    <div className="flex items-center gap-1.5">
+                                        <SourceTip items={buildSourceTips(selectedEvent, metrics).profit} />
+                                        <Wallet className="h-4 w-4 text-emerald-400" />
+                                    </div>
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-4 pt-1 space-y-1">

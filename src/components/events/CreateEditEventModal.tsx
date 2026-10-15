@@ -17,7 +17,8 @@ import {
     Radio,
     Share2,
     Boxes,
-    Percent
+    Percent,
+    Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,9 @@ export default function CreateEditEventModal({
     const [targetAmount, setTargetAmount] = useState<string>("100000");
     const [platformCostRate, setPlatformCostRate] = useState<string>("25");
     const [additionalAdCost, setAdditionalAdCost] = useState<string>("0");
+    const [useCustomImpressionDates, setUseCustomImpressionDates] = useState(false);
+    const [impressionStartDate, setImpressionStartDate] = useState("");
+    const [impressionEndDate, setImpressionEndDate] = useState("");
     const [platform, setPlatform] = useState<EventPlatform>("combine");
     const [departments, setDepartments] = useState<EventDepartment[]>([
         "marketing",
@@ -78,6 +82,10 @@ export default function CreateEditEventModal({
                 eventToEdit.platformCostRate !== undefined ? eventToEdit.platformCostRate.toString() : "25"
             );
             setAdditionalAdCost((eventToEdit.additionalAdCost ?? 0).toString());
+            const hasCustomImp = !!(eventToEdit.impressionStartDate && eventToEdit.impressionEndDate);
+            setUseCustomImpressionDates(hasCustomImp);
+            setImpressionStartDate(eventToEdit.impressionStartDate || eventToEdit.startDate || "");
+            setImpressionEndDate(eventToEdit.impressionEndDate || eventToEdit.endDate || "");
             setPlatform(eventToEdit.platform || "combine");
             setDepartments(eventToEdit.departments || ["marketing", "livehost", "affiliate", "orders"]);
             setCustomCosts(eventToEdit.customCosts ? [...eventToEdit.customCosts] : []);
@@ -88,6 +96,9 @@ export default function CreateEditEventModal({
             setName("");
             setStartDate(today);
             setEndDate(today);
+            setUseCustomImpressionDates(false);
+            setImpressionStartDate("");
+            setImpressionEndDate("");
             setTargetAmount("200000");
             setPlatformCostRate("25");
             setAdditionalAdCost("0");
@@ -175,6 +186,17 @@ export default function CreateEditEventModal({
             return;
         }
 
+        if (useCustomImpressionDates) {
+            if (!impressionStartDate || !impressionEndDate) {
+                setError("Please select both start and end date for custom impression range");
+                return;
+            }
+            if (new Date(impressionStartDate) > new Date(impressionEndDate)) {
+                setError("Impression start date cannot be after impression end date");
+                return;
+            }
+        }
+
         setLoading(true);
         try {
             const url = "/api/centralised-data/events";
@@ -186,6 +208,8 @@ export default function CreateEditEventModal({
                 targetAmount: target,
                 platformCostRate: costRate,
                 additionalAdCost: adCost,
+                impressionStartDate: useCustomImpressionDates && impressionStartDate ? impressionStartDate : null,
+                impressionEndDate: useCustomImpressionDates && impressionEndDate ? impressionEndDate : null,
                 platform,
                 departments,
                 customCosts,
@@ -300,6 +324,80 @@ export default function CreateEditEventModal({
                                 className="h-9 text-xs font-mono"
                             />
                         </div>
+                    </div>
+
+                    {/* Custom Impression Date Range */}
+                    <div className="rounded-xl border border-border/50 bg-card/40 p-3 space-y-2.5">
+                        <div
+                            onClick={() => {
+                                const nextVal = !useCustomImpressionDates;
+                                setUseCustomImpressionDates(nextVal);
+                                if (nextVal && !impressionStartDate) {
+                                    setImpressionStartDate(startDate);
+                                    setImpressionEndDate(endDate);
+                                }
+                            }}
+                            className="flex items-center justify-between cursor-pointer select-none"
+                        >
+                            <div className="flex items-center gap-2">
+                                <div className={`h-4 w-4 rounded border flex items-center justify-center transition-all ${
+                                    useCustomImpressionDates
+                                        ? "border-purple-500 bg-purple-500/20"
+                                        : "border-muted-foreground/40 bg-muted/10"
+                                }`}>
+                                    {useCustomImpressionDates && (
+                                        <CheckCircle2 className="h-3 w-3 text-purple-400" />
+                                    )}
+                                </div>
+                                <div>
+                                    <Label className="text-xs font-semibold cursor-pointer flex items-center gap-1.5">
+                                        <Eye className="h-3.5 w-3.5 text-purple-400" />
+                                        <span>Custom Impression Date Range</span>
+                                    </Label>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Override default event dates to track impressions across teaser / awareness periods
+                                    </p>
+                                </div>
+                            </div>
+                            <Badge variant="outline" className={`text-[10px] font-mono shrink-0 ${
+                                useCustomImpressionDates
+                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                                    : "text-muted-foreground border-border/40"
+                            }`}>
+                                {useCustomImpressionDates ? "Custom Active" : "Same as Event"}
+                            </Badge>
+                        </div>
+
+                        {useCustomImpressionDates && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2.5 border-t border-border/40">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="impressionStartDate" className="text-xs font-semibold text-muted-foreground">
+                                        Impression Start Date <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Input
+                                        id="impressionStartDate"
+                                        type="date"
+                                        value={impressionStartDate}
+                                        onChange={(e) => setImpressionStartDate(e.target.value)}
+                                        required={useCustomImpressionDates}
+                                        className="h-9 text-xs font-mono"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="impressionEndDate" className="text-xs font-semibold text-muted-foreground">
+                                        Impression End Date <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Input
+                                        id="impressionEndDate"
+                                        type="date"
+                                        value={impressionEndDate}
+                                        onChange={(e) => setImpressionEndDate(e.target.value)}
+                                        required={useCustomImpressionDates}
+                                        className="h-9 text-xs font-mono"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Target Sales & Platform Cost */}

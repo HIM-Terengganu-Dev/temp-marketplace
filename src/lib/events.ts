@@ -56,6 +56,10 @@ export async function ensureEventsTable(): Promise<void> {
         ADD COLUMN IF NOT EXISTS platform_cost_rate NUMERIC(5, 2) DEFAULT 25.0;
         ALTER TABLE credentials.campaign_events 
         ADD COLUMN IF NOT EXISTS additional_ad_cost NUMERIC(15, 2) DEFAULT 0;
+        ALTER TABLE credentials.campaign_events 
+        ADD COLUMN IF NOT EXISTS impression_start_date DATE;
+        ALTER TABLE credentials.campaign_events 
+        ADD COLUMN IF NOT EXISTS impression_end_date DATE;
     `);
 }
 
@@ -77,6 +81,8 @@ export async function getAllEvents(): Promise<CampaignEvent[]> {
             notes,
             platform_cost_rate::float as "platformCostRate",
             additional_ad_cost::float as "additionalAdCost",
+            impression_start_date::text as "impressionStartDate",
+            impression_end_date::text as "impressionEndDate",
             created_at as "createdAt",
             updated_at as "updatedAt"
         FROM credentials.campaign_events
@@ -95,6 +101,8 @@ export async function getAllEvents(): Promise<CampaignEvent[]> {
         notes: row.notes || '',
         platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
         additionalAdCost: parseFloat(row.additionalAdCost || 0),
+        impressionStartDate: row.impressionStartDate || undefined,
+        impressionEndDate: row.impressionEndDate || undefined,
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     }));
@@ -119,6 +127,8 @@ export async function getEventById(id: string): Promise<CampaignEvent | null> {
             notes,
             platform_cost_rate::float as "platformCostRate",
             additional_ad_cost::float as "additionalAdCost",
+            impression_start_date::text as "impressionStartDate",
+            impression_end_date::text as "impressionEndDate",
             created_at as "createdAt",
             updated_at as "updatedAt"
         FROM credentials.campaign_events
@@ -141,6 +151,8 @@ export async function getEventById(id: string): Promise<CampaignEvent | null> {
         notes: row.notes || '',
         platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
         additionalAdCost: parseFloat(row.additionalAdCost || 0),
+        impressionStartDate: row.impressionStartDate || undefined,
+        impressionEndDate: row.impressionEndDate || undefined,
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     };
@@ -160,6 +172,8 @@ export async function createEvent(data: {
     notes?: string;
     platformCostRate?: number;
     additionalAdCost?: number;
+    impressionStartDate?: string;
+    impressionEndDate?: string;
 }): Promise<CampaignEvent> {
     await ensureEventsTable();
     const targetAmount = data.targetAmount || 0;
@@ -169,6 +183,8 @@ export async function createEvent(data: {
     const notes = data.notes || '';
     const platformCostRate = data.platformCostRate !== undefined ? data.platformCostRate : 25;
     const additionalAdCost = data.additionalAdCost !== undefined && !isNaN(data.additionalAdCost) ? data.additionalAdCost : 0;
+    const impressionStartDate = data.impressionStartDate || null;
+    const impressionEndDate = data.impressionEndDate || null;
 
     const res = await localPool.query(
         `
@@ -182,9 +198,11 @@ export async function createEvent(data: {
             custom_costs, 
             notes,
             platform_cost_rate,
-            additional_ad_cost
+            additional_ad_cost,
+            impression_start_date,
+            impression_end_date
         )
-        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12)
         RETURNING 
             id,
             name,
@@ -197,6 +215,8 @@ export async function createEvent(data: {
             notes,
             platform_cost_rate::float as "platformCostRate",
             additional_ad_cost::float as "additionalAdCost",
+            impression_start_date::text as "impressionStartDate",
+            impression_end_date::text as "impressionEndDate",
             created_at as "createdAt",
             updated_at as "updatedAt";
     `,
@@ -211,6 +231,8 @@ export async function createEvent(data: {
             notes,
             platformCostRate,
             additionalAdCost,
+            impressionStartDate,
+            impressionEndDate,
         ]
     );
 
@@ -227,6 +249,8 @@ export async function createEvent(data: {
         notes: row.notes,
         platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
         additionalAdCost: parseFloat(row.additionalAdCost || 0),
+        impressionStartDate: row.impressionStartDate || undefined,
+        impressionEndDate: row.impressionEndDate || undefined,
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     };
@@ -248,6 +272,8 @@ export async function updateEvent(
         notes?: string;
         platformCostRate?: number;
         additionalAdCost?: number;
+        impressionStartDate?: string | null;
+        impressionEndDate?: string | null;
     }
 ): Promise<CampaignEvent | null> {
     await ensureEventsTable();
@@ -267,6 +293,14 @@ export async function updateEvent(
         data.additionalAdCost !== undefined && !isNaN(data.additionalAdCost)
             ? data.additionalAdCost
             : (current.additionalAdCost ?? 0);
+    const impressionStartDate =
+        data.impressionStartDate !== undefined
+            ? (data.impressionStartDate || null)
+            : (current.impressionStartDate || null);
+    const impressionEndDate =
+        data.impressionEndDate !== undefined
+            ? (data.impressionEndDate || null)
+            : (current.impressionEndDate || null);
 
     const res = await localPool.query(
         `
@@ -282,8 +316,10 @@ export async function updateEvent(
             notes = $8,
             platform_cost_rate = $9,
             additional_ad_cost = $10,
+            impression_start_date = $11,
+            impression_end_date = $12,
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $11
+        WHERE id = $13
         RETURNING 
             id,
             name,
@@ -296,6 +332,8 @@ export async function updateEvent(
             notes,
             platform_cost_rate::float as "platformCostRate",
             additional_ad_cost::float as "additionalAdCost",
+            impression_start_date::text as "impressionStartDate",
+            impression_end_date::text as "impressionEndDate",
             created_at as "createdAt",
             updated_at as "updatedAt";
     `,
@@ -310,6 +348,8 @@ export async function updateEvent(
             notes,
             platformCostRate,
             additionalAdCost,
+            impressionStartDate,
+            impressionEndDate,
             id,
         ]
     );
@@ -328,6 +368,8 @@ export async function updateEvent(
         notes: row.notes,
         platformCostRate: row.platformCostRate !== null && row.platformCostRate !== undefined ? parseFloat(row.platformCostRate) : 25,
         additionalAdCost: parseFloat(row.additionalAdCost || 0),
+        impressionStartDate: row.impressionStartDate || undefined,
+        impressionEndDate: row.impressionEndDate || undefined,
         createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : undefined,
         updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : undefined,
     };
@@ -497,13 +539,18 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
     }
 
     // 4. This system ad spend and store sales (from local Neon DB)
+    const impStartDate = event.impressionStartDate || startDate;
+    const impEndDate = event.impressionEndDate || endDate;
+
     let shopeeSpend = 0;
     let shopeeStoreGmv = 0;
     let shopeeStoreOrders = 0;
+    let shopeeImpressions = 0;
 
     let tiktokSpend = 0;
     let tiktokStoreGmv = 0;
     let tiktokStoreOrders = 0;
+    let tiktokImpressions = 0;
 
     if (isShopeeIncluded) {
         try {
@@ -523,6 +570,20 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
                 shopeeSpend = parseFloat(sRes.rows[0].spend || 0);
                 shopeeStoreGmv = parseFloat(sRes.rows[0].gmv || 0);
                 shopeeStoreOrders = parseInt(sRes.rows[0].orders || 0, 10);
+            }
+
+            const sImpRes = await localPool.query(
+                `
+                SELECT 
+                    COALESCE(SUM(ad_impressions), 0)::bigint as impressions
+                FROM credentials.daily_shopee_metrics
+                WHERE date >= $1 AND date <= $2
+                  AND shop_id = ANY(ARRAY[1077500606, 1256177782, 1285322524, 1290223366, 1298030530]::bigint[]);
+            `,
+                [impStartDate, impEndDate]
+            );
+            if (sImpRes.rows.length > 0) {
+                shopeeImpressions = parseInt(sImpRes.rows[0].impressions || 0, 10);
             }
         } catch (err) {
             console.error('[events-calc] Local shopee metrics error:', err);
@@ -548,6 +609,20 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
                 tiktokStoreGmv = parseFloat(tRes.rows[0].gmv || 0);
                 tiktokStoreOrders = parseInt(tRes.rows[0].orders || 0, 10);
             }
+
+            const tImpRes = await localPool.query(
+                `
+                SELECT 
+                    COALESCE(SUM(impressions), 0)::bigint as impressions
+                FROM credentials.daily_shop_metrics
+                WHERE date >= $1 AND date <= $2
+                  AND shop_number IN (1, 2);
+            `,
+                [impStartDate, impEndDate]
+            );
+            if (tImpRes.rows.length > 0) {
+                tiktokImpressions = parseInt(tImpRes.rows[0].impressions || 0, 10);
+            }
         } catch (err) {
             console.error('[events-calc] Local tiktok metrics error:', err);
         }
@@ -556,6 +631,10 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
     // Additional manually-entered ad cost is included in total ad spend
     const additionalAdCost = Number(event.additionalAdCost) || 0;
     const totalSpend = shopeeSpend + tiktokSpend + additionalAdCost;
+    const totalImpressions = shopeeImpressions + tiktokImpressions;
+    const cpm = totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : 0;
+    const shopeeCpm = shopeeImpressions > 0 ? (shopeeSpend / shopeeImpressions) * 1000 : 0;
+    const tiktokCpm = tiktokImpressions > 0 ? (tiktokSpend / tiktokImpressions) * 1000 : 0;
     const storeSales = shopeeStoreGmv + tiktokStoreGmv;
     const departmentSales = marketingGmv + livehostGmv + affiliateGmv;
 
@@ -741,6 +820,8 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
         spend: parseFloat(totalSpend.toFixed(2)),
         additionalAdCost: parseFloat(additionalAdCost.toFixed(2)),
         roas: parseFloat(roas.toFixed(2)),
+        impressions: totalImpressions,
+        cpm: parseFloat(cpm.toFixed(2)),
         totalOrders,
         aov: parseFloat(aov.toFixed(2)),
         winningSkus,
@@ -786,6 +867,8 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
                 gmv: parseFloat((shopeeStoreGmv || livehostShopeeGmv + affiliateShopeeGmv).toFixed(2)),
                 spend: parseFloat(shopeeSpend.toFixed(2)),
                 orders: shopeeStoreOrders,
+                impressions: shopeeImpressions,
+                cpm: parseFloat(shopeeCpm.toFixed(2)),
             },
             tiktok: {
                 gmv: parseFloat(
@@ -793,6 +876,8 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
                 ),
                 spend: parseFloat(tiktokSpend.toFixed(2)),
                 orders: tiktokStoreOrders,
+                impressions: tiktokImpressions,
+                cpm: parseFloat(tiktokCpm.toFixed(2)),
             },
         },
     };

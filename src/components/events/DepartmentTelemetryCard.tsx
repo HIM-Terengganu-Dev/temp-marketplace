@@ -186,7 +186,10 @@ export default function DepartmentTelemetryCard({
                             <div className="text-right font-mono">
                                 <span className="font-bold">{formatRM(platformBreakdown.tiktok.gmv)}</span>
                                 <span className="text-[10px] text-muted-foreground block">
-                                    Spend: {formatRM(platformBreakdown.tiktok.spend)}
+                                    Spend: {formatRM(platformBreakdown.tiktok.spend)} • CPM: {formatRM(platformBreakdown.tiktok.cpm ?? 0)}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground/80 block">
+                                    Imp: {(platformBreakdown.tiktok.impressions ?? 0).toLocaleString()}
                                 </span>
                             </div>
                         </div>
@@ -200,7 +203,10 @@ export default function DepartmentTelemetryCard({
                             <div className="text-right font-mono">
                                 <span className="font-bold">{formatRM(platformBreakdown.shopee.gmv)}</span>
                                 <span className="text-[10px] text-muted-foreground block">
-                                    Spend: {formatRM(platformBreakdown.shopee.spend)}
+                                    Spend: {formatRM(platformBreakdown.shopee.spend)} • CPM: {formatRM(platformBreakdown.shopee.cpm ?? 0)}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground/80 block">
+                                    Imp: {(platformBreakdown.shopee.impressions ?? 0).toLocaleString()}
                                 </span>
                             </div>
                         </div>
