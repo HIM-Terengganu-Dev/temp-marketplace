@@ -567,6 +567,33 @@ export async function fetchShopeeGMVAndOrders(
 }
 
 /**
+ * Fetches Shopee Ads real-time total credit balance (paid + free credit).
+ */
+export async function fetchShopeeAdsTotalBalance(
+    shopId: number,
+    accessToken?: string
+): Promise<{ total_balance: number; data_timestamp?: number }> {
+    const token = accessToken || (await getValidShopeeToken(shopId));
+    const timestamp = Math.floor(Date.now() / 1000);
+    const path = '/api/v2/ads/get_total_balance';
+    const sign = generateShopeeSignature(path, timestamp, token, shopId);
+
+    const url = `${API_BASE_URL}${path}?partner_id=${PARTNER_ID}&timestamp=${timestamp}&sign=${sign}&access_token=${token}&shop_id=${shopId}`;
+
+    const response = await shopeeApiGet(url);
+    const data = response.data;
+
+    if (data.error && data.error !== '') {
+        throw new Error(`Shopee ads balance error: ${data.message || data.error}`);
+    }
+
+    return {
+        total_balance: data.response?.total_balance ?? 0,
+        data_timestamp: data.response?.data_timestamp
+    };
+}
+
+/**
  * Fetches CPC ad spend for a single date, formatting in DD-MM-YYYY.
  */
 export async function fetchShopeeAdsSpendForDate(

@@ -10,6 +10,7 @@ import {
     WinningSkuItem,
 } from '@/types/events';
 import { getCustomerCohortStats } from '@/lib/customer-cohort';
+import { fetchMarketingEventMetricsFromSheets } from '@/lib/google-sheets-marketing';
 
 
 if (typeof window === 'undefined') {
@@ -409,34 +410,47 @@ export async function calculateEventMetrics(event: CampaignEvent): Promise<Event
     const isAffiliateActive = departments.includes('affiliate');
     const isOrdersActive = departments.includes('orders');
 
-    // 1. Marketing Department query
+    // 1. Marketing Department query - Primary: Google Sheets, Fallback: Postgres
     let marketingGmv = 0;
     let marketingVideos = 0;
     let marketingItemsSold = 0;
 
-    if (isMarketingActive && isTiktokIncluded && mktPool) {
+    if (isMarketingActive && isTiktokIncluded) {
         try {
-            const mRes = await mktPool.query(
-                `
-                SELECT 
-                    COALESCE(SUM(vr."directGmv"), 0)::float as direct_gmv,
-                    COUNT(vr.id)::int as video_count,
-                    COALESCE(SUM(vr."directItemsSold"), 0)::int as items_sold
-                FROM "VideoRecord" vr
-                JOIN "ImportLog" il ON vr."importLogId" = il.id
-                WHERE LOWER(vr."creatorName") IN (SELECT LOWER(handle) FROM "InternalHandle")
-                  AND SUBSTRING(il."dataDate" FROM '\\d{4}-\\d{2}-\\d{2}') >= $1
-                  AND SUBSTRING(il."dataDate" FROM '\\d{4}-\\d{2}-\\d{2}') <= $2;
-            `,
-                [startDate, endDate]
-            );
-            if (mRes.rows.length > 0) {
-                marketingGmv = parseFloat(mRes.rows[0].direct_gmv || 0);
-                marketingVideos = parseInt(mRes.rows[0].video_count || 0, 10);
-                marketingItemsSold = parseInt(mRes.rows[0].items_sold || 0, 10);
+            const sheetMetrics = await fetchMarketingEventMetricsFromSheets(startDate, endDate);
+            if (sheetMetrics.videos > 0 || sheetMetrics.gmv > 0) {
+                marketingGmv = sheetMetrics.gmv;
+                marketingVideos = sheetMetrics.videos;
+                marketingItemsSold = sheetMetrics.itemsSold;
             }
-        } catch (err) {
-            console.error('[events-calc] Marketing query error:', err);
+        } catch (e: any) {
+            console.warn('[events-calc] Google Sheets event metrics fetch failed, checking Postgres:', e.message);
+        }
+
+        if (marketingVideos === 0 && marketingGmv === 0 && mktPool) {
+            try {
+                const mRes = await mktPool.query(
+                    `
+                    SELECT 
+                        COALESCE(SUM(vr."directGmv"), 0)::float as direct_gmv,
+                        COUNT(vr.id)::int as video_count,
+                        COALESCE(SUM(vr."directItemsSold"), 0)::int as items_sold
+                    FROM "VideoRecord" vr
+                    JOIN "ImportLog" il ON vr."importLogId" = il.id
+                    WHERE LOWER(vr."creatorName") IN (SELECT LOWER(handle) FROM "InternalHandle")
+                      AND SUBSTRING(il."dataDate" FROM '\\d{4}-\\d{2}-\\d{2}') >= $1
+                      AND SUBSTRING(il."dataDate" FROM '\\d{4}-\\d{2}-\\d{2}') <= $2;
+                `,
+                    [startDate, endDate]
+                );
+                if (mRes.rows.length > 0) {
+                    marketingGmv = parseFloat(mRes.rows[0].direct_gmv || 0);
+                    marketingVideos = parseInt(mRes.rows[0].video_count || 0, 10);
+                    marketingItemsSold = parseInt(mRes.rows[0].items_sold || 0, 10);
+                }
+            } catch (err) {
+                console.error('[events-calc] Marketing query error:', err);
+            }
         }
     }
 

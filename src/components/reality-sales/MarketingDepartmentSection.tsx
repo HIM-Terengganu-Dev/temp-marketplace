@@ -16,6 +16,8 @@ interface TeamItem {
     likes: number;
     directItemsSold: number;
     hasActivity: boolean;
+    accountName?: string;
+    category?: 'dr' | 'creative';
 }
 
 interface MarketingData {
@@ -29,6 +31,7 @@ interface MarketingData {
     teams: TeamItem[];
     message?: string | null;
     error?: string;
+    dataSource?: string;
 }
 
 interface MarketingDepartmentSectionProps {
@@ -161,10 +164,15 @@ export default function MarketingDepartmentSection({
                         <div>
                             <CardTitle className="text-base font-bold flex items-center gap-2">
                                 <Megaphone className="h-4 w-4 text-primary" />
-                                Total Sales by Internal Team Handles
+                                Total Sales by Marketing & Creative Accounts
                             </CardTitle>
-                            <CardDescription className="text-xs">
-                                Filtered strictly to internal team handles in Marketing System (hw-marketing-tracking)
+                            <CardDescription className="text-xs flex items-center gap-2 mt-1">
+                                <span>Attributed GMV per TikTok account (HIM Creative Master Database)</span>
+                                {data.dataSource === 'google_sheets' && (
+                                    <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/30 py-0 font-normal">
+                                        Google Sheets (Read-Only)
+                                    </Badge>
+                                )}
                             </CardDescription>
                         </div>
 
@@ -239,7 +247,26 @@ export default function MarketingDepartmentSection({
                                             <td className="py-3 px-4 font-semibold text-foreground">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[10px] text-muted-foreground w-4">{idx + 1}</span>
-                                                    <span>@{team.handle}</span>
+                                                    <div>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span>@{team.handle}</span>
+                                                            {team.category === 'dr' && (
+                                                                <Badge variant="outline" className="text-[9px] bg-amber-500/10 text-amber-500 border-amber-500/30 px-1 py-0">
+                                                                    Dr Samhan
+                                                                </Badge>
+                                                            )}
+                                                            {team.category === 'creative' && (
+                                                                <Badge variant="outline" className="text-[9px] bg-purple-500/10 text-purple-500 border-purple-500/30 px-1 py-0">
+                                                                    Creative
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        {team.accountName && team.accountName !== team.handle && team.accountName !== `@${team.handle}` && (
+                                                            <div className="text-[10px] font-normal text-muted-foreground">
+                                                                {team.accountName}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="py-3 px-4 text-right font-extrabold text-primary">

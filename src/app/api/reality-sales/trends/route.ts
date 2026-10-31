@@ -3,6 +3,7 @@ import { Pool } from 'pg';
 import dotenv from 'dotenv';
 import { query as localQuery } from '@/lib/db';
 import { getHistoricalDepartmentTargets } from '@/lib/department-targets';
+import { fetchMarketingMonthlyTrendsFromSheets } from '@/lib/google-sheets-marketing';
 
 if (typeof window === 'undefined') {
     dotenv.config({ path: '.env.local' });
@@ -67,9 +68,18 @@ export async function GET(request: Request) {
             console.error('[reality-sales/trends] Error fetching overall metrics:', err);
         }
 
-        // 3. Fetch Creative (Marketing) Actuals
+        // 3. Fetch Creative (Marketing) Actuals - Primary: Google Sheets, Fallback: Postgres
         const creativeActualsMap: Record<string, number> = {};
-        if (mktPool) {
+        try {
+            const sheetTrends = await fetchMarketingMonthlyTrendsFromSheets(year);
+            if (sheetTrends && Object.keys(sheetTrends).length > 0) {
+                Object.assign(creativeActualsMap, sheetTrends);
+            }
+        } catch (e: any) {
+            console.warn('[reality-sales/trends] Google Sheets trends fetch failed, checking Postgres:', e.message);
+        }
+
+        if (Object.keys(creativeActualsMap).length === 0 && mktPool) {
             try {
                 const mktRes = await mktPool.query(`
                     SELECT 

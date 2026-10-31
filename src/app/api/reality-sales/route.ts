@@ -3,6 +3,10 @@ import { Pool } from 'pg';
 import dotenv from 'dotenv';
 import { pool as localPool } from '@/lib/db';
 import { getDepartmentTargets, getHistoricalDepartmentTargets } from '@/lib/department-targets';
+import {
+    fetchMarketingDepartmentFromSheets,
+    fetchMarketingMonthlyTrendsFromSheets
+} from '@/lib/google-sheets-marketing';
 
 if (typeof window === 'undefined') {
     dotenv.config({ path: '.env.local' });
@@ -105,6 +109,17 @@ export async function GET(request: Request) {
 // 1. MARKETING DEPARTMENT
 // -------------------------------------------------------------
 async function fetchMarketingDepartment(month: string, startDate: string, endDate: string, targetAmount: number) {
+    // 1. Primary: Google Sheets HIM Creative Master Database (Read-Only)
+    try {
+        const sheetData = await fetchMarketingDepartmentFromSheets(month, startDate, endDate, targetAmount);
+        if (sheetData.hasData || sheetData.status === 'connected') {
+            return sheetData;
+        }
+    } catch (sheetErr: any) {
+        console.warn('[reality-sales] Google Sheets fetch failed, checking Postgres fallback:', sheetErr.message);
+    }
+
+    // 2. Fallback: Postgres DB_MARKETING_URL
     if (!mktPool) {
         return {
             status: 'disconnected',
@@ -115,7 +130,7 @@ async function fetchMarketingDepartment(month: string, startDate: string, endDat
             totalItemsSold: 0,
             attainmentRate: 0,
             teams: [],
-            error: 'DB_MARKETING_URL not configured'
+            error: 'Neither Google Sheets nor DB_MARKETING_URL available'
         };
     }
 
@@ -672,9 +687,18 @@ async function fetchRealitySalesTrends(year: number, currentYear: number, curren
         console.error('[reality-sales] Trends error fetching overall metrics:', err);
     }
 
-    // 3. Creative Actuals (Marketing Video GMV)
+    // 3. Creative Actuals (Marketing Video GMV) - Primary: Google Sheets, Fallback: Postgres
     const creativeActualsMap: Record<string, number> = {};
-    if (mktPool) {
+    try {
+        const sheetTrends = await fetchMarketingMonthlyTrendsFromSheets(year);
+        if (sheetTrends && Object.keys(sheetTrends).length > 0) {
+            Object.assign(creativeActualsMap, sheetTrends);
+        }
+    } catch (e: any) {
+        console.warn('[reality-sales] Google Sheets trends fetch failed, checking Postgres:', e.message);
+    }
+
+    if (Object.keys(creativeActualsMap).length === 0 && mktPool) {
         try {
             const mktRes = await mktPool.query(`
                 SELECT 
