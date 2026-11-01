@@ -6,8 +6,9 @@
  *
  * Fetches:
  * 1. Accounts - Full roster of TikTok accounts (Creative + Dr Samhan)
- * 2. TikTok_Videos - Attributed GMV, units, video views per account
- * 3. Sales_Targets - Monthly targets (Dr Samhan + Team Creative)
+ * 2. Daily_Sales - Authoritative daily GMV per account across all historical months
+ * 3. TikTok_Videos - Attributed GMV, units, video views per account
+ * 4. Sales_Targets - Monthly targets (Dr Samhan + Team Creative)
  */
 
 export interface SheetAccount {
@@ -22,9 +23,16 @@ export interface SheetAccount {
     isDrSamhan: boolean;
 }
 
+export interface SheetDailySale {
+    key: string;
+    date: string; // 'YYYY-MM-DD'
+    accountId: string;
+    gmv: number;
+}
+
 export interface SheetVideo {
     key: string;
-    date: string;
+    date: string; // 'YYYY-MM-DD'
     videoId: string;
     accountId: string;
     creatorName: string;
@@ -167,7 +175,7 @@ async function fetchSheetRows(sheetName: string): Promise<any[][]> {
 }
 
 /**
- * Fetch and parse all Accounts
+ * Fetch and parse all Accounts from 'Accounts' sheet
  */
 export async function getMarketingAccounts(): Promise<SheetAccount[]> {
     const cached = getCached<SheetAccount[]>('accounts_parsed');
@@ -203,6 +211,92 @@ export async function getMarketingAccounts(): Promise<SheetAccount[]> {
 }
 
 /**
+ * Helper to normalize date strings to standard 'YYYY-MM-DD'
+ */
+function normalizeDate(rawDate?: string, recordKey?: string): string {
+    let d = String(rawDate || '').trim();
+
+    // Check standard YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+
+    // Check non-padded YYYY-M-D
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(d)) {
+        const p = d.split('-');
+        return `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}`;
+    }
+
+    // Try parsing from record_key format: YYYY-M-D-accId
+    if (recordKey) {
+        const match = /^(\d{4})-(\d{1,2})-(\d{1,2})-(.+)$/.exec(recordKey.trim());
+        if (match) {
+            return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+        }
+    }
+
+    // Fallback Date object parsing if date is like "Thu Oct 01 2026..."
+    if (d.includes('GMT') || d.includes('T')) {
+        try {
+            const parsed = new Date(d);
+            if (!isNaN(parsed.getTime())) {
+                const y = parsed.getFullYear();
+                const m = String(parsed.getMonth() + 1).padStart(2, '0');
+                const day = String(parsed.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            }
+        } catch (_) {}
+    }
+
+    return d.slice(0, 10);
+}
+
+/**
+ * Fetch and parse Daily_Sales sheet
+ * Contains historical and daily GMV per account across all months
+ */
+export async function getMarketingDailySales(): Promise<SheetDailySale[]> {
+    const cached = getCached<SheetDailySale[]>('daily_sales_parsed');
+    if (cached) return cached;
+
+    const rows = await fetchSheetRows('Daily_Sales');
+    const accounts = await getMarketingAccounts();
+    const drSamhanAcc = accounts.find(a => a.isDrSamhan);
+
+    const dailyList: SheetDailySale[] = [];
+
+    rows.forEach(r => {
+        const rawKey = String(r[0] ?? '').trim();
+        const rawDate = String(r[1] ?? '').trim();
+        let accId = String(r[2] ?? '').trim();
+        const gmv = parseFloat(r[3] ?? 0) || 0;
+
+        const date = normalizeDate(rawDate, rawKey);
+
+        // If accId was missing in column 2, extract from record_key (YYYY-M-D-accId)
+        if (!accId && rawKey) {
+            const match = /^(\d{4})-(\d{1,2})-(\d{1,2})-(.+)$/.exec(rawKey);
+            if (match) accId = match[4];
+        }
+
+        // Map 'dr' alias to Dr Samhan account ID
+        if (accId.toLowerCase() === 'dr' && drSamhanAcc) {
+            accId = drSamhanAcc.id;
+        }
+
+        if (date && accId && !isNaN(gmv)) {
+            dailyList.push({
+                key: rawKey || `${date}-${accId}`,
+                date,
+                accountId: accId,
+                gmv
+            });
+        }
+    });
+
+    setCached('daily_sales_parsed', dailyList);
+    return dailyList;
+}
+
+/**
  * Fetch and parse TikTok_Videos
  */
 export async function getMarketingVideos(): Promise<SheetVideo[]> {
@@ -212,7 +306,8 @@ export async function getMarketingVideos(): Promise<SheetVideo[]> {
     const rows = await fetchSheetRows('TikTok_Videos');
     const videos: SheetVideo[] = rows.map(r => {
         const key = String(r[0] ?? '').trim();
-        const date = String(r[1] ?? '').trim().slice(0, 10);
+        const rawDate = String(r[1] ?? '').trim();
+        const date = normalizeDate(rawDate, key);
         const videoId = String(r[2] ?? '').trim();
         const accountId = String(r[3] ?? '').trim();
         const creatorName = String(r[4] ?? '').trim().replace(/^@/, '').toLowerCase();
@@ -278,7 +373,13 @@ export async function getMarketingTargets(): Promise<SheetTarget[]> {
 }
 
 /**
- * Main aggregator for Department Reality Sales (Monthly / Date range)
+ * Main aggregator for Department Reality Sales (Monthly / Date range).
+ *
+ * Integrates:
+ * - Daily_Sales (for accurate account GMV across all months)
+ * - TikTok_Videos (for video counts, views, clicks, items sold attribution)
+ * - Accounts (for mapping ID, name, handle, category)
+ * - Sales_Targets (for monthly target)
  */
 export async function fetchMarketingDepartmentFromSheets(
     month: string,
@@ -287,8 +388,9 @@ export async function fetchMarketingDepartmentFromSheets(
     fallbackTarget: number = 0
 ): Promise<MarketingDepartmentData> {
     try {
-        const [accounts, videos, targets] = await Promise.all([
+        const [accounts, dailySales, videos, targets] = await Promise.all([
             getMarketingAccounts(),
+            getMarketingDailySales(),
             getMarketingVideos(),
             getMarketingTargets()
         ]);
@@ -301,7 +403,8 @@ export async function fetchMarketingDepartmentFromSheets(
         const foundTarget = targets.find(t => t.year === targetYear && t.month === targetMonthNum);
         const targetAmount = foundTarget && foundTarget.total > 0 ? foundTarget.total : fallbackTarget;
 
-        // 2. Filter Videos in Date Range
+        // 2. Filter data in requested Date Range
+        const matchedDaily = dailySales.filter(d => d.date >= startDate && d.date <= endDate);
         const matchedVideos = videos.filter(v => v.date >= startDate && v.date <= endDate);
 
         // 3. Prepare Account Aggregation Map
@@ -312,7 +415,8 @@ export async function fetchMarketingDepartmentFromSheets(
             views: number;
             clicks: number;
             items: number;
-            gmv: number;
+            dailyGmv: number;
+            videoGmv: number;
         }>();
 
         accounts.forEach(a => {
@@ -322,11 +426,12 @@ export async function fetchMarketingDepartmentFromSheets(
                 views: 0,
                 clicks: 0,
                 items: 0,
-                gmv: 0
+                dailyGmv: 0,
+                videoGmv: 0
             });
         });
 
-        // Fast lookup for username/creatorId
+        // Fast lookup tables for matching
         const userToAccountId = new Map<string, string>();
         const creatorIdToAccountId = new Map<string, string>();
         accounts.forEach(a => {
@@ -334,18 +439,51 @@ export async function fetchMarketingDepartmentFromSheets(
             if (a.creatorId) creatorIdToAccountId.set(a.creatorId, a.id);
         });
 
-        let totalSales = 0;
-        let totalItemsSold = 0;
-        let totalViews = 0;
-        let totalClicks = 0;
+        // Helper to get or create an entry in accountMap
+        const getOrCreateEntry = (accId: string, fallbackName?: string): {
+            account: SheetAccount;
+            videoCount: number;
+            views: number;
+            clicks: number;
+            items: number;
+            dailyGmv: number;
+            videoGmv: number;
+        } => {
+            let entry = accountMap.get(accId);
+            if (!entry) {
+                const syntheticAccount: SheetAccount = {
+                    id: accId,
+                    name: fallbackName || `Account #${accId}`,
+                    username: '',
+                    creatorId: '',
+                    content: 'ACTIVE',
+                    live: '-',
+                    type: 'AFFILIATE',
+                    product: 'UNKNOWN',
+                    isDrSamhan: accId.toLowerCase() === 'dr'
+                };
+                entry = {
+                    account: syntheticAccount,
+                    videoCount: 0,
+                    views: 0,
+                    clicks: 0,
+                    items: 0,
+                    dailyGmv: 0,
+                    videoGmv: 0
+                };
+                accountMap.set(accId, entry);
+            }
+            return entry;
+        };
 
+        // Aggregate Daily_Sales (primary GMV source)
+        matchedDaily.forEach(d => {
+            const entry = getOrCreateEntry(d.accountId);
+            entry.dailyGmv += d.gmv;
+        });
+
+        // Aggregate TikTok_Videos (video-level views, clicks, items, attribution)
         matchedVideos.forEach(v => {
-            totalSales += v.gmv;
-            totalItemsSold += v.items;
-            totalViews += v.views;
-            totalClicks += v.clicks;
-
-            // Resolve target account
             let resolvedId = v.accountId;
             if (!accountMap.has(resolvedId)) {
                 if (v.creatorId && creatorIdToAccountId.has(v.creatorId)) {
@@ -355,43 +493,37 @@ export async function fetchMarketingDepartmentFromSheets(
                 }
             }
 
-            let entry = accountMap.get(resolvedId);
-            if (!entry) {
-                // If an account appears in report but not in Accounts sheet, create synthetic entry
-                const syntheticAccount: SheetAccount = {
-                    id: resolvedId || `anon_${v.creatorName}`,
-                    name: v.creatorName ? `@${v.creatorName}` : `Creator #${v.creatorId}`,
-                    username: v.creatorName,
-                    creatorId: v.creatorId,
-                    content: 'ACTIVE',
-                    live: '-',
-                    type: 'AFFILIATE',
-                    product: 'UNKNOWN',
-                    isDrSamhan: v.creatorName === 'dr.samhan'
-                };
-                entry = {
-                    account: syntheticAccount,
-                    videoCount: 0,
-                    views: 0,
-                    clicks: 0,
-                    items: 0,
-                    gmv: 0
-                };
-                accountMap.set(syntheticAccount.id, entry);
-            }
-
+            const entry = getOrCreateEntry(resolvedId || `anon_${v.creatorName}`, v.creatorName ? `@${v.creatorName}` : undefined);
             entry.videoCount += 1;
             entry.views += v.views;
             entry.clicks += v.clicks;
             entry.items += v.items;
-            entry.gmv += v.gmv;
+            entry.videoGmv += v.gmv;
         });
 
-        // 4. Transform into teams format
+        // 4. Calculate Totals and Transform Teams
+        let totalSales = 0;
+        let totalItemsSold = 0;
+        let totalViews = 0;
+        let totalClicks = 0;
+        let totalVideos = 0;
+
         const teams: MarketingTeamItem[] = Array.from(accountMap.values()).map(item => {
             const a = item.account;
-            const cleanHandle = (a.username || a.name || '').replace(/^@/, '').trim();
+            const cleanHandle = (a.username || a.name || `Account #${a.id}`).replace(/^@/, '').trim();
             const category: 'dr' | 'creative' = a.isDrSamhan ? 'dr' : 'creative';
+
+            // Authoritative GMV: use Daily_Sales if available for this account/range, else TikTok_Videos
+            const effectiveGmv = item.dailyGmv > 0 ? item.dailyGmv : item.videoGmv;
+
+            totalSales += effectiveGmv;
+            totalItemsSold += item.items;
+            totalViews += item.views;
+            totalClicks += item.clicks;
+            totalVideos += item.videoCount;
+
+            const roundedGmv = parseFloat(effectiveGmv.toFixed(2));
+
             return {
                 handle: cleanHandle,
                 accountName: a.name,
@@ -399,16 +531,16 @@ export async function fetchMarketingDepartmentFromSheets(
                 username: a.username,
                 category,
                 videoCount: item.videoCount,
-                directGmv: parseFloat(item.gmv.toFixed(2)),
-                attributedGmv: parseFloat(item.gmv.toFixed(2)),
+                directGmv: roundedGmv,
+                attributedGmv: roundedGmv,
                 views: item.views,
                 likes: item.clicks, // Product clicks mapped to engagement
                 directItemsSold: item.items,
-                hasActivity: item.videoCount > 0 || item.gmv > 0
+                hasActivity: effectiveGmv > 0 || item.videoCount > 0
             };
         }).sort((a, b) => b.attributedGmv - a.attributedGmv || b.videoCount - a.videoCount);
 
-        const hasData = matchedVideos.length > 0;
+        const hasData = matchedDaily.length > 0 || matchedVideos.length > 0;
         const attainmentRate = targetAmount > 0 ? (totalSales / targetAmount) * 100 : 0;
 
         return {
@@ -416,7 +548,7 @@ export async function fetchMarketingDepartmentFromSheets(
             hasData,
             targetAmount,
             totalSales: parseFloat(totalSales.toFixed(2)),
-            totalVideos: matchedVideos.length,
+            totalVideos,
             totalItemsSold,
             totalViews,
             totalClicks,
@@ -447,18 +579,34 @@ export async function fetchMarketingDepartmentFromSheets(
 }
 
 /**
- * Fetch historical monthly GMV trends across a given year (Jan - Dec)
+ * Fetch historical monthly GMV trends across a given year (Jan - Dec).
+ * Reads from Daily_Sales (primary) and TikTok_Videos (supplementary).
  */
 export async function fetchMarketingMonthlyTrendsFromSheets(year: number): Promise<Record<string, number>> {
     try {
-        const videos = await getMarketingVideos();
+        const [dailySales, videos] = await Promise.all([
+            getMarketingDailySales(),
+            getMarketingVideos()
+        ]);
+
         const yearPrefix = `${year}-`;
         const monthlyGmvMap: Record<string, number> = {};
 
+        // 1. Group by month from Daily_Sales
+        dailySales.forEach(d => {
+            if (d.date && d.date.startsWith(yearPrefix)) {
+                const monthKey = d.date.slice(0, 7); // 'YYYY-MM'
+                monthlyGmvMap[monthKey] = (monthlyGmvMap[monthKey] || 0) + d.gmv;
+            }
+        });
+
+        // 2. Fallback to TikTok_Videos for any month missing in Daily_Sales
         videos.forEach(v => {
             if (v.date && v.date.startsWith(yearPrefix)) {
-                const monthKey = v.date.slice(0, 7); // 'YYYY-MM'
-                monthlyGmvMap[monthKey] = (monthlyGmvMap[monthKey] || 0) + v.gmv;
+                const monthKey = v.date.slice(0, 7);
+                if (!monthlyGmvMap[monthKey] || monthlyGmvMap[monthKey] === 0) {
+                    monthlyGmvMap[monthKey] = (monthlyGmvMap[monthKey] || 0) + v.gmv;
+                }
             }
         });
 
@@ -475,26 +623,40 @@ export async function fetchMarketingMonthlyTrendsFromSheets(year: number): Promi
 }
 
 /**
- * Fetch marketing metrics for a specific event date range
+ * Fetch marketing metrics for a specific event date range.
  */
 export async function fetchMarketingEventMetricsFromSheets(startDate: string, endDate: string) {
     try {
-        const videos = await getMarketingVideos();
-        const matched = videos.filter(v => v.date >= startDate && v.date <= endDate);
+        const [dailySales, videos] = await Promise.all([
+            getMarketingDailySales(),
+            getMarketingVideos()
+        ]);
+
+        const matchedDaily = dailySales.filter(d => d.date >= startDate && d.date <= endDate);
+        const matchedVideos = videos.filter(v => v.date >= startDate && v.date <= endDate);
 
         let gmv = 0;
         let itemsSold = 0;
         let views = 0;
 
-        matched.forEach(v => {
-            gmv += v.gmv;
+        if (matchedDaily.length > 0) {
+            matchedDaily.forEach(d => {
+                gmv += d.gmv;
+            });
+        } else {
+            matchedVideos.forEach(v => {
+                gmv += v.gmv;
+            });
+        }
+
+        matchedVideos.forEach(v => {
             itemsSold += v.items;
             views += v.views;
         });
 
         return {
             gmv: parseFloat(gmv.toFixed(2)),
-            videos: matched.length,
+            videos: matchedVideos.length,
             itemsSold,
             views
         };
