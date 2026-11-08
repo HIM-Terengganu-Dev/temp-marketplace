@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Radio, Users, Clock, Video, TrendingUp, Sparkles, UserCheck, Bot } from "lucide-react";
+import { Radio, Users, Clock, Video, TrendingUp, Sparkles, UserCheck, Bot, Globe, ShoppingBag } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import DepartmentKpiCard from "./DepartmentKpiCard";
 import DepartmentAlert from "./DepartmentAlert";
 
@@ -34,6 +35,12 @@ interface LivehostData {
     totalGmv: number;
     totalSessions: number;
     totalHours: number;
+    tiktokGmv?: number;
+    shopeeGmv?: number;
+    tiktokSessions?: number;
+    shopeeSessions?: number;
+    tiktokHours?: number;
+    shopeeHours?: number;
     attainmentRate: number;
     categories: Record<string, CategoryMetric>;
     topHosts: TopHost[];
@@ -46,6 +53,8 @@ interface LivehostDepartmentSectionProps {
     isAdmin: boolean;
     onEditTarget: () => void;
     onRetry?: () => void;
+    platformFilter?: "all" | "tt" | "shopee";
+    onPlatformFilterChange?: (p: "all" | "tt" | "shopee") => void;
 }
 
 export default function LivehostDepartmentSection({
@@ -53,7 +62,9 @@ export default function LivehostDepartmentSection({
     month,
     isAdmin,
     onEditTarget,
-    onRetry
+    onRetry,
+    platformFilter,
+    onPlatformFilterChange
 }: LivehostDepartmentSectionProps) {
     const cats = data.categories || {};
 
@@ -63,18 +74,61 @@ export default function LivehostDepartmentSection({
     const drsamhan = cats.DR_SAMHAN || { label: "DrSamhan", shopeeGmv: 0, tiktokGmv: 0, totalGmv: 0, shopeeSessions: 0, tiktokSessions: 0, shopeeHours: 0, tiktokHours: 0 };
     const ailive = cats.AI_LIVE || { label: "Ai Live", shopeeGmv: 0, tiktokGmv: 0, totalGmv: 0, shopeeSessions: 0, tiktokSessions: 0, shopeeHours: 0, tiktokHours: 0 };
 
+    const effectivePlatform = platformFilter || "all";
+
+    const displayGmv =
+        effectivePlatform === "tt"
+            ? (data.tiktokGmv ?? (internal.tiktokGmv + external.tiktokGmv + relive.tiktokGmv + drsamhan.tiktokGmv + ailive.tiktokGmv))
+            : effectivePlatform === "shopee"
+            ? (data.shopeeGmv ?? (internal.shopeeGmv + external.shopeeGmv + relive.shopeeGmv + drsamhan.shopeeGmv + ailive.shopeeGmv))
+            : (data.totalGmv || 0);
+
+    const displayAttainment = data.targetAmount > 0 ? (displayGmv / data.targetAmount) * 100 : 0;
+
+    const displayHours =
+        effectivePlatform === "tt"
+            ? (data.tiktokHours ?? (internal.tiktokHours + external.tiktokHours + relive.tiktokHours + drsamhan.tiktokHours + ailive.tiktokHours))
+            : effectivePlatform === "shopee"
+            ? (data.shopeeHours ?? (internal.shopeeHours + external.shopeeHours + relive.shopeeHours + drsamhan.shopeeHours + ailive.shopeeHours))
+            : (data.totalHours || 0);
+
+    const displaySessions =
+        effectivePlatform === "tt"
+            ? (data.tiktokSessions ?? (internal.tiktokSessions + external.tiktokSessions + relive.tiktokSessions + drsamhan.tiktokSessions + ailive.tiktokSessions))
+            : effectivePlatform === "shopee"
+            ? (data.shopeeSessions ?? (internal.shopeeSessions + external.shopeeSessions + relive.shopeeSessions + drsamhan.shopeeSessions + ailive.shopeeSessions))
+            : (data.totalSessions || 0);
+
+    const filteredTopHosts = (data.topHosts || []).filter((h) => {
+        if (effectivePlatform === "tt") return (h.platform || "").toLowerCase().includes("tiktok");
+        if (effectivePlatform === "shopee") return (h.platform || "").toLowerCase().includes("shopee");
+        return true;
+    });
+
     return (
         <div className="space-y-6">
             {/* Target & KPI Card */}
             <DepartmentKpiCard
                 departmentLabel="Live Host"
                 targetAmount={data.targetAmount || 0}
-                actualSales={data.totalGmv || 0}
-                attainmentRate={data.attainmentRate || 0}
+                actualSales={displayGmv}
+                attainmentRate={displayAttainment}
                 isAdmin={isAdmin}
                 onEditTarget={onEditTarget}
-                unitLabel="Direct Live GMV"
-                sublabel="Centralised from hw-livehost-management sessions across 5 streams"
+                unitLabel={
+                    effectivePlatform === "tt"
+                        ? "TikTok Live GMV"
+                        : effectivePlatform === "shopee"
+                        ? "Shopee Live GMV"
+                        : "Direct Live GMV"
+                }
+                sublabel={
+                    effectivePlatform === "tt"
+                        ? "Reconciled from TikTok live sessions across 5 streams"
+                        : effectivePlatform === "shopee"
+                        ? "Reconciled from Shopee live sessions across 5 streams"
+                        : "Centralised from hw-livehost-management sessions across 5 streams"
+                }
             />
 
             {!data.hasData && (
@@ -101,8 +155,10 @@ export default function LivehostDepartmentSection({
                     <CardContent className="p-4 flex items-center justify-between">
                         <div>
                             <p className="text-[11px] font-medium text-muted-foreground">Total Stream Hours</p>
-                            <p className="text-xl font-bold mt-0.5">{(data.totalHours || 0).toFixed(1)} hrs</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">All streams combined</p>
+                            <p className="text-xl font-bold mt-0.5">{displayHours.toFixed(1)} hrs</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {effectivePlatform === "tt" ? "TikTok streams" : effectivePlatform === "shopee" ? "Shopee streams" : "All streams combined"}
+                            </p>
                         </div>
                         <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
                             <Clock className="h-5 w-5" />
@@ -114,8 +170,10 @@ export default function LivehostDepartmentSection({
                     <CardContent className="p-4 flex items-center justify-between">
                         <div>
                             <p className="text-[11px] font-medium text-muted-foreground">Total Sessions</p>
-                            <p className="text-xl font-bold mt-0.5">{(data.totalSessions || 0).toLocaleString()}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">Completed shifts</p>
+                            <p className="text-xl font-bold mt-0.5">{displaySessions.toLocaleString()}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {effectivePlatform === "tt" ? "TikTok shifts" : effectivePlatform === "shopee" ? "Shopee shifts" : "Completed shifts"}
+                            </p>
                         </div>
                         <div className="p-2.5 rounded-lg bg-blue-500/10 text-blue-500">
                             <Radio className="h-5 w-5" />
@@ -128,7 +186,7 @@ export default function LivehostDepartmentSection({
                         <div>
                             <p className="text-[11px] font-medium text-muted-foreground">Avg GMV / Hour</p>
                             <p className="text-xl font-bold mt-0.5">
-                                RM {data.totalHours > 0 ? ((data.totalGmv || 0) / data.totalHours).toFixed(0) : "0"}
+                                RM {displayHours > 0 ? (displayGmv / displayHours).toFixed(0) : "0"}
                             </p>
                             <p className="text-[10px] text-muted-foreground mt-0.5">Stream hourly efficiency</p>
                         </div>
@@ -141,9 +199,11 @@ export default function LivehostDepartmentSection({
                 <Card className="border-border/50 bg-card/60">
                     <CardContent className="p-4 flex items-center justify-between">
                         <div>
-                            <p className="text-[11px] font-medium text-muted-foreground">Active Streams</p>
-                            <p className="text-xl font-bold mt-0.5">5 Categories</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">TikTok & Shopee Live</p>
+                            <p className="text-[11px] font-medium text-muted-foreground">Active Stream Scope</p>
+                            <p className="text-xl font-bold mt-0.5">
+                                {effectivePlatform === "tt" ? "TikTok Only" : effectivePlatform === "shopee" ? "Shopee Only" : "TikTok & Shopee"}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">5 Stream Categories</p>
                         </div>
                         <div className="p-2.5 rounded-lg bg-purple-500/10 text-purple-500">
                             <Sparkles className="h-5 w-5" />
@@ -364,14 +424,14 @@ export default function LivehostDepartmentSection({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/30">
-                                {data.topHosts.length === 0 ? (
+                                {filteredTopHosts.length === 0 ? (
                                     <tr>
                                         <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                                            No livestream host records found for this period.
+                                            No livestream host records found for {effectivePlatform === "tt" ? "TikTok" : effectivePlatform === "shopee" ? "Shopee" : "this"} period.
                                         </td>
                                     </tr>
                                 ) : (
-                                    data.topHosts.map((h, idx) => (
+                                    filteredTopHosts.map((h, idx) => (
                                         <tr key={`${h.host_name}-${h.category}-${idx}`} className="hover:bg-muted/20 transition-colors">
                                             <td className="py-3 px-4 font-semibold text-foreground">
                                                 <div className="flex items-center gap-2">

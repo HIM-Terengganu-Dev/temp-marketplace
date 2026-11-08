@@ -32,6 +32,20 @@ const livePool = createPool(process.env.DB_LIVEHOST_URL);
 const affPool = createPool(process.env.DB_AFFILIATE_URL);
 const stockPool = createPool(process.env.DB_STOCK_URL);
 
+// HIM Wellness shop filters (Excludes WEROCA shops: TikTok shops 3 & 4 and WEROCA Shopee accounts)
+const SHOPEE_HIM_IDS = [1077500606, 1256177782, 1285322524, 1290223366, 1298030530];
+const TIKTOK_HIM_NUMBERS = [1, 2];
+
+// SQL condition to isolate true external affiliates (excludes internal team handles even if mislabeled in DB)
+const AFFILIATE_EXTERNAL_FILTER_SQL = `
+    channel = 'External'
+    AND (LOWER(shop) LIKE '%dr%samhan%' OR LOWER(shop) LIKE '%drsamhan%' OR LOWER(shop) LIKE '%himclinic%')
+    AND NOT (
+        LOWER(username) ~* '^(dr\\.?samhan|himcoffee|affiliatedrsamhan)'
+        OR LOWER(username) IN ('eynaaa342', 'samaffiliate4')
+    )
+`;
+
 const LIVEHOST_CATEGORY_SQL = `
     CASE
         WHEN u.role = 'EXTERNAL_HOST' THEN 'EXTERNAL'
@@ -81,7 +95,8 @@ export async function GET(request: Request) {
         const deptTargets = await getDepartmentTargets(month);
 
         // Run all department queries in parallel with independent try/catch boundaries
-        const [marketingData, livehostData, affiliateData, stockData] = await Promise.all([
+        const [overallData, marketingData, livehostData, affiliateData, stockData] = await Promise.all([
+            fetchOverallSales(month, startDate, endDate, deptTargets.overall.targetAmount),
             fetchMarketingDepartment(month, startDate, endDate, deptTargets.marketing.targetAmount),
             fetchLivehostDepartment(month, startDate, endDate, deptTargets.livehost.targetAmount),
             fetchAffiliateDepartment(month, startDate, endDate, deptTargets.affiliate.targetAmount),
@@ -94,6 +109,7 @@ export async function GET(request: Request) {
             startDate,
             endDate,
             targets: deptTargets,
+            overall: overallData,
             marketing: marketingData,
             livehost: livehostData,
             affiliate: affiliateData,
@@ -102,6 +118,147 @@ export async function GET(request: Request) {
     } catch (err: any) {
         console.error('[reality-sales] GET fatal error:', err);
         return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
+    }
+}
+
+// -------------------------------------------------------------
+// 0. OVERALL TOTAL SALES (TIKTOK SHOP + SHOPEE PLATFORM RECONCILIATION - HIM WELLNESS ONLY)
+// -------------------------------------------------------------
+async function fetchOverallSales(month: string, startDate: string, endDate: string, targetAmount: number) {
+    try {
+        // Query daily Shopee metrics (HIM Wellness only)
+        const shopeeRes = await localPool.query(`
+            SELECT 
+                COALESCE(SUM(gmv), 0)::float as gmv,
+                COALESCE(SUM(order_count), 0)::int as orders,
+                COALESCE(SUM(spend_before_tax), 0)::float as spend,
+                COALESCE(SUM(cancelled_gmv), 0)::float as cancelled_gmv,
+                COALESCE(SUM(cancelled_order_count), 0)::int as cancelled_orders,
+                COUNT(DISTINCT date)::int as active_days
+            FROM credentials.daily_shopee_metrics
+            WHERE date >= $1 AND date <= $2
+              AND shop_id = ANY(ARRAY[${SHOPEE_HIM_IDS.join(',')}]::bigint[])
+        `, [startDate, endDate]);
+
+        // Query daily TikTok metrics (HIM Wellness only: Shop 1 & 2)
+        const tiktokRes = await localPool.query(`
+            SELECT 
+                COALESCE(SUM(gmv), 0)::float as gmv,
+                COALESCE(SUM(order_count), 0)::int as orders,
+                COALESCE(SUM(spend_before_tax), 0)::float as spend,
+                COALESCE(SUM(cancelled_gmv), 0)::float as cancelled_gmv,
+                COALESCE(SUM(cancelled_order_count), 0)::int as cancelled_orders,
+                COUNT(DISTINCT date)::int as active_days
+            FROM credentials.daily_shop_metrics
+            WHERE date >= $1 AND date <= $2
+              AND shop_number = ANY(ARRAY[${TIKTOK_HIM_NUMBERS.join(',')}]::int[])
+        `, [startDate, endDate]);
+
+        const shopeeRow = shopeeRes.rows[0] || { gmv: 0, orders: 0, spend: 0, cancelled_gmv: 0, cancelled_orders: 0, active_days: 0 };
+        const tiktokRow = tiktokRes.rows[0] || { gmv: 0, orders: 0, spend: 0, cancelled_gmv: 0, cancelled_orders: 0, active_days: 0 };
+
+        const shopeeGmv = parseFloat(shopeeRow.gmv) || 0;
+        const tiktokGmv = parseFloat(tiktokRow.gmv) || 0;
+        const totalGmv = shopeeGmv + tiktokGmv;
+
+        const shopeeOrders = parseInt(shopeeRow.orders, 10) || 0;
+        const tiktokOrders = parseInt(tiktokRow.orders, 10) || 0;
+        const totalOrders = shopeeOrders + tiktokOrders;
+
+        const shopeeSpend = parseFloat(shopeeRow.spend) || 0;
+        const tiktokSpend = parseFloat(tiktokRow.spend) || 0;
+        const totalSpend = shopeeSpend + tiktokSpend;
+
+        // Check MTD targets for TikTok split if configured (prefer HIMWELLNESS target)
+        let tiktokTarget = 0;
+        let shopeeTarget = 0;
+        try {
+            const mtdTargetRes = await localPool.query(`
+                SELECT monthly_target, tiktok_target_val
+                FROM credentials.mtd_targets
+                WHERE target_month = $1 AND company = 'HIMWELLNESS'
+                LIMIT 1
+            `, [month]);
+            if (mtdTargetRes.rows.length > 0) {
+                const mt = mtdTargetRes.rows[0];
+                tiktokTarget = parseFloat(mt.tiktok_target_val) || 0;
+                const mTotal = parseFloat(mt.monthly_target) || targetAmount;
+                shopeeTarget = Math.max(0, mTotal - tiktokTarget);
+            } else {
+                const fallbackRes = await localPool.query(`
+                    SELECT monthly_target, tiktok_target_val
+                    FROM credentials.mtd_targets
+                    WHERE target_month = $1 AND company = 'ALL'
+                    LIMIT 1
+                `, [month]);
+                if (fallbackRes.rows.length > 0) {
+                    const mt = fallbackRes.rows[0];
+                    tiktokTarget = parseFloat(mt.tiktok_target_val) || 0;
+                    const mTotal = parseFloat(mt.monthly_target) || targetAmount;
+                    shopeeTarget = Math.max(0, mTotal - tiktokTarget);
+                }
+            }
+        } catch (_) {}
+
+        if (tiktokTarget === 0 && targetAmount > 0) {
+            tiktokTarget = Math.round(targetAmount * 0.75);
+            shopeeTarget = targetAmount - tiktokTarget;
+        }
+
+        const attainmentRate = targetAmount > 0 ? (totalGmv / targetAmount) * 100 : 0;
+        const tiktokAttainment = tiktokTarget > 0 ? (tiktokGmv / tiktokTarget) * 100 : 0;
+        const shopeeAttainment = shopeeTarget > 0 ? (shopeeGmv / shopeeTarget) * 100 : 0;
+
+        const tiktokShare = totalGmv > 0 ? (tiktokGmv / totalGmv) * 100 : 0;
+        const shopeeShare = totalGmv > 0 ? (shopeeGmv / totalGmv) * 100 : 0;
+
+        return {
+            status: 'connected',
+            hasData: totalGmv > 0,
+            targetAmount,
+            totalGmv,
+            totalOrders,
+            totalSpend,
+            attainmentRate,
+            variance: totalGmv - targetAmount,
+            blendedRoas: totalSpend > 0 ? totalGmv / totalSpend : 0,
+            tiktok: {
+                gmv: tiktokGmv,
+                orders: tiktokOrders,
+                spend: tiktokSpend,
+                targetAmount: tiktokTarget,
+                attainmentRate: tiktokAttainment,
+                sharePct: tiktokShare,
+                roas: tiktokSpend > 0 ? tiktokGmv / tiktokSpend : 0,
+                activeDays: tiktokRow.active_days || 0
+            },
+            shopee: {
+                gmv: shopeeGmv,
+                orders: shopeeOrders,
+                spend: shopeeSpend,
+                targetAmount: shopeeTarget,
+                attainmentRate: shopeeAttainment,
+                sharePct: shopeeShare,
+                roas: shopeeSpend > 0 ? shopeeGmv / shopeeSpend : 0,
+                activeDays: shopeeRow.active_days || 0
+            }
+        };
+    } catch (err: any) {
+        console.error('[reality-sales] Overall sales query error:', err);
+        return {
+            status: 'error',
+            hasData: false,
+            targetAmount,
+            totalGmv: 0,
+            totalOrders: 0,
+            totalSpend: 0,
+            attainmentRate: 0,
+            variance: 0,
+            blendedRoas: 0,
+            tiktok: { gmv: 0, orders: 0, spend: 0, targetAmount: 0, attainmentRate: 0, sharePct: 0, roas: 0, activeDays: 0 },
+            shopee: { gmv: 0, orders: 0, spend: 0, targetAmount: 0, attainmentRate: 0, sharePct: 0, roas: 0, activeDays: 0 },
+            error: err.message
+        };
     }
 }
 
@@ -335,6 +492,12 @@ async function fetchLivehostDepartment(month: string, startDate: string, endDate
         let totalGmv = 0;
         let totalSessions = 0;
         let totalHours = 0;
+        let tiktokGmv = 0;
+        let shopeeGmv = 0;
+        let tiktokSessions = 0;
+        let shopeeSessions = 0;
+        let tiktokHours = 0;
+        let shopeeHours = 0;
 
         for (const row of catRes.rows) {
             const cat = row.category as keyof typeof categories;
@@ -352,10 +515,16 @@ async function fetchLivehostDepartment(month: string, startDate: string, endDate
                     categories[cat].shopeeGmv += gmv;
                     categories[cat].shopeeSessions += sess;
                     categories[cat].shopeeHours += hrs;
+                    shopeeGmv += gmv;
+                    shopeeSessions += sess;
+                    shopeeHours += hrs;
                 } else {
                     categories[cat].tiktokGmv += gmv;
                     categories[cat].tiktokSessions += sess;
                     categories[cat].tiktokHours += hrs;
+                    tiktokGmv += gmv;
+                    tiktokSessions += sess;
+                    tiktokHours += hrs;
                 }
             }
         }
@@ -369,6 +538,12 @@ async function fetchLivehostDepartment(month: string, startDate: string, endDate
             totalGmv,
             totalSessions,
             totalHours,
+            tiktokGmv,
+            shopeeGmv,
+            tiktokSessions,
+            shopeeSessions,
+            tiktokHours,
+            shopeeHours,
             attainmentRate,
             categories,
             topHosts: hostsRes.rows
@@ -407,7 +582,7 @@ async function fetchAffiliateDepartment(month: string, startDate: string, endDat
     }
 
     try {
-        // Query strictly External sales for Shopee and TikTok
+        // Query strictly External sales for Shopee and TikTok (excluding internal team handles)
         const platformRes = await affPool.query(`
             SELECT 
                 platform,
@@ -419,8 +594,7 @@ async function fetchAffiliateDepartment(month: string, startDate: string, endDat
                 COALESCE(SUM(items_sold::numeric), 0)::int as items_sold,
                 COALESCE(SUM(orders::numeric), 0)::int as total_orders
             FROM affiliate_records
-            WHERE channel = 'External'
-              AND (LOWER(shop) LIKE '%dr%samhan%' OR LOWER(shop) LIKE '%drsamhan%' OR LOWER(shop) LIKE '%himclinic%')
+            WHERE ${AFFILIATE_EXTERNAL_FILTER_SQL}
               AND DATE(report_date) >= $1
               AND DATE(report_date) <= $2
             GROUP BY platform;
@@ -445,7 +619,7 @@ async function fetchAffiliateDepartment(month: string, startDate: string, endDat
             }
         }
 
-        // Top External Affiliates
+        // Top External Affiliates (excluding internal team handles)
         const topAffRes = await affPool.query(`
             SELECT 
                 username,
@@ -457,8 +631,7 @@ async function fetchAffiliateDepartment(month: string, startDate: string, endDat
                 COALESCE(SUM(items_sold::numeric), 0)::int as items_sold,
                 COALESCE(SUM(orders::numeric), 0)::int as total_orders
             FROM affiliate_records
-            WHERE channel = 'External'
-              AND (LOWER(shop) LIKE '%dr%samhan%' OR LOWER(shop) LIKE '%drsamhan%' OR LOWER(shop) LIKE '%himclinic%')
+            WHERE ${AFFILIATE_EXTERNAL_FILTER_SQL}
               AND DATE(report_date) >= $1
               AND DATE(report_date) <= $2
             GROUP BY username, platform, tier
@@ -615,9 +788,22 @@ async function fetchStockInventoryDepartment(startDate: string, endDate: string)
 
         let totalUnitsSold = 0;
         let totalOrdersCount = 0;
+        let tiktokOrdersCount = 0;
+        let shopeeOrdersCount = 0;
+        let tiktokUnitsSold = 0;
+        let shopeeUnitsSold = 0;
+
         for (const row of ordersSummaryRes.rows) {
             totalOrdersCount += row.order_count;
             totalUnitsSold += row.total_quantity;
+            const mp = (row.marketplace || '').toLowerCase();
+            if (mp.includes('tiktok')) {
+                tiktokOrdersCount += row.order_count;
+                tiktokUnitsSold += row.total_quantity;
+            } else if (mp.includes('shopee')) {
+                shopeeOrdersCount += row.order_count;
+                shopeeUnitsSold += row.total_quantity;
+            }
         }
 
         return {
@@ -630,7 +816,11 @@ async function fetchStockInventoryDepartment(startDate: string, endDate: string)
                 singleWithCost,
                 comboWithCost,
                 totalOrdersCount,
-                totalUnitsSold
+                totalUnitsSold,
+                tiktokOrdersCount,
+                shopeeOrdersCount,
+                tiktokUnitsSold,
+                shopeeUnitsSold
             },
             singleSkus,
             comboSkus,
@@ -661,13 +851,14 @@ async function fetchRealitySalesTrends(year: number, currentYear: number, curren
     // 1. Configured targets across months
     const targetsByMonth = await getHistoricalDepartmentTargets(year);
 
-    // 2. Overall Actuals
+    // 2. Overall Actuals (HIM Wellness only)
     const overallActualsMap: Record<string, number> = {};
     try {
         const shopeeRes = await localPool.query(`
             SELECT TO_CHAR(date, 'YYYY-MM') as month_key, COALESCE(SUM(gmv), 0)::float as gmv
             FROM credentials.daily_shopee_metrics
             WHERE EXTRACT(YEAR FROM date) = $1
+              AND shop_id = ANY(ARRAY[${SHOPEE_HIM_IDS.join(',')}]::bigint[])
             GROUP BY month_key;
         `, [year]);
         for (const r of shopeeRes.rows) {
@@ -678,6 +869,7 @@ async function fetchRealitySalesTrends(year: number, currentYear: number, curren
             SELECT TO_CHAR(date, 'YYYY-MM') as month_key, COALESCE(SUM(gmv), 0)::float as gmv
             FROM credentials.daily_shop_metrics
             WHERE EXTRACT(YEAR FROM date) = $1
+              AND shop_number = ANY(ARRAY[${TIKTOK_HIM_NUMBERS.join(',')}]::int[])
             GROUP BY month_key;
         `, [year]);
         for (const r of tiktokRes.rows) {
@@ -739,7 +931,7 @@ async function fetchRealitySalesTrends(year: number, currentYear: number, curren
         }
     }
 
-    // 5. Affiliate Actuals
+    // 5. Affiliate Actuals (External only, excluding internal team handles)
     const affiliateActualsMap: Record<string, number> = {};
     if (affPool) {
         try {
@@ -748,8 +940,7 @@ async function fetchRealitySalesTrends(year: number, currentYear: number, curren
                     TO_CHAR(report_date, 'YYYY-MM') as month_key,
                     COALESCE(SUM(total_gmv::numeric), 0)::float as gmv
                 FROM affiliate_records
-                WHERE channel = 'External'
-                  AND (LOWER(shop) LIKE '%dr%samhan%' OR LOWER(shop) LIKE '%drsamhan%' OR LOWER(shop) LIKE '%himclinic%')
+                WHERE ${AFFILIATE_EXTERNAL_FILTER_SQL}
                   AND EXTRACT(YEAR FROM report_date) = $1
                 GROUP BY month_key;
             `, [year]);

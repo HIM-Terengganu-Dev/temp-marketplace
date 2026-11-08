@@ -12,6 +12,11 @@ import {
     Loader2,
     ExternalLink,
     AlertCircle,
+    Copy,
+    Check,
+    Sparkles,
+    ChevronDown,
+    ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +45,9 @@ export function FeedbackWidget() {
     const [isOpen, setIsOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submittedId, setSubmittedId] = useState<number | null>(null);
+    const [submittedPrompt, setSubmittedPrompt] = useState<string | null>(null);
+    const [isCopied, setIsCopied] = useState(false);
+    const [showPromptPreview, setShowPromptPreview] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     const [form, setForm] = useState({
@@ -140,7 +148,21 @@ export function FeedbackWidget() {
         if (!hasMoved) {
             setIsOpen(true);
             setSubmittedId(null);
+            setSubmittedPrompt(null);
+            setIsCopied(false);
+            setShowPromptPreview(false);
             setErrorMsg(null);
+        }
+    };
+
+    const handleCopyPrompt = async () => {
+        if (!submittedPrompt) return;
+        try {
+            await navigator.clipboard.writeText(submittedPrompt);
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2500);
+        } catch (e) {
+            console.error("Clipboard copy failed:", e);
         }
     };
 
@@ -171,6 +193,9 @@ export function FeedbackWidget() {
             const data = await res.json();
             if (data.success && data.data?.id) {
                 setSubmittedId(data.data.id);
+                setSubmittedPrompt(data.data.agent_prompt || null);
+                setIsCopied(false);
+                setShowPromptPreview(false);
                 setForm({
                     type: "improvement",
                     priority: "medium",
@@ -255,6 +280,59 @@ export function FeedbackWidget() {
                                             Reference Ticket: <span className="font-mono text-violet-600 dark:text-violet-400 font-semibold">#{submittedId}</span>
                                         </p>
                                     </div>
+
+                                    {/* AI Agent Prompt Box if Generated */}
+                                    {submittedPrompt && (
+                                        <div className="p-4 rounded-xl bg-violet-500/10 dark:bg-violet-950/30 border border-violet-500/30 text-left space-y-2.5">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Sparkles className="h-4 w-4 text-violet-500 shrink-0" />
+                                                    <span className="text-xs font-bold text-foreground">AI Agent Prompt Auto-Generated</span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleCopyPrompt}
+                                                    className={cn(
+                                                        "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0",
+                                                        isCopied
+                                                            ? "bg-emerald-600 text-white"
+                                                            : "bg-violet-600 hover:bg-violet-500 text-white shadow-violet-600/20"
+                                                    )}
+                                                >
+                                                    {isCopied ? (
+                                                        <>
+                                                            <Check className="h-3.5 w-3.5" />
+                                                            Copied!
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Copy className="h-3.5 w-3.5" />
+                                                            Copy AI Prompt
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+
+                                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                                Prompt ini sedia untuk dicopy dan diberi terus kepada AI Coding Agent (seperti Antigravity, Claude Code, Cursor) untuk tambah features atau fix isu ini.
+                                            </p>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPromptPreview(!showPromptPreview)}
+                                                className="flex items-center gap-1 text-[11px] font-medium text-violet-600 dark:text-violet-400 hover:underline"
+                                            >
+                                                <span>{showPromptPreview ? "Sembunyikan Preview Prompt" : "Lihat Preview Prompt"}</span>
+                                                {showPromptPreview ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                            </button>
+
+                                            {showPromptPreview && (
+                                                <div className="max-h-52 overflow-y-auto p-3 rounded-lg bg-black/60 border border-border text-[11px] font-mono text-slate-200 whitespace-pre-wrap select-all leading-relaxed">
+                                                    {submittedPrompt}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
                                         <button

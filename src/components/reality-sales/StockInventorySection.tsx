@@ -74,11 +74,13 @@ interface StockData {
 interface StockInventorySectionProps {
     data: StockData;
     onRetry?: () => void;
+    platformFilter?: "all" | "tt" | "shopee";
 }
 
 export default function StockInventorySection({
     data,
-    onRetry
+    onRetry,
+    platformFilter
 }: StockInventorySectionProps) {
     const [activeTab, setActiveTab] = useState<"cogs" | "single" | "combo" | "orders">("cogs");
     const [searchQuery, setSearchQuery] = useState("");
@@ -98,6 +100,8 @@ export default function StockInventorySection({
         totalUnitsSold: 0
     };
 
+    const effectivePlatform = platformFilter || "all";
+
     const filteredSingle = (data.singleSkus || []).filter(s =>
         s.merchant_sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (s.product_category || "").toLowerCase().includes(searchQuery.toLowerCase())
@@ -108,11 +112,23 @@ export default function StockInventorySection({
         (c.product_category || "").toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const filteredOrders = (data.recentOrders || []).filter(o =>
-        o.order_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.merchant_sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.store.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredOrders = (data.recentOrders || []).filter(o => {
+        const matchesSearch =
+            o.order_no.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            o.merchant_sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            o.store.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesPlatform =
+            effectivePlatform === "all" ||
+            (effectivePlatform === "tt" && (o.marketplace || "").toLowerCase().includes("tiktok")) ||
+            (effectivePlatform === "shopee" && (o.marketplace || "").toLowerCase().includes("shopee"));
+        return matchesSearch && matchesPlatform;
+    });
+
+    const displayOrdersSummary = (data.ordersSummary || []).filter(s => {
+        if (effectivePlatform === "tt") return (s.marketplace || "").toLowerCase().includes("tiktok");
+        if (effectivePlatform === "shopee") return (s.marketplace || "").toLowerCase().includes("shopee");
+        return true;
+    });
 
     return (
         <div className="space-y-6">
@@ -478,7 +494,7 @@ export default function StockInventorySection({
                 <div className="space-y-4">
                     {/* Orders summary by marketplace */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {data.ordersSummary.slice(0, 3).map((item, idx) => (
+                        {displayOrdersSummary.slice(0, 3).map((item, idx) => (
                             <Card key={idx} className="border-border/50 bg-card/60">
                                 <CardContent className="p-3.5">
                                     <div className="flex items-center justify-between">

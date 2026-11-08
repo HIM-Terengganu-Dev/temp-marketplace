@@ -16,8 +16,10 @@ import {
     Save, 
     UserPlus, 
     Check, 
-    AlertTriangle 
+    AlertTriangle,
+    Key 
 } from "lucide-react";
+import ApiKeysTab from "@/components/settings/ApiKeysTab";
 
 // Definitions of existing shops in the ecosystem
 const TIKTOK_SHOPS = [
@@ -74,7 +76,7 @@ export default function SettingsPage() {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
 
-    const [activeTab, setActiveTab] = useState<"rbac" | "cogs">("rbac");
+    const [activeTab, setActiveTab] = useState<"rbac" | "cogs" | "api_keys">("rbac");
 
     // COGS master catalogue states
     const [skus, setSkus] = useState<any[]>([]);
@@ -394,6 +396,17 @@ export default function SettingsPage() {
                         </span>
                     )}
                 </button>
+                <button
+                    onClick={() => setActiveTab("api_keys")}
+                    className={`pb-3 font-semibold text-sm transition-all border-b-2 px-1 flex items-center gap-2 ${
+                        activeTab === "api_keys"
+                            ? "border-primary text-primary"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                    <Key className="h-4 w-4" />
+                    API Access Keys
+                </button>
             </div>
 
             {activeTab === "rbac" ? (
@@ -650,7 +663,7 @@ export default function SettingsPage() {
                         </Card>
                     </div>
                 </div>
-            ) : (
+            ) : activeTab === "cogs" ? (
                 /* ── COGS Dynamic Manager View ─────────────────────────────────── */
                 <div className="space-y-6">
                     {cogsError && (
@@ -792,6 +805,8 @@ export default function SettingsPage() {
                         </CardContent>
                     </Card>
                 </div>
+            ) : (
+                <ApiKeysTab />
             )}
         </div>
     );

@@ -17,6 +17,7 @@ async function setupFeedbackDB() {
                 priority VARCHAR(50) NOT NULL DEFAULT 'medium',
                 status VARCHAR(50) NOT NULL DEFAULT 'Pending',
                 admin_notes TEXT,
+                agent_prompt TEXT,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );

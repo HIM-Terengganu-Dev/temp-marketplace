@@ -40,6 +40,7 @@ interface MarketingDepartmentSectionProps {
     isAdmin: boolean;
     onEditTarget: () => void;
     onRetry?: () => void;
+    platformFilter?: "all" | "tt" | "shopee";
 }
 
 export default function MarketingDepartmentSection({
@@ -47,7 +48,8 @@ export default function MarketingDepartmentSection({
     month,
     isAdmin,
     onEditTarget,
-    onRetry
+    onRetry,
+    platformFilter
 }: MarketingDepartmentSectionProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [sortBy, setSortBy] = useState<"gmv" | "videos" | "sold">("gmv");
@@ -66,6 +68,14 @@ export default function MarketingDepartmentSection({
 
     return (
         <div className="space-y-6">
+            {platformFilter === "shopee" && (
+                <DepartmentAlert
+                    title="Shopee Video Marketing Scope"
+                    type="warning"
+                    message="Marketing & Video Tracking operates exclusively on TikTok creator handles (HIM Creative Master Database). Switch filter to 'All' or 'TT' to review TikTok video sales."
+                />
+            )}
+
             {/* Target & KPI Card */}
             <DepartmentKpiCard
                 departmentLabel="Marketing"

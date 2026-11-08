@@ -29,6 +29,20 @@ const affPool = createPool(process.env.DB_AFFILIATE_URL);
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogs', 'Sep', 'Okt', 'Nov', 'Dis'];
 
+// HIM Wellness shop filters (Excludes WEROCA shops: TikTok shops 3 & 4 and WEROCA Shopee accounts)
+const SHOPEE_HIM_IDS = [1077500606, 1256177782, 1285322524, 1290223366, 1298030530];
+const TIKTOK_HIM_NUMBERS = [1, 2];
+
+// SQL condition to isolate true external affiliates (excludes internal team handles even if mislabeled in DB)
+const AFFILIATE_EXTERNAL_FILTER_SQL = `
+    channel = 'External'
+    AND (LOWER(shop) LIKE '%dr%samhan%' OR LOWER(shop) LIKE '%drsamhan%' OR LOWER(shop) LIKE '%himclinic%')
+    AND NOT (
+        LOWER(username) ~* '^(dr\\.?samhan|himcoffee|affiliatedrsamhan)'
+        OR LOWER(username) IN ('eynaaa342', 'samaffiliate4')
+    )
+`;
+
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
@@ -42,13 +56,14 @@ export async function GET(request: Request) {
         // 1. Fetch configured targets for all months in this year
         const targetsByMonth = await getHistoricalDepartmentTargets(year);
 
-        // 2. Fetch Overall Actuals (Shopee & TikTok)
+        // 2. Fetch Overall Actuals (Shopee & TikTok - HIM Wellness only)
         const overallActualsMap: Record<string, number> = {};
         try {
             const shopeeRes = await localQuery(`
                 SELECT TO_CHAR(date, 'YYYY-MM') as month_key, COALESCE(SUM(gmv), 0)::float as gmv
                 FROM credentials.daily_shopee_metrics
                 WHERE EXTRACT(YEAR FROM date) = $1
+                  AND shop_id = ANY(ARRAY[${SHOPEE_HIM_IDS.join(',')}]::bigint[])
                 GROUP BY month_key;
             `, [year]);
             for (const r of shopeeRes.rows) {
@@ -59,6 +74,7 @@ export async function GET(request: Request) {
                 SELECT TO_CHAR(date, 'YYYY-MM') as month_key, COALESCE(SUM(gmv), 0)::float as gmv
                 FROM credentials.daily_shop_metrics
                 WHERE EXTRACT(YEAR FROM date) = $1
+                  AND shop_number = ANY(ARRAY[${TIKTOK_HIM_NUMBERS.join(',')}]::int[])
                 GROUP BY month_key;
             `, [year]);
             for (const r of tiktokRes.rows) {
@@ -120,7 +136,7 @@ export async function GET(request: Request) {
             }
         }
 
-        // 5. Fetch Affiliate Actuals
+        // 5. Fetch Affiliate Actuals (External only, excluding internal team handles)
         const affiliateActualsMap: Record<string, number> = {};
         if (affPool) {
             try {
@@ -129,8 +145,7 @@ export async function GET(request: Request) {
                         TO_CHAR(report_date, 'YYYY-MM') as month_key,
                         COALESCE(SUM(total_gmv::numeric), 0)::float as gmv
                     FROM affiliate_records
-                    WHERE channel = 'External'
-                      AND (LOWER(shop) LIKE '%dr%samhan%' OR LOWER(shop) LIKE '%drsamhan%' OR LOWER(shop) LIKE '%himclinic%')
+                    WHERE ${AFFILIATE_EXTERNAL_FILTER_SQL}
                       AND EXTRACT(YEAR FROM report_date) = $1
                     GROUP BY month_key;
                 `, [year]);

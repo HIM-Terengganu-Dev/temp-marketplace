@@ -38,6 +38,8 @@ interface AffiliateDepartmentSectionProps {
     isAdmin: boolean;
     onEditTarget: () => void;
     onRetry?: () => void;
+    platformFilter?: "all" | "tt" | "shopee";
+    onPlatformFilterChange?: (p: "all" | "tt" | "shopee") => void;
 }
 
 export default function AffiliateDepartmentSection({
@@ -45,22 +47,49 @@ export default function AffiliateDepartmentSection({
     month,
     isAdmin,
     onEditTarget,
-    onRetry
+    onRetry,
+    platformFilter,
+    onPlatformFilterChange
 }: AffiliateDepartmentSectionProps) {
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedPlatform, setSelectedPlatform] = useState<"ALL" | "TIKTOK" | "SHOPEE">("ALL");
+    const [localPlatform, setLocalPlatform] = useState<"ALL" | "TIKTOK" | "SHOPEE">("ALL");
+
+    // Use parent platformFilter if provided, else fall back to local state
+    const activePlatform = platformFilter
+        ? platformFilter === "tt"
+            ? "TIKTOK"
+            : platformFilter === "shopee"
+            ? "SHOPEE"
+            : "ALL"
+        : localPlatform;
+
+    const handleSelectPlatform = (p: "ALL" | "TIKTOK" | "SHOPEE") => {
+        setLocalPlatform(p);
+        if (onPlatformFilterChange) {
+            onPlatformFilterChange(p === "TIKTOK" ? "tt" : p === "SHOPEE" ? "shopee" : "all");
+        }
+    };
 
     const totalGmv = data.totalGmv || 0;
     const shopeeShare = totalGmv > 0 ? ((data.shopeeGmv || 0) / totalGmv) * 100 : 0;
     const tiktokShare = totalGmv > 0 ? ((data.tiktokGmv || 0) / totalGmv) * 100 : 0;
 
+    const displaySales =
+        activePlatform === "TIKTOK"
+            ? (data.tiktokGmv || 0)
+            : activePlatform === "SHOPEE"
+            ? (data.shopeeGmv || 0)
+            : (data.totalGmv || 0);
+
+    const displayAttainment = data.targetAmount > 0 ? (displaySales / data.targetAmount) * 100 : 0;
+
     const filteredAffiliates = (data.topAffiliates || [])
         .filter((a) => {
             const matchesSearch = a.username.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesPlatform =
-                selectedPlatform === "ALL" ||
-                (selectedPlatform === "TIKTOK" && a.platform.toLowerCase().includes("tiktok")) ||
-                (selectedPlatform === "SHOPEE" && a.platform.toLowerCase().includes("shopee"));
+                activePlatform === "ALL" ||
+                (activePlatform === "TIKTOK" && a.platform.toLowerCase().includes("tiktok")) ||
+                (activePlatform === "SHOPEE" && a.platform.toLowerCase().includes("shopee"));
             return matchesSearch && matchesPlatform;
         });
 
@@ -70,12 +99,24 @@ export default function AffiliateDepartmentSection({
             <DepartmentKpiCard
                 departmentLabel="Affiliate"
                 targetAmount={data.targetAmount || 0}
-                actualSales={data.totalGmv || 0}
-                attainmentRate={data.attainmentRate || 0}
+                actualSales={displaySales}
+                attainmentRate={displayAttainment}
                 isAdmin={isAdmin}
                 onEditTarget={onEditTarget}
-                unitLabel="External Affiliate GMV"
-                sublabel="Strictly external affiliate creator records from hw-affiliate-management"
+                unitLabel={
+                    activePlatform === "TIKTOK"
+                        ? "TikTok Affiliate GMV"
+                        : activePlatform === "SHOPEE"
+                        ? "Shopee Affiliate GMV"
+                        : "External Affiliate GMV"
+                }
+                sublabel={
+                    activePlatform === "TIKTOK"
+                        ? "External creators promoting TikTok Shop catalog"
+                        : activePlatform === "SHOPEE"
+                        ? "External creators promoting Shopee catalog"
+                        : "Strictly external affiliate creator records from hw-affiliate-management"
+                }
             />
 
             {!data.hasData && (
@@ -197,25 +238,25 @@ export default function AffiliateDepartmentSection({
 
                             <div className="flex items-center gap-1 border border-input rounded-md p-0.5 bg-muted/40">
                                 <button
-                                    onClick={() => setSelectedPlatform("ALL")}
+                                    onClick={() => handleSelectPlatform("ALL")}
                                     className={`px-2 py-1 text-[11px] font-medium rounded ${
-                                        selectedPlatform === "ALL" ? "bg-background shadow-xs text-foreground" : "text-muted-foreground"
+                                        activePlatform === "ALL" ? "bg-background shadow-xs text-foreground font-bold" : "text-muted-foreground"
                                     }`}
                                 >
                                     All
                                 </button>
                                 <button
-                                    onClick={() => setSelectedPlatform("TIKTOK")}
+                                    onClick={() => handleSelectPlatform("TIKTOK")}
                                     className={`px-2 py-1 text-[11px] font-medium rounded ${
-                                        selectedPlatform === "TIKTOK" ? "bg-background shadow-xs text-foreground" : "text-muted-foreground"
+                                        activePlatform === "TIKTOK" ? "bg-background shadow-xs text-cyan-500 font-bold" : "text-muted-foreground"
                                     }`}
                                 >
                                     TikTok
                                 </button>
                                 <button
-                                    onClick={() => setSelectedPlatform("SHOPEE")}
+                                    onClick={() => handleSelectPlatform("SHOPEE")}
                                     className={`px-2 py-1 text-[11px] font-medium rounded ${
-                                        selectedPlatform === "SHOPEE" ? "bg-background shadow-xs text-foreground" : "text-muted-foreground"
+                                        activePlatform === "SHOPEE" ? "bg-background shadow-xs text-amber-500 font-bold" : "text-muted-foreground"
                                     }`}
                                 >
                                     Shopee

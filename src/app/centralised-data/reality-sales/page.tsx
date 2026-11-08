@@ -26,6 +26,7 @@ import StockInventorySection from "@/components/reality-sales/StockInventorySect
 import EditDepartmentTargetModal from "@/components/reality-sales/EditDepartmentTargetModal";
 import DepartmentAlert from "@/components/reality-sales/DepartmentAlert";
 import MultiMonthPerformanceTrend from "@/components/reality-sales/MultiMonthPerformanceTrend";
+import TotalSalesOverviewBanner, { PlatformFilter } from "@/components/reality-sales/TotalSalesOverviewBanner";
 import { isUserTargetPIC } from "@/lib/target-permissions";
 
 type DepartmentTab = "overview" | "marketing" | "livehost" | "affiliate" | "stock";
@@ -45,6 +46,7 @@ export default function RealitySalesDepartmentPage() {
     // Date state
     const [selectedMonth, setSelectedMonth] = useState<string>(() => getMonthKL());
     const [activeTab, setActiveTab] = useState<DepartmentTab>("overview");
+    const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
 
     // Data state
     const [loading, setLoading] = useState(true);
@@ -108,6 +110,7 @@ export default function RealitySalesDepartmentPage() {
         setSelectedMonth(`${year}-${String(month).padStart(2, "0")}`);
     };
 
+    const overallData = pageData?.overall;
     const marketingData = pageData?.marketing;
     const livehostData = pageData?.livehost;
     const affiliateData = pageData?.affiliate;
@@ -136,8 +139,45 @@ export default function RealitySalesDepartmentPage() {
                     </p>
                 </div>
 
-                {/* Month Navigator & Refresh */}
+                {/* Platform Switcher, Month Navigator & Refresh */}
                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                    {/* Platform Selector Buttons (all, tt, shopee) */}
+                    <div className="flex items-center rounded-lg border border-border/60 bg-card p-1 shadow-xs">
+                        <button
+                            onClick={() => setPlatformFilter("all")}
+                            className={`h-7 px-3 text-xs font-bold rounded-md transition-all ${
+                                platformFilter === "all"
+                                    ? "bg-primary text-primary-foreground shadow-xs"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                            }`}
+                            title="Show all platforms"
+                        >
+                            All
+                        </button>
+                        <button
+                            onClick={() => setPlatformFilter("tt")}
+                            className={`h-7 px-3 text-xs font-bold rounded-md transition-all ${
+                                platformFilter === "tt"
+                                    ? "bg-cyan-500 text-white shadow-xs"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                            }`}
+                            title="Filter to TikTok Shop"
+                        >
+                            TT
+                        </button>
+                        <button
+                            onClick={() => setPlatformFilter("shopee")}
+                            className={`h-7 px-3 text-xs font-bold rounded-md transition-all ${
+                                platformFilter === "shopee"
+                                    ? "bg-amber-500 text-white shadow-xs"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                            }`}
+                            title="Filter to Shopee"
+                        >
+                            Shopee
+                        </button>
+                    </div>
+
                     <div className="flex items-center rounded-lg border border-border/60 bg-card p-1 shadow-xs">
                         <Button
                             variant="ghost"
@@ -261,155 +301,230 @@ export default function RealitySalesDepartmentPage() {
             ) : pageData ? (
                 <div>
                     {/* TAB: Overview */}
-                    {activeTab === "overview" && (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                {/* 1. Marketing Card */}
-                                <Card
-                                    onClick={() => setActiveTab("marketing")}
-                                    className="cursor-pointer border-border/60 hover:border-primary/50 transition-all hover:shadow-md group"
-                                >
-                                    <CardHeader className="p-4 pb-2 border-b border-border/40">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <div className="p-1.5 rounded-md bg-primary/10 text-primary">
-                                                    <Megaphone className="h-4 w-4" />
-                                                </div>
-                                                <span className="font-bold text-sm">Marketing</span>
-                                            </div>
-                                            <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-4 space-y-2">
-                                        <div className="text-xl font-extrabold text-foreground">
-                                            RM {(marketingData?.totalSales || 0).toLocaleString("en-MY", { maximumFractionDigits: 0 })}
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                            <span>Target: RM {(marketingData?.targetAmount || 0).toLocaleString("en-MY", { maximumFractionDigits: 0 })}</span>
-                                            <span className="font-bold text-primary">{marketingData?.attainmentRate?.toFixed(1) || 0}%</span>
-                                        </div>
-                                        {marketingData && !marketingData.hasData && (
-                                            <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/30 w-full justify-center">
-                                                No Data Found
-                                            </Badge>
-                                        )}
-                                    </CardContent>
-                                </Card>
+                    {activeTab === "overview" && (() => {
+                        const marketingDisplaySales = platformFilter === "shopee" ? 0 : (marketingData?.totalSales || 0);
+                        const marketingAttainment = marketingData?.targetAmount > 0 ? (marketingDisplaySales / marketingData.targetAmount) * 100 : 0;
 
-                                {/* 2. Live Host Card */}
-                                <Card
-                                    onClick={() => setActiveTab("livehost")}
-                                    className="cursor-pointer border-border/60 hover:border-primary/50 transition-all hover:shadow-md group"
-                                >
-                                    <CardHeader className="p-4 pb-2 border-b border-border/40">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-500">
-                                                    <Radio className="h-4 w-4" />
-                                                </div>
-                                                <span className="font-bold text-sm">Live Host</span>
-                                            </div>
-                                            <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-blue-500 transition-colors" />
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-4 space-y-2">
-                                        <div className="text-xl font-extrabold text-foreground">
-                                            RM {(livehostData?.totalGmv || 0).toLocaleString("en-MY", { maximumFractionDigits: 0 })}
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                            <span>Target: RM {(livehostData?.targetAmount || 0).toLocaleString("en-MY", { maximumFractionDigits: 0 })}</span>
-                                            <span className="font-bold text-blue-500">{livehostData?.attainmentRate?.toFixed(1) || 0}%</span>
-                                        </div>
-                                        <div className="text-[10px] text-muted-foreground">
-                                            {livehostData?.totalSessions || 0} sessions • {(livehostData?.totalHours || 0).toFixed(1)} hrs
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                        const livehostDisplaySales =
+                            platformFilter === "tt"
+                                ? (livehostData?.tiktokGmv || 0)
+                                : platformFilter === "shopee"
+                                ? (livehostData?.shopeeGmv || 0)
+                                : (livehostData?.totalGmv || 0);
+                        const livehostAttainment = livehostData?.targetAmount > 0 ? (livehostDisplaySales / livehostData.targetAmount) * 100 : 0;
+                        const livehostDisplaySessions =
+                            platformFilter === "tt"
+                                ? (livehostData?.tiktokSessions || 0)
+                                : platformFilter === "shopee"
+                                ? (livehostData?.shopeeSessions || 0)
+                                : (livehostData?.totalSessions || 0);
+                        const livehostDisplayHours =
+                            platformFilter === "tt"
+                                ? (livehostData?.tiktokHours || 0)
+                                : platformFilter === "shopee"
+                                ? (livehostData?.shopeeHours || 0)
+                                : (livehostData?.totalHours || 0);
 
-                                {/* 3. Affiliate Card */}
-                                <Card
-                                    onClick={() => setActiveTab("affiliate")}
-                                    className="cursor-pointer border-border/60 hover:border-primary/50 transition-all hover:shadow-md group"
-                                >
-                                    <CardHeader className="p-4 pb-2 border-b border-border/40">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-500">
-                                                    <Share2 className="h-4 w-4" />
-                                                </div>
-                                                <span className="font-bold text-sm">Affiliate</span>
-                                            </div>
-                                            <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-emerald-500 transition-colors" />
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-4 space-y-2">
-                                        <div className="text-xl font-extrabold text-foreground">
-                                            RM {(affiliateData?.totalGmv || 0).toLocaleString("en-MY", { maximumFractionDigits: 0 })}
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                            <span>Target: RM {(affiliateData?.targetAmount || 0).toLocaleString("en-MY", { maximumFractionDigits: 0 })}</span>
-                                            <span className="font-bold text-emerald-500">{affiliateData?.attainmentRate?.toFixed(1) || 0}%</span>
-                                        </div>
-                                        <div className="text-[10px] text-muted-foreground">
-                                            External: Shopee & TikTok Shop
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                        const affiliateDisplaySales =
+                            platformFilter === "tt"
+                                ? (affiliateData?.tiktokGmv || 0)
+                                : platformFilter === "shopee"
+                                ? (affiliateData?.shopeeGmv || 0)
+                                : (affiliateData?.totalGmv || 0);
+                        const affiliateAttainment = affiliateData?.targetAmount > 0 ? (affiliateDisplaySales / affiliateData.targetAmount) * 100 : 0;
 
-                                {/* 4. Stock Inventory Card */}
-                                <Card
-                                    onClick={() => setActiveTab("stock")}
-                                    className="cursor-pointer border-border/60 hover:border-primary/50 transition-all hover:shadow-md group"
-                                >
-                                    <CardHeader className="p-4 pb-2 border-b border-border/40">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <div className="p-1.5 rounded-md bg-purple-500/10 text-purple-500">
-                                                    <Boxes className="h-4 w-4" />
-                                                </div>
-                                                <span className="font-bold text-sm">Stock Inventory</span>
-                                            </div>
-                                            <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-purple-500 transition-colors" />
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="p-4 space-y-2">
-                                        <div className="text-xl font-extrabold text-foreground">
-                                            {(stockData?.cogsOverview?.totalOrdersCount || 0).toLocaleString()} Orders
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                            <span>{(stockData?.cogsOverview?.totalSkus || 0)} Total SKUs</span>
-                                            <span className="font-bold text-purple-500">
-                                                {(stockData?.cogsOverview?.singleWithCost || 0) + (stockData?.cogsOverview?.comboWithCost || 0)} Costed
-                                            </span>
-                                        </div>
-                                        <div className="text-[10px] text-muted-foreground">
-                                            {(stockData?.cogsOverview?.totalUnitsSold || 0).toLocaleString()} units shipped
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
+                        const stockDisplayOrders =
+                            platformFilter === "tt"
+                                ? (stockData?.cogsOverview?.tiktokOrdersCount || 0)
+                                : platformFilter === "shopee"
+                                ? (stockData?.cogsOverview?.shopeeOrdersCount || 0)
+                                : (stockData?.cogsOverview?.totalOrdersCount || 0);
+                        const stockDisplayUnits =
+                            platformFilter === "tt"
+                                ? (stockData?.cogsOverview?.tiktokUnitsSold || 0)
+                                : platformFilter === "shopee"
+                                ? (stockData?.cogsOverview?.shopeeUnitsSold || 0)
+                                : (stockData?.cogsOverview?.totalUnitsSold || 0);
 
-                            {/* Multi-Month Historical Trend Graph: Target vs Actual (Bulan 1 -> Latest) */}
-                            <MultiMonthPerformanceTrend
-                                year={parseInt(selectedMonth.split("-")[0], 10) || 2026}
-                                canEditTarget={canEditTarget}
-                                onEditTarget={(dept, label, monthKey, current) => {
-                                    openTargetModal(dept, label, current, monthKey);
-                                }}
-                            />
-
-                            {/* Detailed previews */}
-                            <div className="space-y-4">
-                                <MarketingDepartmentSection
-                                    data={marketingData}
+                        return (
+                            <div className="space-y-6">
+                                {/* 1. Total Sales Command Center at Top with Platform Breakdown */}
+                                <TotalSalesOverviewBanner
+                                    overallData={overallData}
+                                    marketingData={marketingData}
+                                    livehostData={livehostData}
+                                    affiliateData={affiliateData}
+                                    platformFilter={platformFilter}
+                                    onPlatformFilterChange={setPlatformFilter}
                                     month={selectedMonth}
                                     isAdmin={canEditTarget}
-                                    onEditTarget={() => openTargetModal("marketing", "Marketing", marketingData?.targetAmount || 0)}
-                                    onRetry={fetchData}
+                                    onEditTarget={(dept, label, current) => openTargetModal(dept, label, current)}
                                 />
+
+                                {/* 2. Department Cards Grid (Responsive to Platform Filter) */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {/* 1. Marketing Card */}
+                                    <Card
+                                        onClick={() => setActiveTab("marketing")}
+                                        className="cursor-pointer border-border/60 hover:border-primary/50 transition-all hover:shadow-md group"
+                                    >
+                                        <CardHeader className="p-4 pb-2 border-b border-border/40">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-1.5 rounded-md bg-primary/10 text-primary">
+                                                        <Megaphone className="h-4 w-4" />
+                                                    </div>
+                                                    <span className="font-bold text-sm">Marketing</span>
+                                                </div>
+                                                <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="p-4 space-y-2">
+                                            <div className="text-xl font-extrabold text-foreground">
+                                                RM {marketingDisplaySales.toLocaleString("en-MY", { maximumFractionDigits: 0 })}
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                <span>Target: RM {(marketingData?.targetAmount || 0).toLocaleString("en-MY", { maximumFractionDigits: 0 })}</span>
+                                                <span className="font-bold text-primary">{marketingAttainment.toFixed(1)}%</span>
+                                            </div>
+                                            {platformFilter === "shopee" ? (
+                                                <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/50 w-full justify-center">
+                                                    TikTok Exclusive
+                                                </Badge>
+                                            ) : marketingData && !marketingData.hasData ? (
+                                                <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/30 w-full justify-center">
+                                                    No Data Found
+                                                </Badge>
+                                            ) : (
+                                                <div className="text-[10px] text-muted-foreground">
+                                                    {marketingData?.totalVideos || 0} internal videos tracked
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* 2. Live Host Card */}
+                                    <Card
+                                        onClick={() => setActiveTab("livehost")}
+                                        className="cursor-pointer border-border/60 hover:border-primary/50 transition-all hover:shadow-md group"
+                                    >
+                                        <CardHeader className="p-4 pb-2 border-b border-border/40">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-500">
+                                                        <Radio className="h-4 w-4" />
+                                                    </div>
+                                                    <span className="font-bold text-sm">Live Host</span>
+                                                </div>
+                                                <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-blue-500 transition-colors" />
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="p-4 space-y-2">
+                                            <div className="text-xl font-extrabold text-foreground">
+                                                RM {livehostDisplaySales.toLocaleString("en-MY", { maximumFractionDigits: 0 })}
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                <span>Target: RM {(livehostData?.targetAmount || 0).toLocaleString("en-MY", { maximumFractionDigits: 0 })}</span>
+                                                <span className="font-bold text-blue-500">{livehostAttainment.toFixed(1)}%</span>
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground">
+                                                {livehostDisplaySessions} sessions • {livehostDisplayHours.toFixed(1)} hrs
+                                                {platformFilter === "tt" ? " (TikTok)" : platformFilter === "shopee" ? " (Shopee)" : ""}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* 3. Affiliate Card */}
+                                    <Card
+                                        onClick={() => setActiveTab("affiliate")}
+                                        className="cursor-pointer border-border/60 hover:border-primary/50 transition-all hover:shadow-md group"
+                                    >
+                                        <CardHeader className="p-4 pb-2 border-b border-border/40">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-500">
+                                                        <Share2 className="h-4 w-4" />
+                                                    </div>
+                                                    <span className="font-bold text-sm">Affiliate</span>
+                                                </div>
+                                                <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-emerald-500 transition-colors" />
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="p-4 space-y-2">
+                                            <div className="text-xl font-extrabold text-foreground">
+                                                RM {affiliateDisplaySales.toLocaleString("en-MY", { maximumFractionDigits: 0 })}
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                <span>Target: RM {(affiliateData?.targetAmount || 0).toLocaleString("en-MY", { maximumFractionDigits: 0 })}</span>
+                                                <span className="font-bold text-emerald-500">{affiliateAttainment.toFixed(1)}%</span>
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground">
+                                                {platformFilter === "tt"
+                                                    ? "External: TikTok Shop"
+                                                    : platformFilter === "shopee"
+                                                    ? "External: Shopee"
+                                                    : "External: Shopee & TikTok Shop"}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* 4. Stock Inventory Card */}
+                                    <Card
+                                        onClick={() => setActiveTab("stock")}
+                                        className="cursor-pointer border-border/60 hover:border-primary/50 transition-all hover:shadow-md group"
+                                    >
+                                        <CardHeader className="p-4 pb-2 border-b border-border/40">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-1.5 rounded-md bg-purple-500/10 text-purple-500">
+                                                        <Boxes className="h-4 w-4" />
+                                                    </div>
+                                                    <span className="font-bold text-sm">Stock Inventory</span>
+                                                </div>
+                                                <ArrowUpRight className="h-4 w-4 text-muted-foreground group-hover:text-purple-500 transition-colors" />
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="p-4 space-y-2">
+                                            <div className="text-xl font-extrabold text-foreground">
+                                                {stockDisplayOrders.toLocaleString()} Orders
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                <span>{(stockData?.cogsOverview?.totalSkus || 0)} Total SKUs</span>
+                                                <span className="font-bold text-purple-500">
+                                                    {(stockData?.cogsOverview?.singleWithCost || 0) + (stockData?.cogsOverview?.comboWithCost || 0)} Costed
+                                                </span>
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground">
+                                                {stockDisplayUnits.toLocaleString()} units
+                                                {platformFilter === "tt" ? " (TikTok)" : platformFilter === "shopee" ? " (Shopee)" : " shipped"}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+
+                                {/* Multi-Month Historical Trend Graph: Target vs Actual (Bulan 1 -> Latest) */}
+                                <MultiMonthPerformanceTrend
+                                    year={parseInt(selectedMonth.split("-")[0], 10) || 2026}
+                                    canEditTarget={canEditTarget}
+                                    onEditTarget={(dept, label, monthKey, current) => {
+                                        openTargetModal(dept, label, current, monthKey);
+                                    }}
+                                />
+
+                                {/* Detailed previews */}
+                                <div className="space-y-4">
+                                    <MarketingDepartmentSection
+                                        data={marketingData}
+                                        month={selectedMonth}
+                                        isAdmin={canEditTarget}
+                                        onEditTarget={() => openTargetModal("marketing", "Marketing", marketingData?.targetAmount || 0)}
+                                        onRetry={fetchData}
+                                        platformFilter={platformFilter}
+                                    />
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {/* TAB: Marketing */}
                     {activeTab === "marketing" && (
@@ -419,6 +534,7 @@ export default function RealitySalesDepartmentPage() {
                             isAdmin={canEditTarget}
                             onEditTarget={() => openTargetModal("marketing", "Marketing", marketingData?.targetAmount || 0)}
                             onRetry={fetchData}
+                            platformFilter={platformFilter}
                         />
                     )}
 
@@ -430,6 +546,8 @@ export default function RealitySalesDepartmentPage() {
                             isAdmin={canEditTarget}
                             onEditTarget={() => openTargetModal("livehost", "Live Host", livehostData?.targetAmount || 0)}
                             onRetry={fetchData}
+                            platformFilter={platformFilter}
+                            onPlatformFilterChange={setPlatformFilter}
                         />
                     )}
 
@@ -441,6 +559,8 @@ export default function RealitySalesDepartmentPage() {
                             isAdmin={canEditTarget}
                             onEditTarget={() => openTargetModal("affiliate", "Affiliate", affiliateData?.targetAmount || 0)}
                             onRetry={fetchData}
+                            platformFilter={platformFilter}
+                            onPlatformFilterChange={setPlatformFilter}
                         />
                     )}
 
@@ -449,6 +569,7 @@ export default function RealitySalesDepartmentPage() {
                         <StockInventorySection
                             data={stockData}
                             onRetry={fetchData}
+                            platformFilter={platformFilter}
                         />
                     )}
                 </div>

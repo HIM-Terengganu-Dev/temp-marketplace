@@ -20,6 +20,12 @@ import {
     Calendar,
     Globe,
     AlertTriangle,
+    Copy,
+    Check,
+    Bot,
+    ChevronDown,
+    ChevronUp,
+    Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +39,7 @@ interface FeedbackItem {
     priority: "low" | "medium" | "high" | "critical";
     status: "Pending" | "In Progress" | "Resolved" | "Closed";
     admin_notes: string | null;
+    agent_prompt: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -50,6 +57,10 @@ export default function FeedbackAdminPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
+    const [generatingPromptId, setGeneratingPromptId] = useState<number | null>(null);
+    const [copiedPromptId, setCopiedPromptId] = useState<number | null>(null);
+    const [expandedPromptIds, setExpandedPromptIds] = useState<Set<number>>(new Set());
+
     // Form inputs inside modals
     const [statusForm, setStatusForm] = useState({
         status: "Pending" as FeedbackItem["status"],
@@ -61,6 +72,7 @@ export default function FeedbackAdminPage() {
         description: "",
         type: "improvement" as FeedbackItem["type"],
         priority: "medium" as FeedbackItem["priority"],
+        agent_prompt: "",
     });
 
     const fetchFeedback = useCallback(async () => {
@@ -106,7 +118,55 @@ export default function FeedbackAdminPage() {
             description: item.description,
             type: item.type,
             priority: item.priority,
+            agent_prompt: item.agent_prompt || "",
         });
+    };
+
+    // Toggle expand/collapse for AI Prompt card
+    const handleToggleExpandPrompt = (id: number) => {
+        setExpandedPromptIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    // Copy prompt to clipboard
+    const handleCopyPrompt = async (id: number, text: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedPromptId(id);
+            setTimeout(() => setCopiedPromptId(null), 2500);
+        } catch (err) {
+            console.error("Failed to copy:", err);
+        }
+    };
+
+    // Trigger AI Agent Prompt Generation via Google AI Studio
+    const handleGeneratePrompt = async (id: number) => {
+        setGeneratingPromptId(id);
+        try {
+            const res = await fetch("/api/feedback/generate-prompt", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id }),
+            });
+            const json = await res.json();
+            if (json.success && json.data) {
+                setItems((prev) =>
+                    prev.map((item) => (item.id === id ? { ...item, agent_prompt: json.data.agent_prompt } : item))
+                );
+                // Auto-expand prompt preview
+                setExpandedPromptIds((prev) => new Set(prev).add(id));
+            } else {
+                alert(json.error || "Failed to generate AI prompt");
+            }
+        } catch (err: any) {
+            alert(err.message || "Network error generating AI prompt");
+        } finally {
+            setGeneratingPromptId(null);
+        }
     };
 
     // Save Status Patch
@@ -152,6 +212,7 @@ export default function FeedbackAdminPage() {
                     description: editForm.description,
                     type: editForm.type,
                     priority: editForm.priority,
+                    agent_prompt: editForm.agent_prompt,
                 }),
             });
             const json = await res.json();
@@ -430,6 +491,94 @@ export default function FeedbackAdminPage() {
                                 </p>
                             </div>
 
+                            {/* AI Agent Prompt Box */}
+                            {item.agent_prompt ? (
+                                <div className="p-4 rounded-xl bg-violet-500/10 dark:bg-violet-950/30 border border-violet-500/30 text-xs space-y-2.5">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-1.5 rounded-lg bg-violet-600/10 text-violet-600 dark:text-violet-400 border border-violet-500/20">
+                                                <Sparkles className="h-3.5 w-3.5" />
+                                            </div>
+                                            <div>
+                                                <span className="font-bold text-xs text-foreground">AI Coding Agent Specification</span>
+                                                <span className="ml-2 text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-semibold">
+                                                    Ready for Agent
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => handleCopyPrompt(item.id, item.agent_prompt!)}
+                                                className={cn(
+                                                    "px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm",
+                                                    copiedPromptId === item.id
+                                                        ? "bg-emerald-600 text-white"
+                                                        : "bg-violet-600 hover:bg-violet-500 text-white shadow-violet-600/20"
+                                                )}
+                                            >
+                                                {copiedPromptId === item.id ? (
+                                                    <>
+                                                        <Check className="h-3 w-3" />
+                                                        Copied!
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Copy className="h-3 w-3" />
+                                                        Copy Agent Prompt
+                                                    </>
+                                                )}
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleGeneratePrompt(item.id)}
+                                                disabled={generatingPromptId === item.id}
+                                                className="px-2.5 py-1.5 rounded-lg bg-card hover:bg-muted text-foreground text-xs font-medium flex items-center gap-1.5 border border-border transition-all disabled:opacity-50"
+                                                title="Regenerate Prompt with Gemini"
+                                            >
+                                                <RefreshCw className={cn("h-3 w-3 text-violet-500", generatingPromptId === item.id && "animate-spin")} />
+                                                <span>{generatingPromptId === item.id ? "Regenerating..." : "Regenerate"}</span>
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleToggleExpandPrompt(item.id)}
+                                                className="p-1.5 rounded-lg bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border transition-colors"
+                                                title={expandedPromptIds.has(item.id) ? "Collapse Prompt" : "Expand Prompt"}
+                                            >
+                                                {expandedPromptIds.has(item.id) ? (
+                                                    <ChevronUp className="h-3.5 w-3.5" />
+                                                ) : (
+                                                    <ChevronDown className="h-3.5 w-3.5" />
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {expandedPromptIds.has(item.id) && (
+                                        <div className="mt-2 relative">
+                                            <div className="max-h-80 overflow-y-auto p-3.5 rounded-lg bg-slate-950/90 border border-violet-500/20 text-slate-200 font-mono text-[11px] whitespace-pre-wrap select-all leading-relaxed">
+                                                {item.agent_prompt}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="p-3 rounded-xl bg-muted/40 border border-border/80 flex items-center justify-between gap-3 text-xs">
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Sparkles className="h-4 w-4 text-violet-500 shrink-0" />
+                                        <span className="text-[11px]">No AI Coding Agent prompt generated yet for this ticket.</span>
+                                    </div>
+                                    <button
+                                        onClick={() => handleGeneratePrompt(item.id)}
+                                        disabled={generatingPromptId === item.id}
+                                        className="px-3 py-1.5 rounded-lg bg-violet-600/10 hover:bg-violet-600/20 text-violet-600 dark:text-violet-400 border border-violet-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50 shrink-0"
+                                    >
+                                        <Sparkles className={cn("h-3 w-3", generatingPromptId === item.id && "animate-spin")} />
+                                        <span>{generatingPromptId === item.id ? "Generating..." : "Generate AI Prompt"}</span>
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Admin Notes Box (if present) */}
                             {item.admin_notes && (
                                 <div className="p-3 rounded-xl bg-violet-500/10 dark:bg-violet-950/40 border border-violet-500/20 text-xs text-violet-900 dark:text-violet-200 space-y-1">
@@ -592,6 +741,22 @@ export default function FeedbackAdminPage() {
                                     onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                                     required
                                     className="w-full px-3 py-2 rounded-xl bg-background border border-input text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                                />
+                            </div>
+
+                            <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="block text-xs font-semibold text-foreground">
+                                        AI Agent Specification Prompt
+                                    </label>
+                                    <span className="text-[10px] text-muted-foreground">Markdown / Prompt for AI Agent</span>
+                                </div>
+                                <textarea
+                                    rows={6}
+                                    value={editForm.agent_prompt}
+                                    onChange={(e) => setEditForm({ ...editForm, agent_prompt: e.target.value })}
+                                    placeholder="AI Agent specification prompt..."
+                                    className="w-full px-3 py-2 rounded-xl bg-background border border-input text-foreground text-xs font-mono placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-y"
                                 />
                             </div>
 

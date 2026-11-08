@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { generateAgentPromptForFeedback } from '@/lib/feedback-ai';
 
 // GET: Fetch feedback items (supports status filter, type filter, search keyword)
 export async function GET(request: Request) {
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
             );
         }
 
+        // 1. First, save the feedback safely into the database
         const result = await query(
             `INSERT INTO system_feedback (type, title, description, sender_name, page_url, priority)
              VALUES ($1, $2, $3, $4, $5, $6)
@@ -66,7 +68,38 @@ export async function POST(request: Request) {
             [type, title, description, sender_name || 'Tester', page_url, priority]
         );
 
-        return NextResponse.json({ success: true, data: result.rows[0] }, { status: 201 });
+        let savedFeedback = result.rows[0];
+
+        // 2. Auto-generate AI Agent Prompt using Google AI Studio (Gemini)
+        try {
+            const agentPrompt = await generateAgentPromptForFeedback({
+                id: savedFeedback.id,
+                type,
+                title,
+                description,
+                page_url,
+                priority,
+                sender_name: sender_name || 'Tester'
+            });
+
+            if (agentPrompt) {
+                const updateRes = await query(
+                    `UPDATE system_feedback 
+                     SET agent_prompt = $1, updated_at = CURRENT_TIMESTAMP 
+                     WHERE id = $2 
+                     RETURNING *`,
+                    [agentPrompt, savedFeedback.id]
+                );
+                if (updateRes.rows[0]) {
+                    savedFeedback = updateRes.rows[0];
+                }
+            }
+        } catch (aiErr: any) {
+            console.warn('[feedback] Auto AI prompt generation warning:', aiErr?.message || aiErr);
+            // Feedback is preserved safely even if Gemini fails or times out
+        }
+
+        return NextResponse.json({ success: true, data: savedFeedback }, { status: 201 });
     } catch (error: any) {
         console.error('Error creating feedback:', error);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -77,7 +110,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { id, title, description, type, priority } = body;
+        const { id, title, description, type, priority, agent_prompt } = body;
 
         if (!id) {
             return NextResponse.json({ success: false, error: 'Feedback ID required' }, { status: 400 });
@@ -89,10 +122,11 @@ export async function PUT(request: Request) {
                  description = COALESCE($2, description),
                  type = COALESCE($3, type),
                  priority = COALESCE($4, priority),
+                 agent_prompt = COALESCE($5, agent_prompt),
                  updated_at = CURRENT_TIMESTAMP
-             WHERE id = $5
+             WHERE id = $6
              RETURNING *`,
-            [title, description, type, priority, id]
+            [title, description, type, priority, agent_prompt, id]
         );
 
         if (result.rowCount === 0) {
