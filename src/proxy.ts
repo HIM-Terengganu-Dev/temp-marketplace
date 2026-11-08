@@ -48,6 +48,6 @@ export default withAuth(
 
 export const config = {
   // Protect everything except: auth routes, cron routes (use CRON_SECRET Bearer auth),
-  // next internals, login page, unauthorized page, public assets, robots.txt, and sitemap.xml
-  matcher: ["/((?!api/auth|api/cron|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|sitemaps.xml|sitemap-index.xml|sitemap_index.xml|news-sitemap.xml|page-sitemap.xml|post-sitemap.xml|sitemap1.xml|login|unauthorized).*)"],
+  // external v1 API (uses API key auth), next internals, login page, unauthorized page, etc.
+  matcher: ["/((?!api/auth|api/cron|api/v1|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|sitemaps.xml|sitemap-index.xml|sitemap_index.xml|news-sitemap.xml|page-sitemap.xml|post-sitemap.xml|sitemap1.xml|login|unauthorized).*)"],
 };
